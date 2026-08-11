@@ -17,7 +17,7 @@ export const C_ORANGE = 0xd45a20;
 export const SUN_COLOR = 0xe8a066;
 export const SUN_INTENSITY = 1.9;
 export const FOG_NEAR = 40;
-export const FOG_FAR = 210;
+export const FOG_FAR = 185;
 
 // multiplayer transport (place layer, phase 1e). DORMANT: while false the
 // net module never connects and the app is fully single-visitor.

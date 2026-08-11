@@ -41,6 +41,9 @@ interface Chunk {
 export interface FieldSampler {
   heightAt(x: number, z: number): number; // solid column height at a cell
   typeAt(x: number, z: number, y: number, h: number): number; // material per cell
+  // optional per-column brightness for GROUND cells (horizon dissolve);
+  // structure blocks are never shaded by it
+  groundShade?(x: number, z: number): number;
 }
 
 export class VoxelField {
@@ -54,8 +57,10 @@ export class VoxelField {
   private chunks: Chunk[] = [];
   private dummy = new THREE.Object3D();
   private col = new THREE.Color();
+  private groundShade?: (x: number, z: number) => number;
 
   constructor(sampler: FieldSampler) {
+    this.groundShade = sampler.groundShade?.bind(sampler);
     this.solid = new Uint8Array(GRID * GRID * MAXY);
     this.btype = new Uint8Array(GRID * GRID * MAXY);
     this.top = new Int16Array(GRID * GRID);
@@ -238,9 +243,13 @@ export class VoxelField {
     this.dummy.rotation.set(0, 0, 0);
     this.dummy.updateMatrix();
     chunk.mesh.setMatrixAt(slot, this.dummy.matrix);
+    const type = this.btype[vi];
     this.col
-      .setHex(blockColor(this.btype[vi]))
+      .setHex(blockColor(type))
       .multiplyScalar(0.92 + hash2(x * 3.7 + y, z * 1.9) * 0.16);
+    if (this.groundShade && (type === ASH || type === BEDROCK)) {
+      this.col.multiplyScalar(this.groundShade(x, z));
+    }
     chunk.mesh.setColorAt(slot, this.col);
     chunk.slotOfVoxel.set(vi, slot);
   }
@@ -324,14 +333,16 @@ export class VoxelField {
   // tint a block toward a worn, ember-edged look as it destabilizes.
   // frac01: 1 = intact, 0 = about to break. collapse (r2) walks blocks down
   // this ramp tier by tier before they let go. a rebuilt cell resets.
-  damageAt(x: number, y: number, z: number, frac01: number) {
+  // baseHex overrides the ramp's starting colour (epoch-tinted strata decay
+  // from their resting tint, not the raw material colour).
+  damageAt(x: number, y: number, z: number, frac01: number, baseHex?: number) {
     const chunk = this.chunks[this.chunkOf(x, z)];
     const vi = this.idx(x, y, z);
     const slot = chunk.slotOfVoxel.get(vi);
     if (slot === undefined) return;
     const f = Math.max(0, Math.min(1, frac01));
     const k = 0.45 + 0.55 * f; // brightness retained
-    this.col.setHex(blockColor(this.btype[vi]));
+    this.col.setHex(baseHex ?? blockColor(this.btype[vi]));
     this.col.setRGB(
       this.col.r * k + (1 - f) * 0.38, // pulls toward ember
       this.col.g * k + (1 - f) * 0.12,

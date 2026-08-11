@@ -4,6 +4,7 @@
 // walker (click to enter, esc to leave).
 
 import * as THREE from "three";
+import { AshDrift } from "./ash";
 import {
   C_VOID,
   DEV_EDIT,
@@ -107,6 +108,10 @@ const glow = new THREE.PointLight(0xe8b070, 3.4, 9, 1.8);
 glow.position.copy(genesis).add(new THREE.Vector3(0, 1.4, 0));
 scene.add(glow);
 
+// ash drift: sparse motes through the dusk. the level is driven by market
+// volume once the feed lands (r6); until then a quiet baseline falls.
+const ash = new AshDrift(scene);
+
 // ---------------------------------------------------------------------------
 // seeing: orbit rig (default) + first-person walker (click to enter)
 // ---------------------------------------------------------------------------
@@ -203,6 +208,7 @@ function frame() {
   if (walking) fp.update(dt);
   else rig.update(dt, camera);
   probe?.update();
+  ash.update(dt, t, camera.position);
 
   if (net.enabled) {
     const now = performance.now();

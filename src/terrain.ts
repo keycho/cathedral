@@ -42,26 +42,47 @@ function fractal(x: number, y: number): number {
   }
   return sum / norm;
 }
+function sstep(e0: number, e1: number, x: number): number {
+  let t = (x - e0) / (e1 - e0);
+  t = Math.max(0, Math.min(1, t));
+  return t * t * (3 - 2 * t);
+}
 
 // --- the plain -------------------------------------------------------------
 
 export const GENESIS_CELL = { x: GRID / 2, z: GRID / 2 };
 
+// how far into the dissolve band a column sits: 0 interior -> 1 at the rim.
+// the band starts early and eases, so the silhouette never reads as ragged
+// chunks against the void; heights flatten and colours sink into the dark
+// across the same ramp.
+function rim(x: number, z: number): number {
+  const dx = x - GRID / 2;
+  const dz = z - GRID / 2;
+  const edge = Math.max(Math.abs(dx), Math.abs(dz)) / (GRID / 2);
+  // a little noise so the dissolve contour wanders instead of tracing a square
+  const wobble = (valueNoise(x * 0.05 + 400, z * 0.05 + 420) - 0.5) * 0.1;
+  return sstep(0.6, 0.98, edge + wobble);
+}
+
 export const plainSampler: FieldSampler = {
   heightAt(x: number, z: number): number {
-    // gentle dunes, 2..6 blocks
+    // gentle dunes, 2..6 blocks, flattening across the dissolve band
     const n = fractal(x * 0.022 + 31, z * 0.022 + 57);
-    let h = 2 + n * 4;
-    // taper to a single layer near the rim so the plain dissolves into the
-    // void instead of ending in a cliff
-    const dx = x - GRID / 2;
-    const dz = z - GRID / 2;
-    const edge = Math.max(Math.abs(dx), Math.abs(dz)) / (GRID / 2);
-    if (edge > 0.82) h = h * Math.max(0, (1 - edge) / 0.18) + 1;
-    return Math.max(1, Math.round(h));
+    const h = 2 + n * 4;
+    const r = rim(x, z);
+    return Math.max(1, Math.round(h * (1 - r) + 1 * r));
   },
   typeAt(_x: number, _z: number, y: number, h: number): number {
     return y === h - 1 ? ASH : BEDROCK;
+  },
+  // rim columns fade toward the void floor; dithered so the falloff reads
+  // as haze rather than banding
+  groundShade(x: number, z: number): number {
+    const r = rim(x, z);
+    if (r <= 0) return 1;
+    const dither = hash2(x * 1.3 + 9, z * 1.7 + 4) * 0.1;
+    return Math.max(0.16, 1 - r * (0.82 + dither));
   },
 };
 
