@@ -1,12 +1,17 @@
-// cathedral - entry. the app shell: renderer, the warm-black void, ashfall
-// dusk lighting, and the frame loop. the world itself arrives in later
-// systems (voxel field, terrain, controls); this file only assembles them.
+// cathedral - entry. assembles the systems: renderer, ashfall dusk, the
+// voxel field with its ash plain, and the founding stone. controls (walk +
+// orbit) and the place layer land in later systems.
 
 import * as THREE from "three";
-
-// style bible
-const VOID = 0x0b0b0a;
-const SUN_COLOR = 0xe8a066;
+import {
+  C_VOID,
+  FOG_FAR,
+  FOG_NEAR,
+  SUN_COLOR,
+  SUN_INTENSITY,
+} from "./config";
+import { buildVoidFloor, placeGenesis, plainSampler } from "./terrain";
+import { VoxelField } from "./voxels";
 
 // ---------------------------------------------------------------------------
 // renderer
@@ -26,8 +31,8 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(VOID);
-scene.fog = new THREE.Fog(VOID, 40, 210);
+scene.background = new THREE.Color(C_VOID);
+scene.fog = new THREE.Fog(C_VOID, FOG_NEAR, FOG_FAR);
 
 const camera = new THREE.PerspectiveCamera(
   70,
@@ -40,7 +45,7 @@ scene.add(camera);
 // ---------------------------------------------------------------------------
 // ashfall dusk - one low warm sun, long shadows, near-void ambient
 // ---------------------------------------------------------------------------
-const sun = new THREE.DirectionalLight(SUN_COLOR, 1.35);
+const sun = new THREE.DirectionalLight(SUN_COLOR, SUN_INTENSITY);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.near = 1;
@@ -66,6 +71,32 @@ scene.add(new THREE.HemisphereLight(0x2b211a, 0x0b0b0a, 0.5));
 const fill = new THREE.DirectionalLight(0x8fae6a, 0.07);
 fill.position.set(120, 60, 90);
 scene.add(fill);
+
+// ---------------------------------------------------------------------------
+// the world: ash plain + founding stone
+// ---------------------------------------------------------------------------
+buildVoidFloor(scene);
+const field = new VoxelField(plainSampler);
+scene.add(field.group);
+
+const genesis = placeGenesis(field);
+
+// the founding stone breathes: a faint warm core + a small light that make
+// the one block in the world read as quietly alive
+const core = new THREE.Mesh(
+  new THREE.BoxGeometry(1.06, 1.06, 1.06),
+  new THREE.MeshStandardMaterial({
+    color: 0xfaf3e2,
+    emissive: 0xd4a25a,
+    emissiveIntensity: 0.5,
+    roughness: 0.6,
+  })
+);
+core.position.copy(genesis);
+scene.add(core);
+const glow = new THREE.PointLight(0xe8b070, 5, 11, 1.8);
+glow.position.copy(genesis).add(new THREE.Vector3(0, 1.4, 0));
+scene.add(glow);
 
 // ---------------------------------------------------------------------------
 // hud
@@ -96,18 +127,28 @@ let fpsFrames = 0;
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.1);
+  const t = clock.elapsedTime;
 
-  // idle drift over the empty void until the world lands
-  const t = clock.elapsedTime * 0.05;
-  camera.position.set(Math.cos(t) * 24, 10, Math.sin(t) * 24);
-  camera.lookAt(0, 2, 0);
+  // idle orbit around the founding stone (interactive rigs land next)
+  const a = t * 0.05;
+  camera.position.set(
+    genesis.x + Math.cos(a) * 22,
+    genesis.y + 8,
+    genesis.z + Math.sin(a) * 22
+  );
+  camera.lookAt(genesis.x, genesis.y + 0.5, genesis.z);
+
+  // the founding stone breathes on a slow cycle
+  (core.material as THREE.MeshStandardMaterial).emissiveIntensity =
+    0.42 + Math.sin(t * 0.9) * 0.16;
+  glow.intensity = 4.4 + Math.sin(t * 0.9) * 1.2;
 
   // keep the sun's shadow window centered on the view
   sun.target.position.set(camera.position.x, 0, camera.position.z);
   sun.position.copy(sun.target.position).addScaledVector(sunDir, SUN_DIST);
 
   if (stMode) stMode.textContent = "orbit";
-  if (stBlocks) stBlocks.textContent = "blocks 0";
+  if (stBlocks) stBlocks.textContent = `blocks ${field.placedCount}`;
   if (stPos)
     stPos.textContent = `${camera.position.x.toFixed(0)} ${camera.position.y.toFixed(0)} ${camera.position.z.toFixed(0)}`;
 
