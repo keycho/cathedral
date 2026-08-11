@@ -15,6 +15,7 @@ import {
 } from "./config";
 import { EditProbe } from "./editor";
 import { FirstPerson } from "./firstperson";
+import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
 import { buildVoidFloor, placeGenesis, plainSampler } from "./terrain";
 import { VoxelField } from "./voxels";
@@ -143,6 +144,12 @@ canvas.addEventListener("pointerup", (e) => {
   }
 });
 
+// multiplayer transport: DORMANT behind NET_ENABLED. wired now so the place
+// layer only has to flip the flag; while dormant nothing connects.
+const net = new Net();
+net.onRemoteEdit = (x, y, z, type) => field.applyRemoteEdit(x, y, z, type);
+void net.connect();
+
 // dev edit probe (dev builds only): damage tiers, break, place
 let probe: EditProbe | null = null;
 if (DEV_EDIT) {
@@ -194,6 +201,12 @@ function frame() {
   if (walking) fp.update(dt);
   else rig.update(dt, camera);
   probe?.update();
+
+  if (net.enabled) {
+    const now = performance.now();
+    net.sendPos(fp.pos.x, fp.pos.y, fp.pos.z, fp.yaw, now);
+    net.flush(now);
+  }
 
   // the founding stone breathes on a slow cycle
   (core.material as THREE.MeshStandardMaterial).emissiveIntensity =
