@@ -14,12 +14,15 @@ import {
   SUN_COLOR,
   SUN_INTENSITY,
 } from "./config";
+import { DevPanel } from "./devpanel";
 import { EditProbe } from "./editor";
+import { Feed } from "./feed";
 import { FirstPerson } from "./firstperson";
 import { Growth } from "./growth";
 import { Hollows } from "./hollows";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
+import { RULES } from "./rules";
 import { Scars } from "./scars";
 import { Strata } from "./strata";
 import { buildVoidFloor, GENESIS_CELL, placeGenesis, plainSampler } from "./terrain";
@@ -125,6 +128,30 @@ const insideWalker = (x: number, y: number, z: number): boolean => {
   );
 };
 growth.forbidden = (x, y, z) => hollows.isHollow(x, y, z) || insideWalker(x, y, z);
+
+// ---------------------------------------------------------------------------
+// the synthetic market drives the geology. DIRECT drive for now: each buy
+// accretes floor(usd / usdPerBlock) immediately and each burn carves at
+// once, so r1's growth pattern can be judged on its own. phase 1d replaces
+// this routing with the 30s tick aggregator (and gives sells their
+// collapse); the constants are already the constitution's.
+// ---------------------------------------------------------------------------
+const feed = new Feed();
+feed.on((ev) => {
+  switch (ev.kind) {
+    case "buy":
+      growth.enqueue(Math.floor(ev.amountUsd / RULES.usdPerBlock), ev.wallet, ev.tx);
+      break;
+    case "sell":
+      break; // collapse lands with the tick engine (1d)
+    case "burn":
+      hollows.burn(ev.amountTokens, (x, y, z) => growth.refreshAround(x, y, z));
+      break;
+    case "newHolder":
+      break; // seed blocks land with r5 (1d)
+  }
+});
+const panel = new DevPanel(feed, strata, growth);
 
 // the founding stone breathes: a faint warm core + a small light that make
 // the one block in the world read as quietly alive
@@ -234,6 +261,7 @@ window.addEventListener("resize", () => {
 const clock = new THREE.Clock();
 let fpsAcc = 0;
 let fpsFrames = 0;
+let lastAmbient = 0;
 
 function frame() {
   requestAnimationFrame(frame);
@@ -245,10 +273,21 @@ function frame() {
   else rig.update(dt, camera);
   probe?.update();
   ash.update(dt, t, camera.position);
+  feed.update(now);
   strata.update(now);
   growth.drain();
   hollows.update(t);
   scars.update(now);
+  panel.update(now);
+
+  // r6 preview: ash density + light warmth breathe with trailing volume
+  // (the tick engine owns the authoritative mapping in 1d)
+  if (now - lastAmbient > 500) {
+    lastAmbient = now;
+    const level = 1 - Math.exp(-feed.grossPerMin(now) / 2500);
+    ash.setLevel(level);
+    sun.intensity = SUN_INTENSITY * (1 + 0.28 * level);
+  }
 
   if (net.enabled) {
     net.sendPos(fp.pos.x, fp.pos.y, fp.pos.z, fp.yaw, now);
@@ -287,7 +326,17 @@ frame();
 // through this later)
 declare global {
   interface Window {
-    cathedral?: { field: VoxelField; rig: OrbitRig; fp: FirstPerson; camera: THREE.PerspectiveCamera; genesis: THREE.Vector3 };
+    cathedral?: {
+      field: VoxelField;
+      rig: OrbitRig;
+      fp: FirstPerson;
+      camera: THREE.PerspectiveCamera;
+      genesis: THREE.Vector3;
+      feed: Feed;
+      growth: Growth;
+      hollows: Hollows;
+      strata: Strata;
+    };
   }
 }
-window.cathedral = { field, rig, fp, camera, genesis };
+window.cathedral = { field, rig, fp, camera, genesis, feed, growth, hollows, strata };

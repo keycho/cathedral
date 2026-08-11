@@ -147,3 +147,124 @@ body.walking #scene {
 #fps.hidden {
   display: none;
 }
+
+/* market dev panel */
+#panel {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  z-index: 20;
+  width: 248px;
+  background: rgba(11, 11, 10, 0.88);
+  border: 1px solid rgba(250, 243, 226, 0.14);
+  font-size: 16px;
+  user-select: none;
+}
+#panel .pn-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  color: var(--sage);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(250, 243, 226, 0.14);
+}
+#panel.folded .pn-body {
+  display: none;
+}
+#panel.folded .pn-head {
+  border-bottom: none;
+}
+#panel .pn-body {
+  padding: 8px 10px 10px;
+}
+#panel .pn-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 6px;
+}
+#panel .pn-label {
+  color: var(--dim);
+}
+#panel .pn-value {
+  color: var(--cream);
+  margin-left: auto;
+}
+#panel input[type="range"] {
+  width: 100%;
+  margin: 4px 0 2px;
+  accent-color: var(--sage);
+  background: transparent;
+}
+#panel .pn-btns {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+#panel .pn-btn {
+  flex: 1;
+  font-family: var(--hud-font);
+  font-size: 15px;
+  text-transform: lowercase;
+  padding: 3px 0;
+  background: transparent;
+  color: var(--cream);
+  border: 1px solid rgba(250, 243, 226, 0.28);
+  cursor: pointer;
+}
+#panel .pn-btn:hover {
+  background: rgba(250, 243, 226, 0.1);
+}
+#panel .pn-btn.pn-buy {
+  color: var(--sage);
+  border-color: rgba(143, 174, 106, 0.55);
+}
+#panel .pn-btn.pn-sell,
+#panel .pn-btn.pn-burn {
+  color: var(--orange);
+  border-color: rgba(212, 90, 32, 0.55);
+}
+#panel .pn-btn.pn-toggle {
+  flex: none;
+  margin-left: 8px;
+  padding: 1px 8px;
+  color: var(--dim);
+}
+#panel .pn-btn.pn-toggle.on {
+  color: var(--void);
+  background: var(--sage);
+  border-color: var(--sage);
+}
+#panel .pn-stats {
+  margin-top: 8px;
+  color: var(--dim);
+}
+#panel .pn-log {
+  margin-top: 8px;
+  border-top: 1px solid rgba(250, 243, 226, 0.14);
+  padding-top: 6px;
+  line-height: 1.25;
+}
+#panel .pn-ev {
+  color: var(--dim);
+  white-space: pre;
+}
+#panel .pn-ev.pn-buy {
+  color: var(--sage);
+}
+#panel .pn-ev.pn-sell {
+  color: var(--orange);
+}
+#panel .pn-ev.pn-burn {
+  color: #ff7a30;
+}
+#panel .pn-ev.pn-newHolder {
+  color: var(--cream);
+}
+
+@media (max-width: 720px) {
+  #panel {
+    width: 210px;
+    font-size: 15px;
+  }
+}
