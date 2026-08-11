@@ -18,7 +18,8 @@ import { EditProbe } from "./editor";
 import { FirstPerson } from "./firstperson";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
-import { buildVoidFloor, placeGenesis, plainSampler } from "./terrain";
+import { Strata } from "./strata";
+import { buildVoidFloor, GENESIS_CELL, placeGenesis, plainSampler } from "./terrain";
 import { VoxelField } from "./voxels";
 
 // ---------------------------------------------------------------------------
@@ -90,6 +91,13 @@ const field = new VoxelField(plainSampler);
 scene.add(field.group);
 
 const genesis = placeGenesis(field);
+
+// strata: provenance + epoch tints. the founding stone is the world's own,
+// locked so no tint pass ever touches it.
+const strata = new Strata(field);
+const genesisY = Math.floor(genesis.y);
+strata.lock(GENESIS_CELL.x, genesisY, GENESIS_CELL.z);
+strata.register(GENESIS_CELL.x, genesisY, GENESIS_CELL.z, -1, "genesis");
 
 // the founding stone breathes: a faint warm core + a small light that make
 // the one block in the world read as quietly alive
@@ -205,13 +213,14 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.1);
   const t = clock.elapsedTime;
 
+  const now = performance.now();
   if (walking) fp.update(dt);
   else rig.update(dt, camera);
   probe?.update();
   ash.update(dt, t, camera.position);
+  strata.update(now);
 
   if (net.enabled) {
-    const now = performance.now();
     net.sendPos(fp.pos.x, fp.pos.y, fp.pos.z, fp.yaw, now);
     net.flush(now);
   }
@@ -226,7 +235,7 @@ function frame() {
   sun.position.copy(sun.target.position).addScaledVector(sunDir, SUN_DIST);
 
   if (stMode) stMode.textContent = walking ? "walk" : "orbit";
-  if (stBlocks) stBlocks.textContent = `blocks ${field.placedCount}`;
+  if (stBlocks) stBlocks.textContent = `blocks ${field.placedCount} · epoch ${strata.epoch}`;
   if (stPos) {
     const p = walking ? fp.pos : camera.position;
     stPos.textContent = `${p.x.toFixed(0)} ${p.y.toFixed(0)} ${p.z.toFixed(0)}`;
