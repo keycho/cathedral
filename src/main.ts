@@ -16,6 +16,7 @@ import {
 } from "./config";
 import { EditProbe } from "./editor";
 import { FirstPerson } from "./firstperson";
+import { Growth } from "./growth";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
 import { Strata } from "./strata";
@@ -99,6 +100,24 @@ const genesisY = Math.floor(genesis.y);
 strata.lock(GENESIS_CELL.x, genesisY, GENESIS_CELL.z);
 strata.register(GENESIS_CELL.x, genesisY, GENESIS_CELL.z, -1, "genesis");
 
+// accretion: the frontier opens on the founding stone's faces
+const growth = new Growth(field, strata);
+growth.refreshAround(GENESIS_CELL.x, genesisY, GENESIS_CELL.z);
+
+// the market never entombs a visitor: cells inside the walker's box are
+// off the frontier (burn hollows join this veto when they land)
+const insideWalker = (x: number, y: number, z: number): boolean => {
+  const wx = x - GRID / 2 + 0.5;
+  const wz = z - GRID / 2 + 0.5;
+  return (
+    Math.abs(wx - fp.pos.x) < 0.85 &&
+    Math.abs(wz - fp.pos.z) < 0.85 &&
+    y >= Math.floor(fp.pos.y) &&
+    y <= Math.floor(fp.pos.y + 1.7)
+  );
+};
+growth.forbidden = insideWalker;
+
 // the founding stone breathes: a faint warm core + a small light that make
 // the one block in the world read as quietly alive
 const core = new THREE.Mesh(
@@ -169,16 +188,12 @@ void net.connect();
 let probe: EditProbe | null = null;
 if (DEV_EDIT) {
   probe = new EditProbe(scene, camera, field);
-  // veto a placement that would intersect the walker's box
-  probe.blocked = (x, y, z) => {
-    const wx = x - GRID / 2 + 0.5;
-    const wz = z - GRID / 2 + 0.5;
-    return (
-      Math.abs(wx - fp.pos.x) < 0.85 &&
-      Math.abs(wz - fp.pos.z) < 0.85 &&
-      y >= Math.floor(fp.pos.y) &&
-      y <= Math.floor(fp.pos.y + 1.7)
-    );
+  probe.blocked = insideWalker;
+  // dev pokes flow through the same bookkeeping as real geology
+  probe.onEdit = (kind, x, y, z) => {
+    if (kind === "break") strata.forget(x, y, z);
+    else strata.register(x, y, z, -1, "dev");
+    growth.refreshAround(x, y, z);
   };
 }
 
@@ -219,6 +234,7 @@ function frame() {
   probe?.update();
   ash.update(dt, t, camera.position);
   strata.update(now);
+  growth.drain();
 
   if (net.enabled) {
     net.sendPos(fp.pos.x, fp.pos.y, fp.pos.z, fp.yaw, now);

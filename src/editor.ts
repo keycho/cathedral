@@ -15,6 +15,9 @@ const HITS_TO_BREAK = 3; // damage tiers per block
 export class EditProbe {
   // main wires this to veto placements that would intersect the walker
   blocked?: (x: number, y: number, z: number) => boolean;
+  // fired after a committed probe edit so the geology systems (frontier,
+  // provenance, scars) stay exact under dev pokes
+  onEdit?: (kind: "break" | "place", x: number, y: number, z: number) => void;
 
   private outline: THREE.LineSegments;
   private dir = new THREE.Vector3();
@@ -54,7 +57,9 @@ export class EditProbe {
     const left = (this.hp.get(k) ?? HITS_TO_BREAK) - 1;
     if (left <= 0) {
       this.hp.delete(k);
-      this.field.breakAt(t.hx, t.hy, t.hz);
+      if (this.field.breakAt(t.hx, t.hy, t.hz)) {
+        this.onEdit?.("break", t.hx, t.hy, t.hz);
+      }
     } else {
       this.hp.set(k, left);
       this.field.damageAt(t.hx, t.hy, t.hz, left / HITS_TO_BREAK);
@@ -65,7 +70,9 @@ export class EditProbe {
     const t = this.target;
     if (!t || !t.hasPlace) return;
     if (this.blocked?.(t.px, t.py, t.pz)) return;
-    this.field.placeAt(t.px, t.py, t.pz, MASS);
+    if (this.field.placeAt(t.px, t.py, t.pz, MASS)) {
+      this.onEdit?.("place", t.px, t.py, t.pz);
+    }
   }
 
   update() {
