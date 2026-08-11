@@ -15,7 +15,7 @@ export const C_ORANGE = 0xd45a20;
 
 // ashfall dusk
 export const SUN_COLOR = 0xe8a066;
-export const SUN_INTENSITY = 1.35;
+export const SUN_INTENSITY = 1.9;
 export const FOG_NEAR = 40;
 export const FOG_FAR = 210;
 

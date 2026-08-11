@@ -54,7 +54,7 @@ scene.add(camera);
 // ---------------------------------------------------------------------------
 const sun = new THREE.DirectionalLight(SUN_COLOR, SUN_INTENSITY);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(4096, 4096);
 sun.shadow.camera.near = 1;
 sun.shadow.camera.far = 400;
 const SH = 70; // local shadow frustum, re-centered on the camera each frame
@@ -62,8 +62,10 @@ sun.shadow.camera.left = -SH;
 sun.shadow.camera.right = SH;
 sun.shadow.camera.top = SH;
 sun.shadow.camera.bottom = -SH;
-sun.shadow.bias = -0.0005;
-sun.shadow.normalBias = 1.0;
+// biases sized for 1-unit voxels: a single block must still drag its long
+// shadow (a large normal bias silently erases exactly that)
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.35;
 scene.add(sun);
 scene.add(sun.target);
 
@@ -72,7 +74,7 @@ const sunDir = new THREE.Vector3(-0.72, 0.2, -0.42).normalize();
 const SUN_DIST = 180;
 
 // faint warm sky over void ground; keeps unlit faces just above black
-scene.add(new THREE.HemisphereLight(0x2b211a, 0x0b0b0a, 0.5));
+scene.add(new THREE.HemisphereLight(0x33271d, 0x0b0b0a, 0.5));
 
 // a whisper of sage fill from the far side, for depth in the shadowed faces
 const fill = new THREE.DirectionalLight(0x8fae6a, 0.07);
@@ -101,7 +103,7 @@ const core = new THREE.Mesh(
 );
 core.position.copy(genesis);
 scene.add(core);
-const glow = new THREE.PointLight(0xe8b070, 5, 11, 1.8);
+const glow = new THREE.PointLight(0xe8b070, 3.4, 9, 1.8);
 glow.position.copy(genesis).add(new THREE.Vector3(0, 1.4, 0));
 scene.add(glow);
 
@@ -211,7 +213,7 @@ function frame() {
   // the founding stone breathes on a slow cycle
   (core.material as THREE.MeshStandardMaterial).emissiveIntensity =
     0.42 + Math.sin(t * 0.9) * 0.16;
-  glow.intensity = 4.4 + Math.sin(t * 0.9) * 1.2;
+  glow.intensity = 3.0 + Math.sin(t * 0.9) * 0.9;
 
   // keep the sun's shadow window centered on the view
   sun.target.position.set(camera.position.x, 0, camera.position.z);

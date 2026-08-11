@@ -14,8 +14,8 @@ export interface Material {
 
 export const MATERIALS: Material[] = [
   // ground
-  { id: 1, key: "ash", name: "ash", color: 0x171310 },
-  { id: 2, key: "bedrock", name: "bedrock", color: 0x0f0d0b },
+  { id: 1, key: "ash", name: "ash", color: 0x2b2219 },
+  { id: 2, key: "bedrock", name: "bedrock", color: 0x1a1512 },
   // the founding stone: the one block the launch tx places
   { id: 3, key: "genesis", name: "founding stone", color: 0xfaf3e2 },
   // market geology
