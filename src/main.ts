@@ -1,15 +1,21 @@
 // cathedral - entry. assembles the systems: renderer, ashfall dusk, the
-// voxel field with its ash plain, and the founding stone. controls (walk +
-// orbit) and the place layer land in later systems.
+// voxel field with its ash plain, the founding stone, and the two ways of
+// seeing: the orbit rig (default, stream shot, mobile) and the first-person
+// walker (click to enter, esc to leave).
 
 import * as THREE from "three";
 import {
   C_VOID,
+  DEV_EDIT,
   FOG_FAR,
   FOG_NEAR,
+  GRID,
   SUN_COLOR,
   SUN_INTENSITY,
 } from "./config";
+import { EditProbe } from "./editor";
+import { FirstPerson } from "./firstperson";
+import { OrbitRig } from "./orbitcam";
 import { buildVoidFloor, placeGenesis, plainSampler } from "./terrain";
 import { VoxelField } from "./voxels";
 
@@ -99,6 +105,62 @@ glow.position.copy(genesis).add(new THREE.Vector3(0, 1.4, 0));
 scene.add(glow);
 
 // ---------------------------------------------------------------------------
+// seeing: orbit rig (default) + first-person walker (click to enter)
+// ---------------------------------------------------------------------------
+const rig = new OrbitRig(canvas);
+rig.target.copy(genesis);
+
+// spawn a few steps out from the stone, facing it
+const spawnX = genesis.x + 9;
+const spawnZ = genesis.z + 9;
+const spawnYaw = Math.atan2(-(genesis.x - spawnX), -(genesis.z - spawnZ));
+const fp = new FirstPerson(field, camera, spawnX, spawnZ, spawnYaw);
+
+const hintEl = document.getElementById("hint");
+let walking = false;
+document.addEventListener("pointerlockchange", () => {
+  walking = !!document.pointerLockElement;
+  document.body.classList.toggle("walking", walking);
+  if (walking) {
+    hintEl?.classList.add("faded");
+    fp.syncCamera();
+  } else {
+    rig.seedFrom(camera); // hand the camera back without a cut
+  }
+});
+
+// click (not drag) enters the world
+let downX = 0;
+let downY = 0;
+canvas.addEventListener("pointerdown", (e) => {
+  downX = e.clientX;
+  downY = e.clientY;
+});
+canvas.addEventListener("pointerup", (e) => {
+  if (walking) return;
+  if (Math.hypot(e.clientX - downX, e.clientY - downY) < 5 && e.pointerType === "mouse") {
+    fp.requestLock();
+  }
+});
+
+// dev edit probe (dev builds only): damage tiers, break, place
+let probe: EditProbe | null = null;
+if (DEV_EDIT) {
+  probe = new EditProbe(scene, camera, field);
+  // veto a placement that would intersect the walker's box
+  probe.blocked = (x, y, z) => {
+    const wx = x - GRID / 2 + 0.5;
+    const wz = z - GRID / 2 + 0.5;
+    return (
+      Math.abs(wx - fp.pos.x) < 0.85 &&
+      Math.abs(wz - fp.pos.z) < 0.85 &&
+      y >= Math.floor(fp.pos.y) &&
+      y <= Math.floor(fp.pos.y + 1.7)
+    );
+  };
+}
+
+// ---------------------------------------------------------------------------
 // hud
 // ---------------------------------------------------------------------------
 const stMode = document.getElementById("st-mode");
@@ -129,14 +191,9 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.1);
   const t = clock.elapsedTime;
 
-  // idle orbit around the founding stone (interactive rigs land next)
-  const a = t * 0.05;
-  camera.position.set(
-    genesis.x + Math.cos(a) * 22,
-    genesis.y + 8,
-    genesis.z + Math.sin(a) * 22
-  );
-  camera.lookAt(genesis.x, genesis.y + 0.5, genesis.z);
+  if (walking) fp.update(dt);
+  else rig.update(dt, camera);
+  probe?.update();
 
   // the founding stone breathes on a slow cycle
   (core.material as THREE.MeshStandardMaterial).emissiveIntensity =
@@ -147,10 +204,12 @@ function frame() {
   sun.target.position.set(camera.position.x, 0, camera.position.z);
   sun.position.copy(sun.target.position).addScaledVector(sunDir, SUN_DIST);
 
-  if (stMode) stMode.textContent = "orbit";
+  if (stMode) stMode.textContent = walking ? "walk" : "orbit";
   if (stBlocks) stBlocks.textContent = `blocks ${field.placedCount}`;
-  if (stPos)
-    stPos.textContent = `${camera.position.x.toFixed(0)} ${camera.position.y.toFixed(0)} ${camera.position.z.toFixed(0)}`;
+  if (stPos) {
+    const p = walking ? fp.pos : camera.position;
+    stPos.textContent = `${p.x.toFixed(0)} ${p.y.toFixed(0)} ${p.z.toFixed(0)}`;
+  }
 
   fpsAcc += dt;
   fpsFrames++;
@@ -163,3 +222,12 @@ function frame() {
   renderer.render(scene, camera);
 }
 frame();
+
+// a small debug/stream handle (the director module will drive cameras
+// through this later)
+declare global {
+  interface Window {
+    cathedral?: { field: VoxelField; rig: OrbitRig; fp: FirstPerson; camera: THREE.PerspectiveCamera; genesis: THREE.Vector3 };
+  }
+}
+window.cathedral = { field, rig, fp, camera, genesis };
