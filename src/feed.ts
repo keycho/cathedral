@@ -174,7 +174,7 @@ export class Feed {
         this.emit({ kind: "buy", amountUsd: 1200 + Math.round(this.rng() * 1600), wallet: this.pickWallet(), tx: this.txRef() });
         break;
       case "burn":
-        this.emit({ kind: "burn", amountTokens: this.burnTokens() * 4, tx: this.txRef() });
+        this.emit({ kind: "burn", amountTokens: Math.round(this.burnTokens() * 1.5), tx: this.txRef() });
         break;
     }
   }

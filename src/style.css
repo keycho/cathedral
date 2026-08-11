@@ -87,10 +87,10 @@ body {
   color: rgba(250, 243, 226, 0.18);
 }
 
-/* bottom-center hint */
+/* bottom-center hint (sits a line above the status readout) */
 #hint {
   left: 50%;
-  bottom: 12px;
+  bottom: 36px;
   transform: translateX(-50%);
   font-size: 16px;
   color: var(--dim);

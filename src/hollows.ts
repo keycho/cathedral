@@ -63,10 +63,16 @@ export class Hollows {
     return this.hollow.size;
   }
 
-  // radius ~ amountTokens, inside the constitution's bounds
+  // radius ~ amountTokens, inside the constitution's bounds, and never
+  // larger than the mass can hold: a hollow is a chamber INSIDE the stone,
+  // so the geometric cap scales with the structure's own bulk
   private radiusFor(amountTokens: number): number {
-    const r = Math.cbrt(Math.max(1, amountTokens)) / 24;
-    return Math.max(RULES.burnRadiusMin, Math.min(RULES.burnRadiusMax, r));
+    const byTokens = Math.max(
+      RULES.burnRadiusMin,
+      Math.min(RULES.burnRadiusMax, Math.cbrt(Math.max(1, amountTokens)) / 24)
+    );
+    const byMass = Math.cbrt(Math.max(1, this.strata.blockCount)) * 0.5;
+    return Math.max(1.2, Math.min(byTokens, byMass));
   }
 
   // carve a hollow for a burn. returns cells removed (0 = nothing to carve

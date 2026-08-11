@@ -18,7 +18,7 @@ import { DevPanel } from "./devpanel";
 import { EditProbe } from "./editor";
 import { Feed } from "./feed";
 import { FirstPerson } from "./firstperson";
-import { Growth } from "./growth";
+import { GROW, Growth } from "./growth";
 import { Hollows } from "./hollows";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
@@ -82,10 +82,11 @@ const sunDir = new THREE.Vector3(-0.72, 0.2, -0.42).normalize();
 const SUN_DIST = 180;
 
 // faint warm sky over void ground; keeps unlit faces just above black
-scene.add(new THREE.HemisphereLight(0x33271d, 0x0b0b0a, 0.5));
+scene.add(new THREE.HemisphereLight(0x33271d, 0x0b0b0a, 0.62));
 
-// a whisper of sage fill from the far side, for depth in the shadowed faces
-const fill = new THREE.DirectionalLight(0x8fae6a, 0.07);
+// a whisper of sage fill from the far side so the shadow side of the mass
+// keeps its shape instead of dropping to pure void
+const fill = new THREE.DirectionalLight(0x8fae6a, 0.15);
 fill.position.set(120, 60, 90);
 scene.add(fill);
 
@@ -336,7 +337,8 @@ declare global {
       growth: Growth;
       hollows: Hollows;
       strata: Strata;
+      GROW: typeof GROW;
     };
   }
 }
-window.cathedral = { field, rig, fp, camera, genesis, feed, growth, hollows, strata };
+window.cathedral = { field, rig, fp, camera, genesis, feed, growth, hollows, strata, GROW };
