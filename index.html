@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>cathedral</title>
+    <meta name="description" content="cathedral. a voxel world grown by a market." />
+    <meta name="theme-color" content="#0B0B0A" />
+    <meta property="og:title" content="cathedral" />
+    <meta property="og:description" content="a voxel world grown by a market." />
+    <meta property="og:type" content="website" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <!-- corner wordmark -->
+    <header id="wordmark">
+      <div class="mark">cathedral</div>
+      <div class="tag">a voxel world grown by a market</div>
+    </header>
+
+    <!-- bottom-left world readout: mode, block count, position -->
+    <div id="status">
+      <span id="st-mode">orbit</span>
+      <span class="st-sep">·</span>
+      <span id="st-blocks">blocks 0</span>
+      <span class="st-sep">·</span>
+      <span id="st-pos"></span>
+    </div>
+
+    <!-- bottom-center controls hint (fades once you enter) -->
+    <div id="hint">click to walk · drag to orbit · scroll to zoom</div>
+
+    <!-- first-person crosshair (walk mode only) -->
+    <div id="crosshair"></div>
+
+    <!-- fps readout (toggle with p) -->
+    <div id="fps" class="hidden"><span class="fps-label">fps</span> <span id="fps-num">--</span></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

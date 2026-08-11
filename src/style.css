@@ -1,0 +1,149 @@
+/* cathedral - hud. vt323, lowercase, sharp corners.
+   warm-black #0B0B0A · sage #8FAE6A · cream #FAF3E2 · orange #D45A20 */
+
+:root {
+  --void: #0b0b0a;
+  --sage: #8fae6a;
+  --cream: #faf3e2;
+  --orange: #d45a20;
+  --dim: rgba(250, 243, 226, 0.42);
+  --hud-font: "VT323", monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--void);
+  font-family: var(--hud-font);
+  color: var(--cream);
+  text-transform: lowercase;
+}
+
+::selection {
+  background: var(--sage);
+  color: var(--void);
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+/* every hud layer sits above the canvas and never eats input */
+#wordmark,
+#status,
+#hint,
+#crosshair,
+#fps {
+  position: fixed;
+  z-index: 10;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* corner wordmark */
+#wordmark {
+  top: 14px;
+  left: 16px;
+  line-height: 1.05;
+}
+#wordmark .mark {
+  font-size: 28px;
+  letter-spacing: 2px;
+  color: var(--cream);
+  text-shadow: 0 0 8px rgba(212, 90, 32, 0.25);
+}
+#wordmark .tag {
+  margin-top: 2px;
+  font-size: 15px;
+  color: var(--dim);
+}
+
+/* bottom-left readout */
+#status {
+  left: 16px;
+  bottom: 12px;
+  font-size: 16px;
+  color: var(--dim);
+}
+#status #st-mode {
+  color: var(--sage);
+}
+#status .st-sep {
+  margin: 0 6px;
+  color: rgba(250, 243, 226, 0.18);
+}
+
+/* bottom-center hint */
+#hint {
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  font-size: 16px;
+  color: var(--dim);
+  transition: opacity 0.8s ease;
+}
+#hint.faded {
+  opacity: 0;
+}
+
+/* crosshair: a small cream cross, walk mode only */
+#crosshair {
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  display: none;
+}
+#crosshair::before,
+#crosshair::after {
+  content: "";
+  position: absolute;
+  background: rgba(250, 243, 226, 0.8);
+}
+#crosshair::before {
+  left: 4px;
+  top: 0;
+  width: 2px;
+  height: 10px;
+}
+#crosshair::after {
+  left: 0;
+  top: 4px;
+  width: 10px;
+  height: 2px;
+}
+body.walking #crosshair {
+  display: block;
+}
+body.walking #scene {
+  cursor: none;
+}
+
+/* fps corner readout */
+#fps {
+  right: 16px;
+  bottom: 12px;
+  font-size: 16px;
+  color: var(--dim);
+}
+#fps #fps-num {
+  color: var(--cream);
+}
+#fps.hidden {
+  display: none;
+}
