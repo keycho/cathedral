@@ -17,6 +17,7 @@ import {
 import { EditProbe } from "./editor";
 import { FirstPerson } from "./firstperson";
 import { Growth } from "./growth";
+import { Hollows } from "./hollows";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
 import { Strata } from "./strata";
@@ -104,8 +105,11 @@ strata.register(GENESIS_CELL.x, genesisY, GENESIS_CELL.z, -1, "genesis");
 const growth = new Growth(field, strata);
 growth.refreshAround(GENESIS_CELL.x, genesisY, GENESIS_CELL.z);
 
-// the market never entombs a visitor: cells inside the walker's box are
-// off the frontier (burn hollows join this veto when they land)
+// burn hollows: permanent carved chambers, ember-lit. the founding stone
+// is sacred and can never burn.
+const hollows = new Hollows(scene, field, strata, strata.idx(GENESIS_CELL.x, genesisY, GENESIS_CELL.z));
+
+// the market never entombs a visitor, and hollow never re-accretes
 const insideWalker = (x: number, y: number, z: number): boolean => {
   const wx = x - GRID / 2 + 0.5;
   const wz = z - GRID / 2 + 0.5;
@@ -116,7 +120,7 @@ const insideWalker = (x: number, y: number, z: number): boolean => {
     y <= Math.floor(fp.pos.y + 1.7)
   );
 };
-growth.forbidden = insideWalker;
+growth.forbidden = (x, y, z) => hollows.isHollow(x, y, z) || insideWalker(x, y, z);
 
 // the founding stone breathes: a faint warm core + a small light that make
 // the one block in the world read as quietly alive
@@ -235,6 +239,7 @@ function frame() {
   ash.update(dt, t, camera.position);
   strata.update(now);
   growth.drain();
+  hollows.update(t);
 
   if (net.enabled) {
     net.sendPos(fp.pos.x, fp.pos.y, fp.pos.z, fp.yaw, now);
