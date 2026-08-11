@@ -20,6 +20,7 @@ import { Growth } from "./growth";
 import { Hollows } from "./hollows";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
+import { Scars } from "./scars";
 import { Strata } from "./strata";
 import { buildVoidFloor, GENESIS_CELL, placeGenesis, plainSampler } from "./terrain";
 import { VoxelField } from "./voxels";
@@ -109,6 +110,9 @@ growth.refreshAround(GENESIS_CELL.x, genesisY, GENESIS_CELL.z);
 // is sacred and can never burn.
 const hollows = new Hollows(scene, field, strata, strata.idx(GENESIS_CELL.x, genesisY, GENESIS_CELL.z));
 
+// erosion scars: freshly torn faces glow ember and cool over ~2h
+const scars = new Scars(field, strata);
+
 // the market never entombs a visitor, and hollow never re-accretes
 const insideWalker = (x: number, y: number, z: number): boolean => {
   const wx = x - GRID / 2 + 0.5;
@@ -195,8 +199,12 @@ if (DEV_EDIT) {
   probe.blocked = insideWalker;
   // dev pokes flow through the same bookkeeping as real geology
   probe.onEdit = (kind, x, y, z) => {
-    if (kind === "break") strata.forget(x, y, z);
-    else strata.register(x, y, z, -1, "dev");
+    if (kind === "break") {
+      strata.forget(x, y, z);
+      scars.registerAround(x, y, z, performance.now());
+    } else {
+      strata.register(x, y, z, -1, "dev");
+    }
     growth.refreshAround(x, y, z);
   };
 }
@@ -240,6 +248,7 @@ function frame() {
   strata.update(now);
   growth.drain();
   hollows.update(t);
+  scars.update(now);
 
   if (net.enabled) {
     net.sendPos(fp.pos.x, fp.pos.y, fp.pos.z, fp.yaw, now);
