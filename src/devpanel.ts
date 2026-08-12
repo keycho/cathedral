@@ -71,7 +71,7 @@ export class DevPanel {
     rate.max = "1000";
     rate.value = String(Math.round((Math.log(this.feed.ratePerHour / 10) / Math.log(500)) * 1000));
     rate.addEventListener("input", () => {
-      this.feed.ratePerHour = Math.round(10 * Math.pow(500, Number(rate.value) / 1000));
+      this.feed.setRate(10 * Math.pow(500, Number(rate.value) / 1000));
       this.refreshControls();
     });
     this.body.appendChild(rate);
@@ -144,11 +144,13 @@ export class DevPanel {
     this.clockOut.textContent =
       this.strata.epoch + " · " + fmtClock(this.strata.msToNextEpoch(now));
 
+    // holders = wallets that OWN standing blocks (the pubkey pool is not
+    // a holder count; a fresh world has zero holders)
     this.statsOut.textContent =
       "blocks " +
       this.strata.blockCount +
       " · holders " +
-      this.feed.holderCount +
+      this.strata.holderCount +
       " · queued " +
       this.growth.pending;
 

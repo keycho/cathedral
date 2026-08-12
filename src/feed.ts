@@ -35,8 +35,9 @@ function randn(rng: () => number): number {
 }
 
 export class Feed {
-  // live controls (the dev panel writes these)
-  ratePerHour = 180; // 10 .. 5000
+  // live controls (the dev panel writes these; use setRate so a pending
+  // long gap is re-drawn under the new rate immediately)
+  ratePerHour = 600; // 10 .. 5000
   buyBias = 0.62; // p(buy) among swap events
   running = true;
 
@@ -45,6 +46,7 @@ export class Feed {
   private poolRng = mulberry32(POOL_SEED); // ONLY for minting pubkeys
   private rng = mulberry32((Date.now() ^ 0x5eed) >>> 0); // traffic varies
   private nextAt = 0;
+  private warmup = 3; // the first few gaps are compressed: alive on load
   private listeners: ((ev: FeedEvent) => void)[] = [];
 
   // rolling gross volume (r6 drives ambient from this)
@@ -121,10 +123,26 @@ export class Feed {
 
   // ---- the timer -----------------------------------------------------------
 
+  // exponential inter-arrival, with the tail capped at 4x the mean so a low
+  // rate never reads as a dead feed, and the first few gaps compressed so
+  // the world is visibly alive within seconds of load
   private schedule(now: number) {
     const perSec = Math.max(1, this.ratePerHour) / 3600;
-    const gap = -Math.log(1 - Math.max(1e-9, this.rng())) / perSec;
-    this.nextAt = now + Math.max(40, Math.min(600_000, gap * 1000));
+    const meanMs = 1000 / perSec;
+    let gapMs = (-Math.log(1 - Math.max(1e-9, this.rng())) / perSec) * 1000;
+    gapMs = Math.min(gapMs, meanMs * 4);
+    if (this.warmup > 0) {
+      this.warmup--;
+      gapMs = Math.min(gapMs * 0.25, 1500);
+    }
+    this.nextAt = now + Math.max(40, gapMs);
+  }
+
+  // change the rate AND re-draw the pending gap under it: a slider move
+  // must never wait out a long gap drawn at the old rate
+  setRate(perHour: number) {
+    this.ratePerHour = Math.round(perHour);
+    this.nextAt = 0;
   }
 
   update(now: number) {
