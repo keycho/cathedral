@@ -22,9 +22,13 @@ export const C_ORANGE = 0xd45a20;
 // distance that fades into atmospheric haze, never black.
 export const SUN_COLOR = 0xffd9a0;
 export const SUN_INTENSITY = 2.3;
-export const HAZE = 0xd8c4a4; // fog colour: warm air, not darkness
-export const FOG_NEAR = 60;
-export const FOG_FAR = 300;
+export const HAZE = 0xccd0c5; // fog colour: mountain mist, not darkness
+// the mist starts further out than it used to. distance still dissolves,
+// but a fold of hill at a hundred blocks has to survive as a FOLD: layered
+// ridges receding into air is the whole picture in this tradition, and mist
+// that begins at the middle ground flattens them into one wall.
+export const FOG_NEAR = 85;
+export const FOG_FAR = 370;
 
 // multiplayer transport (place layer, phase 1e). DORMANT: while false the
 // net module never connects and the app is fully single-visitor.

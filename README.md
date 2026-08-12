@@ -34,9 +34,9 @@ destabilizes frontier blocks until they break and tumble into permanent
 rubble, burns carve hollow chambers that never heal, a large single buy
 raises a monument, a new holder plants a seed block on open ground. every
 block permanently records the wallet, transaction and epoch that made it.
-strata are tinted by age: young green when fresh, cream as they settle,
-sunwarm terracotta in the deepest layers, and warming toward gold where a
-large holder's stack stands.
+strata are tinted by age: living moss when fresh, weathered granite as they
+settle, cold deep blue in the buried layers, and warming toward gold where
+a large holder's stack stands.
 
 the market is also visible as itself. the price ribbon is a chart you can
 walk on, one glowing column per closed tick snaking the world's spine,

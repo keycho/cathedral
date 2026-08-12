@@ -1,8 +1,8 @@
 // cathedral - strata: provenance and epoch tinting. every structure block
 // permanently records the wallet, tx and epoch that made it (r1); strata
-// are tinted by the epoch they were born in, green while young, cream as
-// they settle, terracotta in the oldest layers (older is deeper, because
-// older is buried). tints are applied through the field's per-instance colours
+// are tinted by the epoch they were born in, mossy while young, pale
+// granite as they settle, cold blue in the oldest layers (older is deeper,
+// because older is buried). tints are applied through the field's per-instance colours
 // and re-walked in small batches whenever the epoch advances.
 //
 // the epoch is advanced from outside by the tick engine (20 ticks per
@@ -11,17 +11,24 @@
 import { GRID, MAXY } from "./config";
 import type { VoxelField } from "./voxels";
 
-// tint ramp: epochs of age at which a block is fully cream / fully sunwarm
-const YOUNG_SPAN = 8; // young green -> cream across the first 8 epochs
-const OLD_SPAN = 24; // cream -> sunwarm terracotta across the next 24
-// the geology's age reads like weathered growth: fresh mass is a living
-// green, settles to cream stone, and the oldest buried layers bake to the
-// same sunwarm terracotta as the world's exposed ridges
-const SAGE = { r: 0x6d, g: 0x7d, b: 0x33 };
-const CREAM = { r: 0xc9, g: 0xbd, b: 0xa0 };
-const ORANGE = { r: 0xa1, g: 0x5b, b: 0x2c };
-// large holders' stone warms toward this (the holdings aura)
-const GOLD_AURA = { r: 0xb0, g: 0x8a, b: 0x4e };
+// tint ramp: epochs of age at which a block is fully settled / fully deep
+const YOUNG_SPAN = 8; // young green -> weathered granite across the first 8
+const OLD_SPAN = 24; // granite -> cold deep blue across the next 24
+// the geology's age reads like a mountain: fresh mass carries living moss,
+// weathers to pale granite, and the oldest buried layers go cold and blue,
+// the colour distance and depth take in this tradition. the RAMP is the
+// mechanic; these three stops are the only thing that was reselected.
+// the young stop carries as much blue as red ON PURPOSE. a yellow-leaning
+// green ramped toward a light neutral crosses acid yellow at its midpoint,
+// which is what half the mass sits at most of the time; balanced, it
+// crosses sage grey instead and every age of stone reads as stone.
+const MOSS = { r: 0x57, g: 0x7a, b: 0x55 };
+const GRANITE = { r: 0xb5, g: 0xb5, b: 0xa4 };
+const DEEP = { r: 0x54, g: 0x60, b: 0x6b };
+// large holders' stone warms toward this (the holdings aura). it is the one
+// warm note in the geology, and it reads harder now the stone around it is
+// cool: a whale's formation glows against the mountain.
+const GOLD_AURA = { r: 0xac, g: 0x8b, b: 0x52 };
 
 export interface Provenance {
   wallet: number; // index into the feed's wallet pool (-1 = the world itself)
@@ -177,8 +184,8 @@ export class Strata {
     const p = this.prov.get(idx);
     const age = p ? this.epoch - p.epoch : 0;
     let c;
-    if (age <= YOUNG_SPAN) c = mix(SAGE, CREAM, age / YOUNG_SPAN);
-    else c = mix(CREAM, ORANGE, Math.min(1, (age - YOUNG_SPAN) / OLD_SPAN));
+    if (age <= YOUNG_SPAN) c = mix(MOSS, GRANITE, age / YOUNG_SPAN);
+    else c = mix(GRANITE, DEEP, Math.min(1, (age - YOUNG_SPAN) / OLD_SPAN));
     if (p && p.wallet >= 0) {
       const held = this.byWallet.get(p.wallet) ?? 0;
       const warmth = Math.min(1, held / 150) * 0.16;

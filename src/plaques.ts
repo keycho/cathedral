@@ -17,7 +17,7 @@ import {
   isGround,
   MEADOW,
   MONUMENT,
-  RUST,
+  CLIFF,
   RISE,
   RUBBLE,
   SCARMOSS,
@@ -99,7 +99,7 @@ export class Plaques {
     if (isGround(type)) {
       if (type === MEADOW) return [mat, "the old world. it was always here."];
       if (type === SCARMOSS) return [mat, "an old wound, greened over."];
-      if (type === RUST) return [mat, "the bones of the land."];
+      if (type === CLIFF) return [mat, "the bones of the land."];
       if (type === EMBERSEAM) return [mat, "heat that never quite left."];
       return [mat, "the old world under the grass."];
     }

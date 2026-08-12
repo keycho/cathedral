@@ -5,10 +5,12 @@
 // a documented swatch here first.
 //
 // the set is DERIVED, not invented: the stillwater basin frame was sampled
-// and this is its tonal range built outward. deep olive-forest meadow over
-// warm rust terraces, muted teal water, tonal variation between adjacent
-// ground tiles. temperature is warm throughout. every swatch's role is
-// documented in style.md so later sessions cannot drift.
+// and this is its tonal range built outward. the geology was then RESELECTED
+// for the tradition the world builds in: deep cedar-green hills over cool
+// grey cliff stone, jade water, mountain mist instead of dry warm dust.
+// warmth is now a deliberate accent (lantern, vermilion, ember, a whale's
+// gold) against a cool ground, not the temperature of everything. every
+// swatch's role is documented in style.md so later sessions cannot drift.
 
 export const NONE = 0;
 
@@ -23,41 +25,52 @@ export interface Material {
 // the swatches. named once, referenced everywhere.
 // ---------------------------------------------------------------------------
 export const SWATCH = {
-  // ground: the meadow reads olive-forest, never mint, never pastel
-  meadow: 0x6f7d2e, // lit meadow, sampled from the basin frame
-  meadowDeep: 0x55632a, // valley floors and shaded grass, richer
-  meadowPale: 0x828c3c, // ridgelines and sun-bleached crowns
-  earth: 0x4a3520, // dark warm soil under the grass
-  rust: 0x9a4c1b, // exposed terrace rock, warm rust-red
-  rustDeep: 0x6d3312, // rust in shadow and depth
-  scarmoss: 0x3f4d24, // old burns, overgrown dark
-  emberseam: 0xc2521c, // rare hot crack near a wound
-  stillwater: 0x2f6357, // muted teal water
+  // ground: cedar-green hills. rich and deep, never olive, never mint.
+  meadow: 0x4f7038, // lit hillside grass, the world's ground note
+  meadowDeep: 0x3a5a2c, // valley floors and shaded grass, deeper still
+  meadowPale: 0x6d8a45, // ridgelines and sun-struck crowns
+  earth: 0x40382a, // damp forest loam under the grass
+  // the cliff is pushed further blue than it looks on a swatch card on
+  // purpose: the golden hour's sun is strongly orange, and a neutral grey
+  // lit by it reads khaki. this lands as cool stone under the identity
+  // light instead of only at noon.
+  cliff: 0x6c7885, // exposed cliff stone, cool grey with a blue cast
+  cliffDeep: 0x475059, // cliff stone in shadow and at depth
+  scarmoss: 0x36502c, // old burns, overgrown dark
+  emberseam: 0xc2521c, // rare hot crack near a wound. the one warm geology.
+  stillwater: 0x356b5d, // jade water
 
   // flora, drawn from the same ground family
-  grass: 0x63722a,
-  reed: 0x51632c,
-  moss: 0x475629,
-  bloomCream: 0xcfc49c,
-  bloomRust: 0xa9552c,
-  bloomMauve: 0x84667e,
+  grass: 0x5b7a36,
+  reed: 0x486b34,
+  moss: 0x3d5c30,
+  bloomCream: 0xd4cfba,
+  bloomLily: 0xa8483a, // the one red in the meadow, a spider lily
+  bloomMauve: 0x7a6e91, // wisteria
 
   // the market's geology
-  genesis: 0xe4d8bb, // the founding stone
-  mass: 0x6d7d33, // fresh accretion, young growth
-  rubble: 0x67614a, // settled collapse, mossing over
-  monument: 0xd3c6a8, // a whale's monolith
-  seed: 0x8b9c44, // a new holder's block
+  genesis: 0xe0dac6, // the founding stone
+  mass: 0x577a55, // fresh accretion, young growth
+  rubble: 0x5d6155, // settled collapse, mossing over
+  monument: 0xcbc9b8, // a whale's monolith
+  seed: 0x74a05c, // a new holder's block
 
-  // the strata ramp: how age reads through the mass
-  strataYoung: 0x6d7d33,
-  strataSettled: 0xc9bda0,
-  strataOld: 0xa15b2c, // sunwarm terracotta in the deepest layers
-  holdings: 0xb08a4e, // a large holder's stone warms toward this
+  // the strata ramp: how age reads through the mass. the mechanic is
+  // unchanged (young -> settled -> deep); only the colours were reselected.
+  strataYoung: 0x577a55, // living moss on fresh stone
+  strataSettled: 0xb5b5a4, // weathered pale granite
+  strataOld: 0x54606b, // the deepest layers go cold and blue, like far peaks
+  holdings: 0xac8b52, // a large holder's stone warms toward this
 
-  // the crew's materials: coursed stone, timber, tile, lead
-  cream: 0xcabf9d, // coursed cream stone, the formal body
-  creamWarm: 0xd6c2a0, // warmer coursed stone, the domestic body
+  // the crew's LEGACY materials: coursed stone, timber, tile, lead. these
+  // predate the two registers and every work built before them is made of
+  // these, so they were re-derived with the geology rather than left
+  // behind: a warm cream that read as sunlit stone in the old world reads
+  // as acid yellow-gold under a golden sun over cool ground. they stay
+  // LIGHTER and cleaner than any stratum, because architecture has to read
+  // as architecture against raw stone at a glance.
+  cream: 0xc8cac2, // pale dressed stone, the formal body
+  creamWarm: 0xd9d0b8, // bone-warm dressed stone, the domestic body
   timber: 0x4a3626, // dark timber: frames, braces, lintels
   tile: 0x8c4326, // fired tile roofs and kiln work
   lead: 0x5b6068, // lead grey: gates, straps, lamp posts
@@ -119,17 +132,20 @@ export const SWATCH = {
   rise: 0x86c46a, // the ribbon's ascent
   fall: 0xc2472a, // the ribbon's descent
 
-  // air and dust, so particles never fall outside the palette
-  haze: 0xd3bd9a,
-  dust: 0x93825f,
-  petal: 0xe0cfa6,
+  // air and dust, so particles never fall outside the palette. the haze
+  // reads as mountain mist: pale, luminous, faintly green-grey. it is the
+  // lowest band of the sky and the colour distance dissolves into, so warm
+  // light sits ON it rather than being made of it.
+  haze: 0xccd0c5,
+  dust: 0x9aa197, // stone dust, cool
+  petal: 0xe0cfa6, // seeds and petals in the air; also the golden hour's cloud
 
   // the light. the sky's whole cycle is mixed from these, so nothing in
   // the air is off-palette either.
   skyZenithDay: 0x5f87ae,
   skyZenithGolden: 0x6c81a4,
   skyZenithNight: 0x131b31,
-  skyHorizonDay: 0xc3c3a4,
+  skyHorizonDay: 0xc2c8bd,
   skyHorizonGolden: 0xd9a468,
   skyHorizonNight: 0x27324e,
   sunNoon: 0xffeecd,
@@ -167,9 +183,9 @@ export const MATERIALS: Material[] = [
   { id: 15, key: "stillwater", name: "stillwater", color: SWATCH.stillwater },
   // varied ground
   { id: 16, key: "scarmoss", name: "scar moss", color: SWATCH.scarmoss },
-  { id: 17, key: "rust", name: "terrace rock", color: SWATCH.rust },
+  { id: 17, key: "cliff", name: "cliff stone", color: SWATCH.cliff },
   { id: 18, key: "emberseam", name: "ember seam", color: SWATCH.emberseam },
-  { id: 19, key: "rustdeep", name: "deep terrace rock", color: SWATCH.rustDeep },
+  { id: 19, key: "cliffdeep", name: "deep cliff stone", color: SWATCH.cliffDeep },
   { id: 20, key: "lead", name: "lead", color: SWATCH.lead },
   // the market rendered as terrain: the price ribbon
   { id: 21, key: "rise", name: "ascent", color: SWATCH.rise },
@@ -220,9 +236,9 @@ export const TILE = 13;
 export const CREAMWARM = 14;
 export const STILLWATER = 15;
 export const SCARMOSS = 16;
-export const RUST = 17;
+export const CLIFF = 17;
 export const EMBERSEAM = 18;
-export const RUSTDEEP = 19;
+export const CLIFFDEEP = 19;
 export const LEAD = 20;
 export const RISE = 21;
 export const FALL = 22;
@@ -268,7 +284,7 @@ const AGENT = new Set([
   CONCRETEPALE, CONCRETEMID, CONCRETEDARK, PANELCREAM, PANELBLUE, PANELGREEN,
   GLASSBLUE, INTERIOR, NEONEMBER, NEONCYAN, NEONAMBER, SPILL, VERDIGRIS,
 ]);
-const GROUND = new Set([MEADOW, EARTH, SCARMOSS, RUST, RUSTDEEP, EMBERSEAM]);
+const GROUND = new Set([MEADOW, EARTH, SCARMOSS, CLIFF, CLIFFDEEP, EMBERSEAM]);
 
 export function isGeology(id: number): boolean {
   return GEOLOGY.has(id);

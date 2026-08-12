@@ -1,9 +1,9 @@
-// cathedral - the ground. a meadow basin holding the founding stone, calm
-// where the crew builds and wilder toward the horizon: terracotta ridges,
-// old craters mossed over, stillwater basins, and four ancient spires
+// cathedral - the ground. a green basin holding the founding stone, calm
+// where the crew builds and wilder toward the horizon: grey cliff crests,
+// old craters mossed over, jade water basins, and four ancient spires
 // standing far off so every view has a landmark. the world still starts
-// empty of structure; the meadow is the stage, everything on it is grown by
-// the market or built by the crew.
+// empty of structure; the hillside is the stage, everything on it is grown
+// by the market or built by the crew.
 
 import * as THREE from "three";
 import { GRID } from "./config";
@@ -12,7 +12,7 @@ import {
   EMBERSEAM,
   GENESIS,
   MEADOW,
-  RUST,
+  CLIFF,
   SCARMOSS,
   STILLWATER,
   SWATCH,
@@ -126,12 +126,12 @@ function computeColumn(x: number, z: number): Sample {
   const dgz = z - CZ;
   const dGen = Math.hypot(dgx, dgz);
 
-  // rolling meadow, damped inside the crew's build ring so the basin stays
+  // rolling hillside, damped inside the crew's build ring so the basin stays
   // calm and buildable, full amplitude out toward the horizon
   const amp = 0.45 + 0.55 * sstep(16, 44, dGen);
   const base = 4 + fractal(x * 0.017 + 31, z * 0.017 + 57) * 9 * amp;
 
-  // terracotta crests on the high ground, held off the build ring
+  // bare rock crests on the high ground, held off the build ring
   let ridgeBoost = 0;
   if (base > 7.2) {
     const r = ridge(x, z);
@@ -153,7 +153,7 @@ function computeColumn(x: number, z: number): Sample {
         top = SCARMOSS;
         if (d < c.r * 0.55 && hash2(x * 3.1, z * 2.7) < 0.05) top = EMBERSEAM;
       } else if (d < c.r + 2 && hash2(x * 1.9, z * 4.3) < 0.35) {
-        top = RUST;
+        top = CLIFF;
       }
     }
   }
@@ -184,7 +184,7 @@ function computeColumn(x: number, z: number): Sample {
       if (d < 1.8) h = Math.max(h, base + s.h + ragged);
       else if (d < 3.0) h = Math.max(h, base + s.h * 0.55 + ragged);
       else if (hash2(x * 2.3, z * 3.7) < 0.5) h = Math.max(h, base + 1.5 + ragged * 0.5);
-      if (d < 3.0) top = RUST;
+      if (d < 3.0) top = CLIFF;
     }
   }
 
@@ -194,7 +194,7 @@ function computeColumn(x: number, z: number): Sample {
   if (dGen < 14) top = MEADOW;
 
   // exposed rock where the crests actually broke through
-  if (ridgeBoost > 1.6 && top === MEADOW) top = RUST;
+  if (ridgeBoost > 1.6 && top === MEADOW) top = CLIFF;
 
   // low wet pockets moss over
   if (top === MEADOW && h < 5.2 && dGen > 30) {
@@ -220,31 +220,37 @@ export const meadowSampler: FieldSampler = {
     }
     if (y === h - 1) return s.top;
     // ridge crests keep rock a little deeper so torn sides read as stone
-    if (s.ridgeBoost > 1.6 && y >= h - 3) return RUST;
-    if (s.top === RUST && y >= h - 2) return RUST;
+    if (s.ridgeBoost > 1.6 && y >= h - 3) return CLIFF;
+    if (s.top === CLIFF && y >= h - 2) return CLIFF;
     return EARTH;
   },
   // the land's colour varies with where it sits: valley floors hold water
-  // and read richer and greener, ridgelines dry out paler and warmer, and a
-  // slow macro noise keeps neighbouring hills from reading identical
+  // and read deep and green, ridgelines catch the mist and go pale and COOL
+  // (never bleached warm), and a slow macro noise keeps neighbouring hills
+  // from reading identical. this is the layered-hill look: each fold a
+  // little further into the air than the one in front of it.
   groundTint(x: number, z: number): [number, number, number] {
     const s = sampleColumn(x, z);
     const macro = fractal(x * 0.006 + 611, z * 0.006 + 133); // region character
     const moisture = 1 - sstep(4.5, 12, s.h); // low ground stays wet
     const dry = sstep(8, 15, s.h);
-    // wet: greener and deeper. dry: paler, warmer, a little bleached.
-    const r = 1 + dry * 0.16 - moisture * 0.1 + (macro - 0.5) * 0.1;
-    const g = 1 + moisture * 0.07 + dry * 0.04 + (macro - 0.5) * 0.06;
-    const b = 1 - moisture * 0.06 + dry * 0.1 + (macro - 0.5) * 0.05;
+    // wet: deeper and greener. high: paler and cooler, mist-touched.
+    const r = 1 + dry * 0.1 - moisture * 0.12 + (macro - 0.5) * 0.1;
+    const g = 1 + moisture * 0.08 + dry * 0.06 + (macro - 0.5) * 0.06;
+    const b = 1 - moisture * 0.1 + dry * 0.18 + (macro - 0.5) * 0.06;
     return [r, g, b];
   },
   // painterly ground: broad light-and-dark patches in the grass, a gentle
-  // warm dim across the rim so the edge sinks into haze instead of void
+  // dim across the rim so the edge sinks into mist instead of void
   groundShade(x: number, z: number): number {
     const patch = (fractal(x * 0.011 + 7, z * 0.011 + 3) - 0.5) * 0.2;
     const r = rim(x, z);
-    const dither = hash2(x * 1.3 + 9, z * 1.7 + 4) * 0.05;
-    const shade = 0.97 + patch - r * (0.3 + dither);
+    const dither = hash2(x * 1.3 + 9, z * 1.7 + 4);
+    // a per-column grain over the whole map, not just the rim: cliff stone
+    // covers acres of terrace and without it a whole hillside of rock is
+    // one flat value, which is the thing the component law forbids
+    const grain = (dither - 0.5) * 0.07;
+    const shade = 0.97 + patch + grain - r * (0.3 + dither * 0.05);
     return Math.max(0.62, Math.min(1.08, shade));
   },
 };

@@ -1,13 +1,13 @@
 // cathedral - the post stack. the world is rendered, then graded, in this
-// order: scene, ambient occlusion, bloom on the emissives, tone mapping,
-// then one grade pass that carries the look (colour lut, depth haze,
-// vignette, grain). the lut is where the painterly unification happens:
-// three grades (day, golden hour, night) built from the palette's own
-// temperature and blended across the sky's cycle, so every material is
-// judged THROUGH the grade rather than raw.
+// order: scene, bloom on the emissives, tone mapping, then one grade pass
+// that carries the look (colour lut, depth haze, vignette, grain). the lut
+// is where the painterly unification happens: three grades (day, golden
+// hour, night) built from the palette's own temperature and blended across
+// the sky's cycle, so every material is judged THROUGH the grade rather
+// than raw.
 //
-// quality tiers degrade gracefully: the grade is cheap and always on, the
-// occlusion and bloom are the first things a weak machine loses.
+// the grade is cheap and always on; bloom is the first thing the silent
+// ladder takes from a weak machine.
 
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -28,27 +28,32 @@ interface Grade {
   contrast: number;
 }
 
-// the three grades. warm late-afternoon pastoral is the target; noon cools
-// a little and night goes blue without going black.
+// the three grades, SPLIT-TONED since the ground went cool: the sun warms
+// the highlights and the shade goes blue-green, which is how a mountain
+// landscape in this tradition is painted. the old grade crushed blue
+// everywhere to make a warm world; that would now mud the cliff stone and
+// kill the mist, so the warmth moved into the gain and the shadows lift
+// cool instead.
 const GRADE_GOLDEN: Grade = {
-  lift: [0.035, 0.022, 0.012],
-  gain: [1.06, 1.0, 0.9],
+  lift: [0.012, 0.02, 0.04],
+  gain: [1.06, 1.005, 0.945],
   gamma: 0.96,
-  sat: 1.06,
+  sat: 1.08,
   contrast: 1.1,
 };
 const GRADE_DAY: Grade = {
-  lift: [0.018, 0.02, 0.03],
-  gain: [1.03, 1.02, 0.99],
+  lift: [0.012, 0.02, 0.038],
+  gain: [1.015, 1.02, 1.01],
   gamma: 1.0,
   sat: 1.05,
   contrast: 1.06,
 };
+// night keeps enough saturation for the town's neon to read as colour
 const GRADE_NIGHT: Grade = {
   lift: [0.012, 0.02, 0.055],
   gain: [0.82, 0.9, 1.08],
   gamma: 1.06,
-  sat: 0.82,
+  sat: 0.9,
   contrast: 1.02,
 };
 
@@ -96,7 +101,7 @@ const GradeShader = {
     lutB: { value: null as THREE.Texture | null },
     lutMix: { value: 0 },
     lutStrength: { value: 0.7 },
-    hazeColor: { value: new THREE.Color(0xd3bd9a) },
+    hazeColor: { value: new THREE.Color(0xccd0c5) },
     hazeStrength: { value: 0.44 },
     hazeStart: { value: 0.26 }, // fraction of the far plane where haze begins
     cameraNear: { value: 0.1 },
@@ -147,7 +152,7 @@ const GradeShader = {
       vec4 src = texture2D(tDiffuse, vUv);
       vec3 col = src.rgb;
 
-      // depth haze: distance dissolves into warm air, so layered hills
+      // depth haze: distance dissolves into mountain mist, so layered hills
       // read like a painted backdrop instead of a wall of detail
       float d = linearDepth(vUv);
       // the sky dome carries its own gradient: haze belongs to the land in

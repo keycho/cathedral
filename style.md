@@ -10,21 +10,25 @@ a voxel world grown by a market, architected by agents.
 
 ## the world
 
-- a deep olive-forest meadow over warm rust terraces under a long golden
-  hour. the sky is painterly, blue at the zenith into warm haze at the
-  horizon, and distance dissolves into atmosphere, never into black. noon
-  is brief and cooler; dusk earns the lantern phase; night is short,
-  indigo and starred, and the world's own lights carry it.
-- the air always moves: grass sways, seeds drift, clouds walk, stillwater
+- a deep cedar-green hillside over cool grey cliff stone under a long
+  golden hour. the sky is painterly, blue at the zenith into a warm band at
+  the horizon, and below it the land dissolves into MOUNTAIN MIST: pale,
+  luminous, faintly green-grey, never into black. warm light sits on a cool
+  world rather than the world being made of warmth. noon is brief and
+  cooler; dusk earns the lantern phase; night is short, indigo and starred,
+  and the world's own lights carry it.
+- the air always moves: grass sways, seeds drift, clouds walk, water
   shimmers. nothing in this world is a still image.
 - lowercase everywhere. vt323 for every letter on screen. sharp corners.
   no em dashes. no exclamation marks. the hud keeps its warm-black
   terminal face; the world outside it is alive.
-- geology speaks in exactly three strata tints, all from the lock: young
-  green when fresh, coursed cream as it settles, sunwarm terracotta in the
-  oldest, deepest layers. plus rubble's mossy earth and the ember of scars
-  and burns. large holders' stone warms toward the holdings swatch.
-  geology never uses the crew's materials.
+- geology speaks in exactly three strata tints, all from the lock: living
+  moss when fresh, weathered pale granite as it settles, cold deep blue in
+  the oldest, buried layers, the colour distance and depth take in this
+  tradition. plus rubble's grey-green and the ember of scars and burns.
+  large holders' stone warms toward the holdings swatch, and that gold is
+  the one warm note in the geology, so a whale's formation glows against
+  a cool mountain. geology never uses the crew's materials.
 - ruins read reclaimed, never grim: moss creeps over rubble, flowers stand
   at grave markers. what falls is taken back gently.
 - the market is visible as spirit-light: the price ribbon crossing the
@@ -39,31 +43,33 @@ src/palette.ts is the single source of colour. every material, particle,
 light and sky key reads a swatch from it; nothing in the world samples a
 colour defined anywhere else. the set was DERIVED, not invented: the
 stillwater basin frame was sampled and the range built outward from it.
+the GEOLOGY was then reselected for the tradition the world builds in, so
+the ground under a temple belongs to the same landscape the temple does.
 a new thing takes a swatch, or the palette gains a documented swatch
 first. every swatch and its role:
 
 | swatch | role |
 | ------ | ---- |
-| meadow | lit meadow grass, the world's ground note |
+| meadow | lit hillside grass, the world's ground note |
 | meadowDeep | valley floors, shaded grass, the hemisphere's ground bounce |
-| meadowPale | ridgelines and sun-bleached crowns |
-| earth | dark warm soil under the grass, basin banks, the far floor |
-| rust | exposed terrace rock, the warm counterweight to the greens |
-| rustDeep | rust in shadow and at depth |
+| meadowPale | ridgelines and sun-struck crowns |
+| earth | damp forest loam under the grass, basin banks, the far floor |
+| cliff | exposed cliff stone, cool grey with a blue cast |
+| cliffDeep | cliff stone in shadow and at depth |
 | scarmoss | old burns overgrown, wet low pockets |
-| emberseam | rare hot cracks near a wound; the hollow's interior light |
-| stillwater | pooled water, laid flat, never deeper than one |
+| emberseam | rare hot cracks near a wound; the hollow's interior light. the ONE warm geology swatch |
+| stillwater | jade water, laid flat, never deeper than one |
 | grass, reed, moss | the flora families, drawn from the ground's range |
-| bloomCream, bloomRust, bloomMauve | wildflower drifts, muted, never candy |
+| bloomCream, bloomLily, bloomMauve | wildflower drifts: cream, spider lily red, wisteria. muted, never candy |
 | genesis | the founding stone |
 | mass | fresh accretion |
 | rubble | settled collapse |
 | monument | a whale's monolith |
 | seed | a new holder's block, and island fringes |
-| strataYoung / strataSettled / strataOld | the age ramp through the mass |
-| holdings | the warmth a large holder's stone carries |
-| cream | coursed stone, the crew's formal body |
-| creamWarm | warm coursed stone, the crew's domestic body |
+| strataYoung / strataSettled / strataOld | the age ramp through the mass: moss, granite, cold deep blue |
+| holdings | the warmth a large holder's stone carries, and the only warmth in the geology |
+| cream | pale dressed stone, the crew's formal body |
+| creamWarm | bone-warm dressed stone, the crew's domestic body |
 | timber | dark timber: frames, braces, lintels |
 | tile | fired tile: roofs and kiln work |
 | lead | lead grey: gates, straps, lamp posts |
@@ -71,7 +77,7 @@ first. every swatch and its role:
 | lantern | emissive amber, the crew's light |
 | glasslight | emissive pale, translucent-reading |
 | rise / fall | the price ribbon's ascent and descent |
-| haze / dust / petal | the air: fog, impact dust, drifting seeds |
+| haze / dust / petal | the air: mountain mist, stone dust, drifting seeds |
 | skyZenith*, skyHorizon*, sun*, moon | the sky's cycle keys |
 | bounceWarm / bounceCool / bounceNight | the sky's bounce into the world |
 | shadowTint | violet-grey; shadows are never black |
@@ -81,11 +87,14 @@ first. every swatch and its role:
 
 the world is judged THROUGH the grade, never raw. three luts (day, golden
 hour, night) are built from these swatches' temperature and blended across
-the sky's cycle; the post stack runs occlusion, then bloom on emissives
-only, then tone mapping, then the grade with its depth haze, vignette and
-grain. exposure is held down so highlights keep detail. shadows are long,
-soft and violet-grey. distance dissolves into warm haze, so layered hills
-read like a painted backdrop.
+the sky's cycle; the post stack runs bloom on emissives only, then tone
+mapping, then the grade with its depth haze, vignette and grain. the
+grades are SPLIT-TONED: the sun warms the highlights and the shade lifts
+blue-green, because the ground is cool now and a grade that crushed blue
+everywhere would mud the cliff stone and kill the mist. exposure is held
+down so highlights keep detail. shadows are long, soft and violet-grey.
+distance dissolves into mountain mist, so each fold of hill sits a little
+further into the air than the one in front of it.
 
 ## the two registers
 
@@ -161,11 +170,16 @@ sits on bare ground.
 ## the crew's vocabulary
 
 agent architecture must read as ARCHITECTURE against raw strata at a
-glance: dressed, cut, deliberate. the crew's materials, and only the
-crew's:
+glance: dressed, cut, deliberate. this is the LEGACY vocabulary, kept
+because every work built before the two registers is made of it; new work
+composes from the registers instead. it was re-derived alongside the
+geology, not left behind: a warm cream that read as sunlit stone in the
+old world reads as acid yellow-gold under a golden sun over cool ground.
+both stones stay LIGHTER and cleaner than any stratum, which is what
+carries the architecture-against-stone read.
 
-- coursed stone: pale cut stone, the formal body of crew work
-- warm coursed stone: sun-cream masonry, the domestic body; courtyards,
+- coursed stone: pale cool cut stone, the formal body of crew work
+- warm coursed stone: bone masonry, the domestic body; courtyards,
   halls, garden walls
 - dark timber: frames, braces, lintels, the skeleton under ambitious spans
 - fired tile: roofs and kiln work, warm clay red-brown

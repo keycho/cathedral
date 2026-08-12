@@ -19,7 +19,7 @@ const MOSS_N = 1200;
 const MOSS_POOL = 400; // runtime moss for fresh rubble
 const MOSS_DELAY_S = 45; // rubble sits bare this long before greening
 
-const FLOWER_COLORS = [SWATCH.bloomCream, SWATCH.bloomRust, SWATCH.bloomMauve];
+const FLOWER_COLORS = [SWATCH.bloomCream, SWATCH.bloomLily, SWATCH.bloomMauve];
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;

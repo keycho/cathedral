@@ -101,6 +101,36 @@ cut ground triangles roughly six to tenfold and shrink the shadow pass with
 it. NOT done: the full stack already holds 60fps, and the rewrite touches
 the engine's core. this is the first place to look for frames.
 
+## the geology was reselected, the ramp was not
+
+the strata ramp was the last thing in the world still derived for the
+ashfall palette: olive meadow, warm rust terraces, sunwarm terracotta in
+the deepest layers. against the temple register those greens read yellow
+and that stone read dry. the ramp MECHANIC is untouched (two spans, eight
+epochs to settled and twenty-four more to deep, plus the holdings aura);
+only the three colours it ramps through were reselected, to moss, pale
+granite and a cold blue.
+
+two things fell out of it that were not obvious from a swatch card:
+
+- **a ramp between a yellow-leaning green and a light neutral crosses acid
+  yellow at its midpoint,** and the midpoint is where most of the mass sits
+  most of the time. measured over the aged world's 6,000 registered strata,
+  the mean colour at age 4 was `#84957a` only after the young stop was
+  rebalanced to carry as much blue as red; before that the whole middle of
+  the ramp was a sick olive. a swatch is not a ramp: check the midpoints.
+- **the crew's legacy cream stone had to move with the ground.** it was
+  chosen to read as sunlit stone in a warm world; under the same golden sun
+  over cool ground it read as gold plating. it was re-derived cooler and
+  kept lighter than any stratum, because architecture reading as
+  architecture against raw stone is the property that matters, not the
+  warmth.
+
+the golden hour's sun is strongly orange, so a swatch meant to read cool
+has to be pushed further blue than it looks on a card: a neutral grey cliff
+lit by that sun came back khaki. the swatches are chosen against the
+identity light, not against white.
+
 ## other standing calls
 
 - the world boots aged (50 epochs of simulated history and four finished
