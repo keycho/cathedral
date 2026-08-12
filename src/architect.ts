@@ -17,20 +17,33 @@ import { GRID, MAXY } from "./config";
 import { AgentBody, zoneOf, type AgentName } from "./crew";
 import type { Journal } from "./journal";
 import type { Blueprint, BlueprintCell, Mason } from "./mason";
-import { AGENT_KEYS, CRIMSON, DRESSED, GLASSLIGHT, GOLD, isGeology, LANTERN, TEAL, VIOLET } from "./palette";
+import {
+  AGENT_KEYS,
+  CRIMSON,
+  DARKIRON,
+  DRESSED,
+  DRESSEDWARM,
+  GLASSLIGHT,
+  GOLD,
+  isAgentMaterial,
+  isGeology,
+  LANTERN,
+  TEAL,
+  VIOLET,
+} from "./palette";
 import { RULES } from "./rules";
 import type { Strata } from "./strata";
 import type { TickEngine } from "./ticks";
 import type { VoxelField } from "./voxels";
 
-const PATCH = 22; // blueprint frame is a PATCH x PATCH site
+const PATCH = 30; // blueprint frame is a PATCH x PATCH site
 const API_TIMEOUT_MS = 45_000;
 
 const ZONES: AgentName[] = ["architect", "surveyor", "mason"];
 const ZONE_PALETTES: Record<AgentName, string> = {
-  surveyor: "dressed, lantern, gold (ash and lantern: sparse waymarks, light)",
-  architect: "dressed, teal, glasslight, stillwater, lantern (teal and glass: formal, terraced, water)",
-  mason: "dressed, violet, crimson, lantern (violet and crimson: heavy courses, yards, banners)",
+  surveyor: "dressedwarm, lantern, gold (cairns, waymark lines, observatory perches above the meadow)",
+  architect: "dressed, teal, glasslight, stillwater, lantern (formal, terraced, water gardens, glass galleries)",
+  mason: "dressedwarm, violet, crimson, darkiron, lantern (yards, kilns, heavy courses, braced spans)",
 };
 
 interface Site {
@@ -144,7 +157,7 @@ export class Architect {
           minH = Math.min(minH, h);
           maxH = Math.max(maxH, h);
           const under = this.field.typeAt(ax + dx, h - 1, az + dz);
-          if (!isGeology(under)) openCells++;
+          if (!isGeology(under) && !isAgentMaterial(under)) openCells++;
         }
       }
       const score = openCells - (maxH - minH) * 2 - r * 0.4;
@@ -174,9 +187,10 @@ export class Architect {
         const z = best.z + dz;
         const h = this.field.topAt(x, z);
         hr.push(h - groundY);
-        const geo = isGeology(this.field.typeAt(x, h - 1, z));
+        const t = this.field.typeAt(x, h - 1, z);
+        const taken = isGeology(t) || isAgentMaterial(t);
         const offZone = zoneOf(x, z) !== zone;
-        br.push(geo || offZone ? 1 : 0);
+        br.push(taken || offZone ? 1 : 0);
       }
       heights.push(hr);
       blocked.push(br);
@@ -262,6 +276,26 @@ export class Architect {
     return { planId: "plan-" + (this.planCount + 1), title, zone: site.zone, cells };
   }
 
+  // ---- simulated history ---------------------------------------------------
+
+  // stage a pre-authored finished work for a zone: pick a site and run the
+  // exact validation the live path runs. the caller (simulated history)
+  // lays it instantly through the mason. the journal keeps its memo.
+  async prepareCompleted(url: string, zone: AgentName): Promise<Blueprint | null> {
+    try {
+      const site = this.pickSite(zone);
+      if (!site) return null;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const raw = await res.json();
+      const bp = this.validate(raw, site, RULES.crewBudgetMax, this.strata.epoch);
+      if (bp) this.planCount++;
+      return bp;
+    } catch {
+      return null;
+    }
+  }
+
   // ---- fallbacks -----------------------------------------------------------
 
   private async foundingBlueprint(site: Site, funded: number): Promise<Blueprint | null> {
@@ -275,8 +309,9 @@ export class Architect {
     }
   }
 
-  // the scripted generator honours the bible's mandate: there is always a
-  // tower or an arch worth looking at, in the zone's own palette
+  // the scripted generator honours the bible's mandate: a work, not a
+  // decoration. a hollow tower a visitor can enter, a walled court with
+  // lantern posts, an approach under an arch, all in the zone's palette.
   private scripted(site: Site, funded: number): Blueprint {
     const cells: { x: number; y: number; z: number; m: string }[] = [];
     const put = (x: number, y: number, z: number, m: number) => {
@@ -285,43 +320,87 @@ export class Architect {
     };
     const accent = site.zone === "architect" ? TEAL : site.zone === "mason" ? VIOLET : GOLD;
     const banner = site.zone === "mason" ? CRIMSON : GOLD;
+    const body = site.zone === "architect" ? DRESSED : DRESSEDWARM;
+    const post = site.zone === "mason" ? DARKIRON : DRESSED;
     const c = PATCH / 2;
-    const hAt = (x: number, z: number) => site.heights[Math.max(0, Math.min(PATCH - 1, z))][Math.max(0, Math.min(PATCH - 1, x))];
-
-    // a tower with a lantern crown
-    const th = funded > 120 ? 9 : 6;
+    const hAt = (x: number, z: number) =>
+      site.heights[Math.max(0, Math.min(PATCH - 1, z))][Math.max(0, Math.min(PATCH - 1, x))];
+    const big = funded >= 220;
     const base = hAt(c, c);
-    for (let y = 0; y < th; y++) {
-      for (const [dx, dz] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
-        put(c + dx, base + y, c + dz, y % 4 === 3 ? accent : DRESSED);
+
+    // grounds first: a paved court south of the tower, posts at its
+    // corners, and an approach path running in under an arch
+    const courtR = 4;
+    const courtZ = c + 5;
+    for (let dx = -courtR; dx <= courtR; dx++) {
+      for (const dz of [-courtR, courtR]) {
+        put(c + dx, hAt(c + dx, courtZ + dz), courtZ + dz, body);
+        put(c + dz, hAt(c + dz, courtZ + dx), courtZ + dx, body);
       }
     }
-    put(c, base + th, c, LANTERN);
-    put(c + 1, base + th, c + 1, site.zone === "architect" ? GLASSLIGHT : banner);
-    // an arch facing the founding stone
-    const ax = c - 4;
-    for (let y = 0; y < 4; y++) {
-      put(ax, hAt(ax, c) + y, c - 1, DRESSED);
-      put(ax, hAt(ax, c + 1) + y, c + 2, DRESSED);
+    for (const [px, pz] of [
+      [c - courtR, courtZ - courtR],
+      [c + courtR, courtZ - courtR],
+      [c - courtR, courtZ + courtR],
+      [c + courtR, courtZ + courtR],
+    ] as const) {
+      const gy = hAt(px, pz);
+      put(px, gy + 1, pz, post);
+      put(px, gy + 2, pz, LANTERN);
     }
-    put(ax, hAt(ax, c) + 4, c, accent);
-    put(ax, hAt(ax, c) + 4, c + 1, accent);
-    put(ax, hAt(ax, c) + 4, c - 1, DRESSED);
-    put(ax, hAt(ax, c) + 4, c + 2, DRESSED);
-    // waymark lanterns
-    for (const [dx, dz] of [[-6, -5], [5, 6], [-5, 6], [6, -5]] as const) {
-      put(c + dx, hAt(c + dx, c + dz), c + dz, DRESSED);
-      put(c + dx, hAt(c + dx, c + dz) + 1, c + dz, LANTERN);
+    for (let k = 1; k <= 5; k++) {
+      put(c, hAt(c, courtZ + courtR + k), courtZ + courtR + k, body);
     }
+    // the arch over the approach
+    const az = courtZ + courtR + 2;
+    const ay = hAt(c, az);
+    for (let y = 1; y <= 3; y++) {
+      put(c - 1, ay + y, az, post);
+      put(c + 1, ay + y, az, post);
+    }
+    put(c - 1, ay + 4, az, accent);
+    put(c, ay + 4, az, accent);
+    put(c + 1, ay + 4, az, accent);
+
+    // the screenshot object: a hollow 5x5 tower with a doorway onto the
+    // court, a glasslight band, and a lantern crown
+    const th = big ? 13 : 8;
+    for (let y = 0; y < th; y++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dz = -2; dz <= 2; dz++) {
+          const edge = Math.abs(dx) === 2 || Math.abs(dz) === 2;
+          if (!edge) continue; // the interior stays open
+          if (dx === 0 && dz === 2 && y < 3) continue; // the doorway, south
+          const corner = Math.abs(dx) === 2 && Math.abs(dz) === 2;
+          let m = body;
+          if (corner && y % 4 === 3) m = accent;
+          if (!corner && y === Math.floor(th * 0.6)) m = GLASSLIGHT; // the band
+          put(c + dx, base + 1 + y, c + dz, m);
+        }
+      }
+    }
+    // a floor to stand on and a threshold
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) put(c + dx, base, c + dz, body);
+    }
+    put(c, base, c + 2, accent);
+    // the crown
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        put(c + dx, base + 1 + th, c + dz, (dx + dz + 200) % 2 === 0 ? LANTERN : banner);
+      }
+    }
+    put(c, base + 2 + th, c, site.zone === "architect" ? GLASSLIGHT : LANTERN);
+
     const raw = {
-      title: "a waymark tower",
-      memo: "a tower to find your way back to, and an arch to pass under.",
+      title: big ? "a court and its tower" : "a waymark court",
+      memo: "grounds to arrive through, a doorway to stand in, a crown to find from far off.",
       blocks: cells,
     };
     return (
       this.validate(raw, site, funded, this.strata.epoch) ?? {
         planId: "plan-" + (this.planCount + 1),
-        title: "a waymark tower",
+        title: "a waymark court",
         zone: site.zone,
         cells: [],
       }

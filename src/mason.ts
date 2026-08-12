@@ -56,6 +56,22 @@ export class Mason {
   repair(cell: BlueprintCell) {
     this.repairs.push(cell);
   }
+
+  // simulated history: a finished work appears whole, laid exactly the way
+  // the live path lays it (lock before register, lanterns lit), with no
+  // walking and no pace. returns blocks actually set.
+  placeInstant(bp: Blueprint): number {
+    let placed = 0;
+    for (const c of bp.cells) {
+      if (!this.field.placeAt(c.x, c.y, c.z, c.material)) continue;
+      this.strata.lock(c.x, c.y, c.z);
+      this.strata.register(c.x, c.y, c.z, AGENT_WALLET, bp.planId);
+      this.works.add(c.x, c.y, c.z, c.material, bp.planId, bp.title, bp.zone);
+      if (c.material === LANTERN) this.works.addLantern(c.x, c.y, c.z);
+      placed++;
+    }
+    return placed;
+  }
   get busy(): boolean {
     return this.repairs.length > 0 || this.queue.length > 0;
   }
