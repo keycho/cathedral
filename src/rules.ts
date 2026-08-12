@@ -40,7 +40,7 @@ export const RULES = {
   crewBudgetUsdPerBlock: 40, // one blueprint block per $40 of trailing gross
   crewBudgetWindowMs: 10 * 60_000, // the trailing window that funds the crew
   crewBudgetIdleBelow: 12, // under this many funded blocks the crew idles + repairs
-  crewBudgetMax: 400, // a single blueprint never exceeds this
+  crewBudgetMax: 600, // a single blueprint never exceeds this
 } as const;
 
 // r1 growth shaping, frozen after judging (accretion is terrain: geology

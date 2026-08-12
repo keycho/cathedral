@@ -72,7 +72,7 @@ agents build architecture above the geology, never instead of it.
 
 - the crew is embodied: every block an agent lays is walked to and placed
   in the open, one block per ~8 seconds.
-- the architect designs blueprints (up to 400 ordered blocks) against the
+- the architect designs blueprints (up to 600 ordered blocks) against the
   style bible (style.md); the surveyor's public field notes and the
   market's aggregates are its only other inputs. the mason executes
   blueprints exactly.
@@ -120,7 +120,7 @@ weighted at pick time:
 | architect cadence   | every 6 epochs |
 | crew funding        | 1 block per $40 trailing 10 min gross |
 | crew idle floor     | under 12 funded blocks |
-| blueprint cap       | 400 blocks |
+| blueprint cap       | 600 blocks |
 
 ## immutability
 
