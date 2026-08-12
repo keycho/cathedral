@@ -59,6 +59,9 @@ export class Mason {
   get busy(): boolean {
     return this.repairs.length > 0 || this.queue.length > 0;
   }
+  get backlog(): number {
+    return this.queue.length;
+  }
   get status(): string {
     if (this.repairs.length) return `mason: repairing ${this.repairs.length}`;
     const bp = this.queue[0];

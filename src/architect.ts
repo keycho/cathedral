@@ -83,6 +83,8 @@ export class Architect {
   private async cycle(epoch: number) {
     this.cycling = true;
     try {
+      // never bury the mason: one plan in hand, one on the bench, no more
+      if (this.mason.backlog >= 2) return;
       const funded = this.budget();
       if (funded < RULES.crewBudgetIdleBelow) {
         this.lastMode = "idle";
