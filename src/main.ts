@@ -33,7 +33,10 @@ import { CrewWorks } from "./crew";
 import { Journal } from "./journal";
 import { Mason } from "./mason";
 import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE } from "./palette";
+import { Candles } from "./candles";
+import { Glyphs } from "./glyphs";
 import { Plaques } from "./plaques";
+import { Ribbon } from "./ribbon";
 import { Surveyor } from "./surveyor";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
@@ -202,7 +205,15 @@ growth.forbidden = (x, y, z) => hollows.isHollow(x, y, z) || insideWalker(x, y, 
 // ---------------------------------------------------------------------------
 const feed = new Feed();
 const ticks = new TickEngine();
+ticks.priceSource = () => feed.price;
 let ambientTarget = 0.15;
+
+// the market as visible data: the walkable price ribbon, the candle row
+// at the plaza's edge, and value glyphs riding the impacts
+const ribbon = new Ribbon(field, ticks);
+const candles = new Candles(scene, ticks, () => feed.price, genesis, field);
+const glyphs = new Glyphs(scene);
+growth.onNote = (x, y, z, note) => glyphs.spawn(x, y, z, note, true);
 
 feed.on((ev) => {
   switch (ev.kind) {
@@ -259,17 +270,30 @@ erosion.onCrewBroken = (x, y, z, material) => {
 };
 
 ticks.onTick = (s) => {
-  // r1: positive net flow accretes, attributed proportionally to buyers
+  // r1: positive net flow accretes, attributed proportionally to buyers.
+  // each buyer's first landed stone announces its dollar value.
   if (s.netFlowUsd > 0) {
     const n = Math.floor(s.netFlowUsd / RULES.usdPerBlock);
     for (const [wallet, count] of distributeBlocks(n, s.buys)) {
-      growth.enqueue(count, wallet, "tick-" + s.n);
+      const usd = Math.round(s.buys.get(wallet) ?? 0);
+      growth.enqueue(count, wallet, "tick-" + s.n, usd > 0 ? "+$" + usd : undefined);
     }
   }
-  // r2: negative net flow destabilizes the frontier, sellers first
+  // r2: negative net flow destabilizes the frontier, sellers first; the
+  // outflow rises in ember from the mass it bites
   if (s.netFlowUsd < 0) {
     erosion.erode(Math.floor(-s.netFlowUsd / RULES.usdPerBlock), s, ticks.tickLenMs);
+    const c = strata.sampleCell(Math.random());
+    if (c !== undefined) {
+      const cy = c % MAXY;
+      const cxz = (c - cy) / MAXY;
+      const cz = cxz % GRID;
+      const cx = (cxz - cz) / GRID;
+      glyphs.spawn(cx, cy, cz, "-$" + Math.round(-s.netFlowUsd), false);
+    }
   }
+  // the chart advances one column
+  ribbon.rebuild();
   // r6: ambient breathes with the tick's gross volume
   ambientTarget = Math.max(0.12, 1 - Math.exp(-s.grossVolumeUsd / 1200));
 };
@@ -300,8 +324,8 @@ panel.crewLine = () => mason.status;
 
 // simulated history: age a dev world 50 epochs so the strata ramp has a
 // real past to render (blocks carry the simulated epoch they were born in)
-const runHistory = (epochs = 50) =>
-  simulateHistory(
+const runHistory = (epochs = 50) => {
+  const n = simulateHistory(
     {
       field,
       strata,
@@ -310,9 +334,13 @@ const runHistory = (epochs = 50) =>
       ticks,
       raiseMonument: (w, tx) => monuments.raise(w, tx),
       plantSeed: (w, tx) => monuments.plant(w, tx),
+      endPrice: feed.price,
     },
     epochs
   );
+  ribbon.rebuild(); // the aged world wakes up carrying its chart
+  return n;
+};
 panel.onHistory = () => runHistory(50);
 
 // the founding stone breathes: a faint warm core + a small light that make
@@ -380,6 +408,7 @@ canvas.addEventListener("pointerup", (e) => {
 // the world answer by name.
 const plaques = new Plaques(field, strata, works, camera, canvas);
 plaques.describeWallet = (w) => (w === -1 ? "the world" : w === -3 ? "the crew" : feed.short(w));
+plaques.ribbonInfo = (x, y, z) => ribbon.infoAt(x, y, z);
 
 // multiplayer transport: DORMANT behind NET_ENABLED. wired now so the place
 // layer only has to flip the flag; while dormant nothing connects.
@@ -458,6 +487,9 @@ function frame() {
   mason.update(now);
   mason.body.update(dt, t);
   architect.body.update(dt, t);
+  candles.update();
+  glyphs.update(dt);
+  audio.update(now);
   plaques.update(now);
   panel.update(now);
 
@@ -468,6 +500,9 @@ function frame() {
     const rolling = 1 - Math.exp(-feed.grossPerMin(now) / 2500);
     ambientLevel += (Math.max(ambientTarget, rolling) - ambientLevel) * 0.25;
     ash.setLevel(ambientLevel);
+    // the heartbeat: the trailing minute's tx count sets the world's pulse
+    const beats = feed.txPerMin(now);
+    audio.setPulse(beats > 0 ? 20 + Math.min(60, beats) : 0);
   }
 
   // the sky's day script plays the lights; the market breathes on top (r6)
@@ -543,6 +578,7 @@ declare global {
       plaques: Plaques;
       sky: Sky;
       flora: Flora;
+      ribbon: Ribbon;
       runHistory: (epochs?: number) => number;
     };
   }
@@ -569,5 +605,6 @@ window.cathedral = {
   plaques,
   sky,
   flora,
+  ribbon,
   runHistory,
 };
