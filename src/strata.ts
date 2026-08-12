@@ -1,8 +1,8 @@
 // cathedral - strata: provenance and epoch tinting. every structure block
 // permanently records the wallet, tx and epoch that made it (r1); strata
-// are tinted by the epoch they were born in, sage while young, cream as
-// they settle, orange in the oldest layers (older is deeper, because older
-// is buried). tints are applied through the field's per-instance colours
+// are tinted by the epoch they were born in, green while young, cream as
+// they settle, terracotta in the oldest layers (older is deeper, because
+// older is buried). tints are applied through the field's per-instance colours
 // and re-walked in small batches whenever the epoch advances.
 //
 // the epoch is advanced from outside by the tick engine (20 ticks per
@@ -11,15 +11,15 @@
 import { GRID, MAXY } from "./config";
 import type { VoxelField } from "./voxels";
 
-// tint ramp: epochs of age at which a block is fully cream / fully orange
-const YOUNG_SPAN = 8; // sage -> cream across the first 8 epochs
-const OLD_SPAN = 24; // cream -> orange across the next 24
-// lifted a step above the style tokens so lit faces read their tint at
-// orbit distance under the dusk sun (the tokens are the identity; these
-// are the stage make-up)
-const SAGE = { r: 0x9d, g: 0xbd, b: 0x76 };
+// tint ramp: epochs of age at which a block is fully cream / fully sunwarm
+const YOUNG_SPAN = 8; // young green -> cream across the first 8 epochs
+const OLD_SPAN = 24; // cream -> sunwarm terracotta across the next 24
+// the geology's age reads like weathered growth: fresh mass is a living
+// green, settles to cream stone, and the oldest buried layers bake to the
+// same sunwarm terracotta as the world's exposed ridges
+const SAGE = { r: 0x8f, g: 0xbc, b: 0x66 };
 const CREAM = { r: 0xfa, g: 0xf3, b: 0xe2 };
-const ORANGE = { r: 0xde, g: 0x66, b: 0x28 };
+const ORANGE = { r: 0xc2, g: 0x7a, b: 0x48 };
 
 export interface Provenance {
   wallet: number; // index into the feed's wallet pool (-1 = the world itself)

@@ -10,29 +10,34 @@
 import * as THREE from "three";
 import { CHUNK, GRID, MAXY } from "./config";
 import {
-  ASH,
-  BEDROCK,
   blockColor,
+  EMBERSEAM,
+  FALL,
   GENESIS,
   GLASSLIGHT,
+  isGround,
   LANTERN,
   MONUMENT,
   NONE,
+  RISE,
   STILLWATER,
 } from "./palette";
 
 const CPS = GRID / CHUNK; // chunks per side
 const HEADROOM = 1024; // spare instance slots per chunk; grows on demand
 
-// hot anchors: per-instance colours may exceed 1.0, which is the one
-// per-instance emissive the shared chunk material allows. these materials
-// carry their own light so the eye has somewhere to land in the dusk.
+// spirit-light: per-instance colours may exceed 1.0, which is the one
+// per-instance emissive the shared chunk material allows. the market's
+// elements carry their own light against the natural world.
 const HOT: Record<number, number> = {
-  [LANTERN]: 2.6,
-  [GENESIS]: 1.7,
-  [MONUMENT]: 1.4,
-  [GLASSLIGHT]: 1.55,
-  [STILLWATER]: 1.15,
+  [LANTERN]: 2.4,
+  [GENESIS]: 1.6,
+  [MONUMENT]: 1.35,
+  [GLASSLIGHT]: 1.45,
+  [STILLWATER]: 1.12,
+  [EMBERSEAM]: 2.0,
+  [RISE]: 1.8,
+  [FALL]: 1.8,
 };
 
 // tiny deterministic hash for per-instance colour jitter
@@ -122,8 +127,8 @@ export class VoxelField {
           `#include <begin_vertex>
            vVoxUv = uv;
            vFaceShade = normal.y > 0.5 ? 1.0
-             : (normal.y < -0.5 ? 0.55
-             : (abs(normal.z) > 0.5 ? 0.80 : 0.70));`
+             : (normal.y < -0.5 ? 0.68
+             : (abs(normal.z) > 0.5 ? 0.88 : 0.80));`
         );
       shader.fragmentShader = shader.fragmentShader
         .replace(
@@ -134,7 +139,7 @@ export class VoxelField {
           "#include <color_fragment>",
           `#include <color_fragment>
            vec2 vEdge = abs(vVoxUv - 0.5) * 2.0;
-           float vAO = 1.0 - smoothstep(0.86, 1.0, max(vEdge.x, vEdge.y)) * 0.16;
+           float vAO = 1.0 - smoothstep(0.86, 1.0, max(vEdge.x, vEdge.y)) * 0.1;
            diffuseColor.rgb *= vFaceShade * vAO;`
         );
     };
@@ -281,7 +286,7 @@ export class VoxelField {
     this.col
       .setHex(blockColor(type))
       .multiplyScalar(0.92 + hash2(x * 3.7 + y, z * 1.9) * 0.16);
-    if (this.groundShade && (type === ASH || type === BEDROCK)) {
+    if (this.groundShade && isGround(type)) {
       this.col.multiplyScalar(this.groundShade(x, z));
     }
     const hot = HOT[type];
@@ -424,7 +429,7 @@ export class VoxelField {
       while (ny >= 0 && this.solid[this.idx(x, ny, z)] === 0) ny--;
       this.top[col] = ny + 1;
     }
-    if (prev !== ASH && prev !== BEDROCK) this.placedCount--;
+    if (!isGround(prev) && prev !== STILLWATER) this.placedCount--;
     this.flush();
     return true;
   }
@@ -444,7 +449,7 @@ export class VoxelField {
     }
     const col = x * GRID + z;
     if (y + 1 > this.top[col]) this.top[col] = y + 1;
-    if (type !== ASH && type !== BEDROCK) this.placedCount++;
+    if (!isGround(type) && type !== STILLWATER) this.placedCount++;
     this.flush();
     return true;
   }

@@ -61,7 +61,7 @@ export class Kinetics {
     const points = new THREE.Points(
       this.dustGeo,
       new THREE.PointsMaterial({
-        color: 0x8d8172,
+        color: 0xa89a74,
         size: 0.12,
         sizeAttenuation: true,
         transparent: true,

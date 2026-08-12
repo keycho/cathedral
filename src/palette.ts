@@ -1,7 +1,8 @@
 // cathedral - block materials. flat-shaded single-colour voxels, no
-// textures. terrain reads near-void; everything the market grows carries
-// the warm strata palette. epoch tinting (sage -> cream -> orange with
-// age) is applied per block on top of these bases in phase 1d.
+// textures. the world is heightened natural: warm meadow ground, cream
+// stone, wildflower accents, ruins reclaimed by growth. the market's
+// elements (ribbon, candles, monuments, lanterns) read as spirit-light
+// against it. saturated but soft, never neon.
 
 export const NONE = 0;
 
@@ -13,38 +14,39 @@ export interface Material {
 }
 
 export const MATERIALS: Material[] = [
-  // ground: darker and drier than anything built or grown, so matter
-  // visibly sits ON the plain
-  { id: 1, key: "ash", name: "ash", color: 0x231e19 },
-  { id: 2, key: "bedrock", name: "bedrock", color: 0x151210 },
+  // ground: warm meadow over earth, with the old world showing through
+  { id: 1, key: "meadow", name: "meadow", color: 0x7fa04f },
+  { id: 2, key: "earth", name: "earth", color: 0x6b5136 },
   // the founding stone: the one block the launch tx places
   { id: 3, key: "genesis", name: "founding stone", color: 0xfaf3e2 },
-  // market geology
-  { id: 4, key: "mass", name: "mass", color: 0x9dbd76 }, // fresh accretion, young sage
-  { id: 5, key: "rubble", name: "rubble", color: 0x5e5040 }, // settled collapse
+  // market geology (strata tint by age rides on top of mass)
+  { id: 4, key: "mass", name: "mass", color: 0x8fbc66 }, // fresh accretion, young green
+  { id: 5, key: "rubble", name: "rubble", color: 0x7a6f52 }, // settled collapse, mossing over
   { id: 6, key: "monument", name: "monument", color: 0xfaf3e2 }, // whale monolith
-  { id: 7, key: "seed", name: "seed", color: 0xa4bd7f }, // new holder
-  // the crew's vocabulary (style.md): geology never wears these, and the
-  // crew never wears strata tints, so grown vs architected reads at a
-  // glance. lantern blocks carry pooled lights; glasslight and stillwater
-  // read luminous against the dusk (true translucency is a later render
-  // split, noted in style.md).
-  // dressed stone sits OFF the warm strata axis entirely: a pale cool
-  // grey, so architecture reads as a different material family at a
-  // glance (the strata own sage-cream-orange; the crew owns grey + its
-  // accents)
-  { id: 8, key: "dressed", name: "dressed stone", color: 0xb2b6ac },
-  { id: 9, key: "teal", name: "deep teal", color: 0x1f6d68 },
-  { id: 10, key: "violet", name: "violet", color: 0x6b4a8f },
+  { id: 7, key: "seed", name: "seed", color: 0x9fc470 }, // new holder
+  // the crew's vocabulary (style.md)
+  { id: 8, key: "dressed", name: "dressed stone", color: 0xcfd2c9 }, // cool cut stone
+  { id: 9, key: "teal", name: "deep teal", color: 0x2b7d74 },
+  { id: 10, key: "violet", name: "violet", color: 0x7a5aa0 },
   { id: 11, key: "lantern", name: "lantern", color: 0xffc873 },
-  { id: 12, key: "glasslight", name: "glasslight", color: 0xd8ece4 },
-  { id: 13, key: "crimson", name: "banner crimson", color: 0xa3333d },
-  { id: 14, key: "gold", name: "banner gold", color: 0xd9a13b },
-  { id: 15, key: "stillwater", name: "stillwater", color: 0x2b6478 },
+  { id: 12, key: "glasslight", name: "glasslight", color: 0xddeee2 },
+  { id: 13, key: "crimson", name: "banner crimson", color: 0xb04048 },
+  { id: 14, key: "gold", name: "banner gold", color: 0xdca844 },
+  { id: 15, key: "stillwater", name: "stillwater", color: 0x3f7d8c },
+  // varied ground: reclaimed scars and old rock
+  { id: 16, key: "scarmoss", name: "scar moss", color: 0x4c5e38 }, // old burns, overgrown
+  { id: 17, key: "oldrock", name: "sunwarm rock", color: 0xb07040 }, // exposed terracotta ridges
+  { id: 18, key: "emberseam", name: "ember seam", color: 0xff6a2e }, // rare cracks near burns
+  // the crew's vocabulary, doubled (style.md)
+  { id: 19, key: "dressedwarm", name: "warm dressed stone", color: 0xe2cfa4 },
+  { id: 20, key: "darkiron", name: "dark iron", color: 0x46505c },
+  // the market rendered as terrain: the price ribbon's ascent and descent
+  { id: 21, key: "rise", name: "ascent", color: 0xa8e6a0 }, // spirit green
+  { id: 22, key: "fall", name: "descent", color: 0xe8552a }, // ember red
 ];
 
-export const ASH = 1;
-export const BEDROCK = 2;
+export const MEADOW = 1;
+export const EARTH = 2;
 export const GENESIS = 3;
 export const MASS = 4;
 export const RUBBLE = 5;
@@ -58,17 +60,28 @@ export const GLASSLIGHT = 12;
 export const CRIMSON = 13;
 export const GOLD = 14;
 export const STILLWATER = 15;
+export const SCARMOSS = 16;
+export const OLDROCK = 17;
+export const EMBERSEAM = 18;
+export const DRESSEDWARM = 19;
+export const DARKIRON = 20;
+export const RISE = 21;
+export const FALL = 22;
 
 // families: geology is grown by the market; agent materials are built by
-// the crew. ground is neither.
+// the crew; ground is the old world; rise/fall belong to the price ribbon.
 export function isGeology(id: number): boolean {
   return id >= GENESIS && id <= SEED;
 }
 export function isAgentMaterial(id: number): boolean {
-  return id >= DRESSED && id <= STILLWATER;
+  return (id >= DRESSED && id <= STILLWATER) || id === DRESSEDWARM || id === DARKIRON;
+}
+export function isGround(id: number): boolean {
+  return id === MEADOW || id === EARTH || id === SCARMOSS || id === OLDROCK || id === EMBERSEAM;
 }
 export const AGENT_KEYS: Record<string, number> = {
   dressed: DRESSED,
+  dressedwarm: DRESSEDWARM,
   teal: TEAL,
   violet: VIOLET,
   lantern: LANTERN,
@@ -76,6 +89,7 @@ export const AGENT_KEYS: Record<string, number> = {
   crimson: CRIMSON,
   gold: GOLD,
   stillwater: STILLWATER,
+  darkiron: DARKIRON,
 };
 
 const BY_ID = new Map<number, Material>(MATERIALS.map((m) => [m.id, m]));
