@@ -32,12 +32,14 @@ import {
   VIOLET,
 } from "./palette";
 import { RULES } from "./rules";
+import type { Islands } from "./islands";
 import type { Strata } from "./strata";
 import type { TickEngine } from "./ticks";
 import type { VoxelField } from "./voxels";
 
 const PATCH = 30; // blueprint frame is a PATCH x PATCH site
 const API_TIMEOUT_MS = 45_000;
+const SKY_Y = 40; // above this is the sky realm: no wedge claims it
 
 const ZONES: AgentName[] = ["architect", "surveyor", "mason"];
 const ZONE_PALETTES: Record<AgentName, string> = {
@@ -57,7 +59,11 @@ interface Site {
 
 export class Architect {
   readonly body: AgentBody;
-  lastMode: "claude" | "founding" | "scripted" | "idle" = "idle";
+  lastMode: "claude" | "founding" | "scripted" | "ascent" | "idle" = "idle";
+  // the sky realm (wired by main); when islands exist the architect keeps
+  // one signature project alive: the ascent that joins the realms
+  islands?: Islands;
+  private ascent: { anchorX: number; anchorZ: number; topY: number; stage: number; done: boolean } | null = null;
   private planCount = 0;
   private lastPlanEpoch = -999;
   private cycling = false;
@@ -105,6 +111,18 @@ export class Architect {
         this.journal.add("architect", epoch, "the market is quiet. the crew tends what stands.");
         return;
       }
+      // the signature project takes every other funded cycle once the sky
+      // has land in it: the ascent rises stage by stage until it crosses
+      if (this.planCount % 2 === 1) {
+        const asc = this.ascentBlueprint(funded, epoch);
+        if (asc) {
+          this.lastMode = "ascent";
+          this.planCount++;
+          this.mason.assign(asc);
+          return;
+        }
+      }
+
       const zone = ZONES[this.planCount % ZONES.length];
       const site = this.pickSite(zone);
       if (!site) return;
@@ -274,6 +292,126 @@ export class Architect {
     const memo = (raw.memo ?? "").toLowerCase().slice(0, 160);
     this.journal.add("architect", epoch, `${title}. ${memo}`.trim());
     return { planId: "plan-" + (this.planCount + 1), title, zone: site.zone, cells };
+  }
+
+  // ---- the ascent ----------------------------------------------------------
+
+  // one law check for absolute (not patch-local) cells. below SKY_Y the
+  // architect stays in its own wedge; the sky realm belongs to no wedge.
+  private lawful(x: number, y: number, z: number): boolean {
+    if (x < 4 || x >= GRID - 4 || z < 4 || z >= GRID - 4) return false;
+    if (y < 1 || y >= MAXY - 2) return false;
+    if (x === this.genesisCell.x && z === this.genesisCell.z) return false;
+    if (this.field.isSolid(x, y, z)) return false;
+    if (this.isHollow(x, y, z)) return false;
+    if (y < SKY_Y && zoneOf(x, z) !== "architect") return false;
+    return true;
+  }
+
+  // the persistent signature project: a spiral stair rising from the
+  // architect's wedge, one stage per cycle, then a glasslight-railed
+  // crossing onto the nearest island. stunning from below is the point:
+  // every stage carries lantern and glasslight the meadow can see.
+  private ascentBlueprint(funded: number, epoch: number): Blueprint | null {
+    if (!this.islands || this.islands.count === 0) return null;
+    if (this.ascent?.done) return null;
+    if (funded < 40) return null;
+
+    // anchor once: open ground in the architect's own wedge, as near the
+    // island's shadow as the wedge allows. the island may hang over any
+    // territory; the crossing spans the distance in the sky realm.
+    if (!this.ascent) {
+      const isl = this.islands.nearestTo(this.genesisCell.x, this.genesisCell.z);
+      if (!isl) return null;
+      let anchor: { x: number; z: number } | null = null;
+      let bd = Infinity;
+      for (let k = 0; k < 300; k++) {
+        const ang = Math.random() * Math.PI * 2;
+        const r = 12 + Math.random() * 40;
+        const x = Math.round(this.genesisCell.x + Math.cos(ang) * r);
+        const z = Math.round(this.genesisCell.z + Math.sin(ang) * r);
+        if (x < 12 || x >= GRID - 12 || z < 12 || z >= GRID - 12) continue;
+        if (zoneOf(x, z) !== "architect") continue;
+        const h = this.field.topAt(x, z);
+        const t = this.field.typeAt(x, h - 1, z);
+        if (isGeology(t) || isAgentMaterial(t)) continue;
+        const d = Math.hypot(x - isl.cx, z - isl.cz);
+        if (d < bd) {
+          bd = d;
+          anchor = { x, z };
+        }
+      }
+      if (!anchor) return null;
+      this.ascent = { anchorX: anchor.x, anchorZ: anchor.z, topY: this.field.topAt(anchor.x, anchor.z), stage: 0, done: false };
+    }
+
+    const a = this.ascent;
+    const isl = this.islands.nearestTo(a.anchorX, a.anchorZ);
+    if (!isl) return null;
+    const cells: BlueprintCell[] = [];
+    const put = (x: number, y: number, z: number, m: number) => {
+      if (cells.length >= Math.min(funded, RULES.crewBudgetMax)) return;
+      if (!this.lawful(x, y, z)) return;
+      cells.push({ x, y, z, material: m });
+    };
+
+    const targetY = isl.baseY + 2; // the island's walking surface
+    let title: string;
+    if (a.topY + 1 >= targetY) {
+      // the crossing: a two-wide deck with glasslight rails to the island
+      const y = targetY;
+      const dx = isl.cx - a.anchorX;
+      const dz = isl.cz - a.anchorZ;
+      const len = Math.max(Math.abs(dx), Math.abs(dz));
+      for (let k = 0; k <= len + 2; k++) {
+        const x = Math.round(a.anchorX + (dx * k) / Math.max(1, len));
+        const z = Math.round(a.anchorZ + (dz * k) / Math.max(1, len));
+        if (this.field.isSolid(x, y, z)) break; // we have reached the island
+        const px = Math.abs(dx) > Math.abs(dz) ? 0 : 1; // deck runs 2 wide
+        put(x, y, z, DRESSED);
+        put(x + px, y, z + (1 - px), DRESSED);
+        if (k % 3 === 0) put(x - px, y + 1, z - (1 - px), GLASSLIGHT);
+      }
+      a.done = true;
+      title = "the ascent, the crossing";
+      this.journal.add("architect", epoch, "the crossing is laid. the realms are joined.");
+    } else {
+      // one stage of the spiral: a loop of steps around the mast, +8 rise
+      const ring: [number, number][] = [];
+      for (let i = -2; i <= 2; i++) ring.push([i, -2]);
+      for (let i = -1; i <= 2; i++) ring.push([2, i]);
+      for (let i = 1; i >= -2; i--) ring.push([i, 2]);
+      for (let i = 1; i >= -1; i--) ring.push([-2, i]);
+      if (a.stage === 0) {
+        // grounds first: a pad and lantern posts at the foot
+        for (let dx = -3; dx <= 3; dx++) {
+          for (let dz = -3; dz <= 3; dz++) {
+            if (Math.abs(dx) === 3 || Math.abs(dz) === 3) {
+              put(a.anchorX + dx, this.field.topAt(a.anchorX + dx, a.anchorZ + dz), a.anchorZ + dz, DRESSED);
+            }
+          }
+        }
+        for (const [px, pz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]] as const) {
+          put(a.anchorX + px, this.field.topAt(a.anchorX + px, a.anchorZ + pz) + 1, a.anchorZ + pz, LANTERN);
+        }
+      }
+      for (let k = 0; k < ring.length; k++) {
+        const y = a.topY + 1 + Math.floor(k / 2);
+        put(a.anchorX + ring[k][0], y, a.anchorZ + ring[k][1], k % 5 === 4 ? TEAL : DRESSED);
+      }
+      // the mast, banded in glasslight so the stair glows from the meadow
+      for (let y = a.topY + 1; y <= a.topY + 8; y++) {
+        put(a.anchorX, y, a.anchorZ, y % 5 === 0 ? GLASSLIGHT : DRESSED);
+      }
+      put(a.anchorX, a.topY + 9, a.anchorZ, LANTERN);
+      a.topY += 8;
+      a.stage++;
+      title = `the ascent, stage ${a.stage}`;
+      this.journal.add("architect", epoch, `the ascent climbs. stage ${a.stage}, ${targetY - a.topY > 0 ? targetY - a.topY + " blocks below the island" : "the island within reach"}.`);
+    }
+
+    if (!cells.length) return null;
+    return { planId: "ascent-" + (a.stage + (a.done ? 1 : 0)), title, zone: "architect", cells };
   }
 
   // ---- simulated history ---------------------------------------------------
