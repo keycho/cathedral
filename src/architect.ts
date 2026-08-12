@@ -119,17 +119,21 @@ export class Architect {
   // ---- site + snapshot -----------------------------------------------------
 
   private pickSite(zone: AgentName): Site | null {
+    // the mass grows with age: seek open ground from the near ring out to
+    // well past a large world's edge, requiring genuinely buildable sites
+    // (an aged mass swallows the near ring entirely)
     let best: { x: number; z: number; score: number } | null = null;
-    for (let k = 0; k < 80; k++) {
+    let bestOpen: { x: number; z: number; score: number } | null = null;
+    const probes = 64; // 8x8 sampling of the patch
+    for (let k = 0; k < 140; k++) {
       const ang = Math.random() * Math.PI * 2;
-      const r = 10 + Math.random() * 16;
+      const r = 10 + Math.random() * 34;
       const cx = Math.round(this.genesisCell.x + Math.cos(ang) * r);
       const cz = Math.round(this.genesisCell.z + Math.sin(ang) * r);
       const ax = cx - PATCH / 2;
       const az = cz - PATCH / 2;
       if (ax < 8 || ax + PATCH >= GRID - 8 || az < 8 || az + PATCH >= GRID - 8) continue;
       if (zoneOf(cx, cz) !== zone) continue;
-      // score: flat-ish, mostly open, close to the mass edge
       let minH = Infinity;
       let maxH = 0;
       let openCells = 0;
@@ -142,9 +146,13 @@ export class Architect {
           if (!isGeology(under)) openCells++;
         }
       }
-      const score = openCells - (maxH - minH) * 2;
+      const score = openCells - (maxH - minH) * 2 - r * 0.4;
       if (!best || score > best.score) best = { x: ax, z: az, score };
+      if (openCells >= probes * 0.72 && (!bestOpen || score > bestOpen.score)) {
+        bestOpen = { x: ax, z: az, score };
+      }
     }
+    best = bestOpen ?? best;
     if (!best) return null;
 
     const groundY = this.field.topAt(best.x + PATCH / 2, best.z + PATCH / 2);

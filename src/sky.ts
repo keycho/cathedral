@@ -18,21 +18,21 @@ export function buildSky(scene: THREE.Scene, sunAzimuth: number): THREE.Mesh {
   // falling back to void below (the ground plane covers most of it anyway)
   const grad = g.createLinearGradient(0, 0, 0, h);
   grad.addColorStop(0.0, "#0a0a09");
-  grad.addColorStop(0.42, "#0c0b0a");
-  grad.addColorStop(0.52, "#181009");
-  grad.addColorStop(0.565, "#3a2413");
-  grad.addColorStop(0.585, "#191008");
-  grad.addColorStop(0.66, "#0b0b0a");
+  grad.addColorStop(0.38, "#0d0c0a");
+  grad.addColorStop(0.46, "#201510");
+  grad.addColorStop(0.525, "#4a2d18");
+  grad.addColorStop(0.56, "#1a1109");
+  grad.addColorStop(0.64, "#0b0b0a");
   grad.addColorStop(1.0, "#0b0b0a");
   g.fillStyle = grad;
   g.fillRect(0, 0, w, h);
 
   // the band burns hotter toward the sun
   const cx = w / 2;
-  const cy = h * 0.565;
-  const blob = g.createRadialGradient(cx, cy, 4, cx, cy, w * 0.3);
-  blob.addColorStop(0, "rgba(122, 74, 34, 0.55)");
-  blob.addColorStop(0.45, "rgba(84, 50, 24, 0.28)");
+  const cy = h * 0.525;
+  const blob = g.createRadialGradient(cx, cy, 4, cx, cy, w * 0.34);
+  blob.addColorStop(0, "rgba(140, 86, 40, 0.65)");
+  blob.addColorStop(0.45, "rgba(92, 56, 26, 0.32)");
   blob.addColorStop(1, "rgba(0, 0, 0, 0)");
   g.globalCompositeOperation = "lighter";
   g.fillStyle = blob;
