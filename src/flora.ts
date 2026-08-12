@@ -1,0 +1,253 @@
+// cathedral - flora. the meadow's living layer: thousands of grass tufts,
+// wildflowers in drifts, reeds crowding the stillwater banks, moss creeping
+// over scars and rubble. all instanced (one draw per family), all swaying
+// on the same wind through a shared time uniform, all tinted by the same
+// ground patchiness as the terrain so they read as one painted surface.
+// ruins get moss, not gloom: new rubble is queued and greens over quietly.
+
+import * as THREE from "three";
+import { GRID } from "./config";
+import { EARTH, MEADOW, SCARMOSS } from "./palette";
+import { BASINS, meadowSampler } from "./terrain";
+import type { VoxelField } from "./voxels";
+
+const GRASS_N = 8000;
+const FLOWER_N = 2200;
+const REED_N = 800;
+const MOSS_N = 1200;
+const MOSS_POOL = 400; // runtime moss for fresh rubble
+const MOSS_DELAY_S = 45; // rubble sits bare this long before greening
+
+const FLOWER_COLORS = [0xf2e8c8, 0xe89078, 0xb094c8, 0xe8c060, 0xd86868, 0xf5f2e0];
+
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// two vertical quads crossed at 90 degrees, base at y=0, normals up so the
+// blades take the sun the way the meadow under them does
+function crossGeometry(w: number, h: number): THREE.BufferGeometry {
+  const hw = w / 2;
+  const pos = new Float32Array([
+    -hw, 0, 0, hw, 0, 0, hw, h, 0, -hw, h, 0,
+    0, 0, -hw, 0, 0, hw, 0, h, hw, 0, h, -hw,
+  ]);
+  const nrm = new Float32Array([
+    0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+    0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+  ]);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("normal", new THREE.BufferAttribute(nrm, 3));
+  geo.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
+  return geo;
+}
+
+export class Flora {
+  private uTime = { value: 0 };
+  private mossMesh: THREE.InstancedMesh;
+  private mossCursor = MOSS_N; // pool region starts after the seeded moss
+  private mossQueue: { x: number; y: number; z: number; at: number }[] = [];
+  private sheens: { mat: THREE.MeshBasicMaterial; phase: number }[] = [];
+  private dummy = new THREE.Object3D();
+  private color = new THREE.Color();
+
+  constructor(scene: THREE.Scene, field: VoxelField) {
+    const rand = mulberry32(0xf10ea);
+    const shade = meadowSampler.groundShade
+      ? meadowSampler.groundShade.bind(meadowSampler)
+      : () => 1;
+
+    const makeMesh = (
+      geo: THREE.BufferGeometry,
+      count: number,
+      sway: number
+    ): THREE.InstancedMesh => {
+      const mat = new THREE.MeshStandardMaterial({
+        roughness: 1,
+        metalness: 0,
+        side: THREE.DoubleSide,
+      });
+      mat.onBeforeCompile = (shader) => {
+        shader.uniforms.uTime = this.uTime;
+        shader.vertexShader = shader.vertexShader
+          .replace("#include <common>", "#include <common>\n uniform float uTime;")
+          .replace(
+            "#include <begin_vertex>",
+            `#include <begin_vertex>
+             #ifdef USE_INSTANCING
+             float fPh = instanceMatrix[3][0] * 0.43 + instanceMatrix[3][2] * 0.61;
+             float fGust = sin(uTime * 1.5 + fPh) + 0.35 * sin(uTime * 3.7 + fPh * 1.7);
+             transformed.x += fGust * ${sway.toFixed(3)} * max(transformed.y, 0.0);
+             transformed.z += 0.6 * cos(uTime * 1.2 + fPh * 0.9) * ${sway.toFixed(3)} * max(transformed.y, 0.0);
+             #endif`
+          );
+        // flora is lit like the ground it grows from: force the shading
+        // normal to world-up so double-sided blades never flip dark
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "#include <normal_fragment_begin>",
+          `#include <normal_fragment_begin>
+           normal = normalize(( viewMatrix * vec4(0.0, 1.0, 0.0, 0.0) ).xyz);`
+        );
+      };
+      const mesh = new THREE.InstancedMesh(geo, mat, count);
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+      return mesh;
+    };
+
+    const place = (
+      mesh: THREE.InstancedMesh,
+      x: number,
+      z: number,
+      y: number,
+      s: number,
+      hexColor: number,
+      hslJitter: number
+    ) => {
+      const i = mesh.count;
+      if (i >= mesh.instanceMatrix.count) return;
+      this.dummy.position.set(
+        x - GRID / 2 + 0.5 + (rand() - 0.5) * 0.7,
+        y,
+        z - GRID / 2 + 0.5 + (rand() - 0.5) * 0.7
+      );
+      this.dummy.rotation.set(0, rand() * Math.PI * 2, 0);
+      this.dummy.scale.set(s, s * (0.8 + rand() * 0.5), s);
+      this.dummy.updateMatrix();
+      mesh.setMatrixAt(i, this.dummy.matrix);
+      this.color.setHex(hexColor);
+      this.color.offsetHSL((rand() - 0.5) * hslJitter, 0, (rand() - 0.5) * 0.08);
+      this.color.multiplyScalar(shade(x, z));
+      mesh.setColorAt(i, this.color);
+      mesh.count = i + 1;
+    };
+
+    const topOf = (x: number, z: number) => field.topAt(x, z);
+    const topType = (x: number, z: number) => {
+      const h = field.topAt(x, z);
+      return h > 0 ? field.typeAt(x, h - 1, z) : 0;
+    };
+    const cell = () => 2 + Math.floor(rand() * (GRID - 4));
+
+    // grass: everywhere the meadow is
+    const grass = makeMesh(crossGeometry(0.55, 0.7), GRASS_N, 0.05);
+    for (let tries = 0; tries < GRASS_N * 4 && grass.count < GRASS_N; tries++) {
+      const x = cell();
+      const z = cell();
+      if (topType(x, z) !== MEADOW) continue;
+      place(grass, x, z, topOf(x, z), 0.7 + rand() * 0.6, 0x93b258, 0.05);
+    }
+
+    // wildflowers: drifts, not confetti - clusters seeded on the meadow
+    const flowers = makeMesh(crossGeometry(0.26, 0.32), FLOWER_N, 0.04);
+    for (let c = 0; c < 200 && flowers.count < FLOWER_N; c++) {
+      const x = cell();
+      const z = cell();
+      if (topType(x, z) !== MEADOW) continue;
+      const hue = FLOWER_COLORS[Math.floor(rand() * FLOWER_COLORS.length)];
+      const n = 8 + Math.floor(rand() * 9);
+      for (let i = 0; i < n && flowers.count < FLOWER_N; i++) {
+        const fx = Math.round(x + (rand() - 0.5) * 5);
+        const fz = Math.round(z + (rand() - 0.5) * 5);
+        if (fx < 2 || fz < 2 || fx > GRID - 3 || fz > GRID - 3) continue;
+        if (topType(fx, fz) !== MEADOW) continue;
+        place(flowers, fx, fz, topOf(fx, fz), 0.8 + rand() * 0.5, hue, 0.02);
+      }
+    }
+
+    // reeds: crowding the stillwater banks
+    const reeds = makeMesh(crossGeometry(0.2, 1.5), REED_N, 0.09);
+    for (const b of BASINS) {
+      const per = Math.floor(REED_N / BASINS.length);
+      for (let tries = 0, placed = 0; tries < per * 6 && placed < per; tries++) {
+        const a = rand() * Math.PI * 2;
+        const d = b.r * (0.72 + rand() * 0.55);
+        const x = Math.round(b.x + Math.cos(a) * d);
+        const z = Math.round(b.z + Math.sin(a) * d);
+        if (x < 2 || z < 2 || x > GRID - 3 || z > GRID - 3) continue;
+        const tt = topType(x, z);
+        if (tt !== EARTH && tt !== MEADOW) continue;
+        const y = topOf(x, z);
+        if (y < b.wl || y > b.wl + 3) continue;
+        place(reeds, x, z, y, 0.7 + rand() * 0.6, 0x567a52, 0.04);
+        placed++;
+      }
+    }
+
+    // moss: flat pads over the scars, plus a pool for rubble yet to fall
+    const mossGeo = new THREE.PlaneGeometry(0.9, 0.9);
+    mossGeo.rotateX(-Math.PI / 2);
+    this.mossMesh = makeMesh(mossGeo, MOSS_N + MOSS_POOL, 0);
+    // the pool draws past the seeded pads, so every slot must start collapsed
+    this.dummy.position.set(0, -10, 0);
+    this.dummy.rotation.set(0, 0, 0);
+    this.dummy.scale.set(0.001, 0.001, 0.001);
+    this.dummy.updateMatrix();
+    for (let i = 0; i < MOSS_N + MOSS_POOL; i++) this.mossMesh.setMatrixAt(i, this.dummy.matrix);
+    const scarCells: { x: number; z: number }[] = [];
+    for (let x = 2; x < GRID - 2; x++) {
+      for (let z = 2; z < GRID - 2; z++) {
+        if (topType(x, z) === SCARMOSS) scarCells.push({ x, z });
+      }
+    }
+    for (let i = 0; i < MOSS_N && scarCells.length; i++) {
+      const c = scarCells[Math.floor(rand() * scarCells.length)];
+      place(this.mossMesh, c.x, c.z, topOf(c.x, c.z) + 0.02, 0.7 + rand() * 0.7, 0x5f7a42, 0.04);
+    }
+
+    // stillwater sheen: a faint breathing gloss over each basin
+    for (const b of BASINS) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xcfeee4,
+        transparent: true,
+        opacity: 0.12,
+        depthWrite: false,
+      });
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(b.r * 0.8, 24), mat);
+      disc.rotation.x = -Math.PI / 2;
+      disc.position.set(b.x - GRID / 2 + 0.5, b.wl + 1.04, b.z - GRID / 2 + 0.5);
+      scene.add(disc);
+      this.sheens.push({ mat, phase: rand() * Math.PI * 2 });
+    }
+  }
+
+  // ruin reclamation: call when rubble settles; a pad of moss creeps over
+  // it after a while. the pool wraps, oldest pads move to newest rubble.
+  mossRubble(x: number, y: number, z: number) {
+    this.mossQueue.push({ x, y, z, at: this.uTime.value });
+  }
+
+  update(t: number) {
+    this.uTime.value = t;
+    for (const s of this.sheens) {
+      s.mat.opacity = 0.09 + 0.05 * (0.5 + 0.5 * Math.sin(t * 0.7 + s.phase));
+    }
+    while (this.mossQueue.length && t - this.mossQueue[0].at > MOSS_DELAY_S) {
+      const q = this.mossQueue.shift() as { x: number; y: number; z: number; at: number };
+      const i = this.mossCursor;
+      this.mossCursor = this.mossCursor + 1 >= MOSS_N + MOSS_POOL ? MOSS_N : this.mossCursor + 1;
+      this.dummy.position.set(q.x - GRID / 2 + 0.5, q.y + 1.02, q.z - GRID / 2 + 0.5);
+      this.dummy.rotation.set(0, Math.random() * Math.PI * 2, 0);
+      const s = 0.7 + Math.random() * 0.5;
+      this.dummy.scale.set(s, 1, s);
+      this.dummy.updateMatrix();
+      this.mossMesh.setMatrixAt(i, this.dummy.matrix);
+      this.color.setHex(0x5f7a42).offsetHSL(0, 0, (Math.random() - 0.5) * 0.06);
+      this.mossMesh.setColorAt(i, this.color);
+      if (this.mossMesh.count < i + 1) this.mossMesh.count = i + 1;
+      this.mossMesh.instanceMatrix.needsUpdate = true;
+      if (this.mossMesh.instanceColor) this.mossMesh.instanceColor.needsUpdate = true;
+    }
+  }
+}

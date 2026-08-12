@@ -40,6 +40,8 @@ export class Erosion {
   onCrewBroken?: (x: number, y: number, z: number, material: number) => void;
   // the surveyor reads where rubble last fell
   lastRubble: { x: number; y: number; z: number }[] = [];
+  // reclamation: flora listens so settled rubble mosses over in time
+  onRubble?: (x: number, y: number, z: number) => void;
 
   private destab: Falling[] = [];
   private centroidX = GRID / 2;
@@ -219,6 +221,7 @@ export class Erosion {
       this.refreshGrowth(x, y, z);
       this.lastRubble.push({ x, y, z });
       if (this.lastRubble.length > 40) this.lastRubble.shift();
+      this.onRubble?.(x, y, z);
     }
   }
 }

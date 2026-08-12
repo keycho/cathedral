@@ -1,16 +1,17 @@
-// cathedral - ash drift. sparse warm-grey motes falling slowly through the
-// dusk, wrapped in a volume that follows the camera so the air is never
-// empty and never crowded. density is driven from outside (r6: ambient
-// scales with market volume); the level here is just obeyed.
+// cathedral - the drift. meadow seeds and petals riding the air, wrapped in
+// a volume that follows the camera so the air is always moving and never
+// crowded. density is driven from outside (r6: ambient scales with market
+// volume); the level here is just obeyed. (the class keeps its founding
+// name; the ash became seeds when the world greened.)
 
 import * as THREE from "three";
 
 const MAX = 900; // particles at level 1
 const BOX_W = 110; // wrap volume around the camera
 const BOX_H = 52;
-const FALL_MIN = 0.22; // u/s
-const FALL_VAR = 0.4;
-const SWAY = 0.35; // lateral drift amplitude, u/s
+const FALL_MIN = 0.12; // u/s - seeds hang, they don't fall
+const FALL_VAR = 0.22;
+const SWAY = 0.65; // lateral drift amplitude, u/s - gusts carry them
 
 export class AshDrift {
   readonly points: THREE.Points;
@@ -35,11 +36,11 @@ export class AshDrift {
     this.geo.setAttribute("position", new THREE.BufferAttribute(this.pos, 3));
     this.geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), BOX_W); // recentered each frame
     const mat = new THREE.PointsMaterial({
-      color: 0x9a9186,
-      size: 0.07,
+      color: 0xf6dfc0,
+      size: 0.085,
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.42,
+      opacity: 0.5,
       depthWrite: false,
     });
     this.points = new THREE.Points(this.geo, mat);
