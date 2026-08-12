@@ -58,7 +58,13 @@ npm run dev
 
 ## status
 
-phase 1, the world. synthetic feed, no chain, no agents yet.
+layer 1 (market = geology) complete against the synthetic feed: ticks,
+accretion, collapse with physics and permanent rubble, subsidence, burns
+with cave-ins, monuments, seeds, storms, sound. layer 2 (agents =
+architecture) live: the crew surveys, designs against the style bible
+(claude api when a key is configured, faithful stubs otherwise) and
+builds, embodied and watchable. plaques answer for every block. no
+chain yet; the indexer is next.
 
 ## license
 
