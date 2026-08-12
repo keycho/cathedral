@@ -1,11 +1,21 @@
-// cathedral - the ground. a near-void ash plain, gently rolling so the low
-// sun drags long shadows across it, tapering toward the void at the rim.
-// the world starts empty except this terrain; everything else is grown by
+// cathedral - the ground. a meadow basin holding the founding stone, calm
+// where the crew builds and wilder toward the horizon: terracotta ridges,
+// old craters mossed over, stillwater basins, and four ancient spires
+// standing far off so every view has a landmark. the world still starts
+// empty of structure; the meadow is the stage, everything on it is grown by
 // the market or built by the crew.
 
 import * as THREE from "three";
 import { GRID } from "./config";
-import { ASH, BEDROCK, GENESIS } from "./palette";
+import {
+  EARTH,
+  EMBERSEAM,
+  GENESIS,
+  MEADOW,
+  OLDROCK,
+  SCARMOSS,
+  STILLWATER,
+} from "./palette";
 import type { FieldSampler, VoxelField } from "./voxels";
 
 // --- small value-noise kit (deterministic, no deps) ------------------------
@@ -48,50 +58,188 @@ function sstep(e0: number, e1: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-// --- the plain -------------------------------------------------------------
+// --- the land --------------------------------------------------------------
 
 export const GENESIS_CELL = { x: GRID / 2, z: GRID / 2 };
+const CX = GRID / 2;
+const CZ = GRID / 2;
+const PLAZA_H = 6; // the founding plaza's flat height
 
-// how far into the dissolve band a column sits: 0 interior -> 1 at the rim.
-// the band starts early and eases, so the silhouette never reads as ragged
-// chunks against the void; heights flatten and colours sink into the dark
-// across the same ramp.
+// landmarks, placed by hand so every compass direction has one
+export const SPIRES = [
+  { x: CX + 70, z: CZ + 18, h: 20 },
+  { x: CX - 64, z: CZ + 52, h: 16 },
+  { x: CX - 30, z: CZ - 78, h: 24 },
+  { x: CX + 44, z: CZ - 60, h: 14 },
+];
+export const CRATERS = [
+  { x: CX - 88, z: CZ - 16, r: 11, d: 4 },
+  { x: CX + 58, z: CZ + 72, r: 9, d: 3 },
+  { x: CX + 16, z: CZ + 96, r: 13, d: 5 },
+];
+// stillwater basins: shallow bowls holding water at a fixed level
+export const BASINS = [
+  { x: CX - 70, z: CZ + 70, r: 12, wl: 4 },
+  { x: CX + 84, z: CZ - 44, r: 10, wl: 4 },
+];
+
+// how far into the world's edge a column sits: 0 interior -> 1 at the rim.
+// the land tapers there and the haze takes it; no void, just distance.
 function rim(x: number, z: number): number {
-  const dx = x - GRID / 2;
-  const dz = z - GRID / 2;
+  const dx = x - CX;
+  const dz = z - CZ;
   const edge = Math.max(Math.abs(dx), Math.abs(dz)) / (GRID / 2);
-  // a little noise so the dissolve contour wanders instead of tracing a square
   const wobble = (valueNoise(x * 0.05 + 400, z * 0.05 + 420) - 0.5) * 0.1;
-  return sstep(0.6, 0.98, edge + wobble);
+  return sstep(0.62, 0.985, edge + wobble);
 }
 
-export const plainSampler: FieldSampler = {
+// ridge crests: folded noise, sharpened, only counted on high ground
+function ridge(x: number, z: number): number {
+  const n = valueNoise(x * 0.02 + 90, z * 0.02 + 12);
+  const crest = 1 - Math.abs(n * 2 - 1);
+  return crest * crest;
+}
+
+interface Sample {
+  h: number;
+  top: number; // material of the top block
+  water: boolean; // top-of-column is stillwater
+  ridgeBoost: number;
+}
+
+// the field asks heightAt once and then typeAt for every y of the same
+// column; a one-entry memo makes the whole walk cost one sample per column
+let memoKey = -1;
+let memoVal: Sample | null = null;
+
+function sampleColumn(x: number, z: number): Sample {
+  const key = x * GRID + z;
+  if (key === memoKey && memoVal) return memoVal;
+  memoVal = computeColumn(x, z);
+  memoKey = key;
+  return memoVal;
+}
+
+function computeColumn(x: number, z: number): Sample {
+  const dgx = x - CX;
+  const dgz = z - CZ;
+  const dGen = Math.hypot(dgx, dgz);
+
+  // rolling meadow, damped inside the crew's build ring so the basin stays
+  // calm and buildable, full amplitude out toward the horizon
+  const amp = 0.45 + 0.55 * sstep(16, 44, dGen);
+  const base = 4 + fractal(x * 0.017 + 31, z * 0.017 + 57) * 9 * amp;
+
+  // terracotta crests on the high ground, held off the build ring
+  let ridgeBoost = 0;
+  if (base > 7.2) {
+    const r = ridge(x, z);
+    if (r > 0.55) ridgeBoost = (r - 0.55) * 11 * sstep(30, 48, dGen);
+  }
+
+  let h = base + ridgeBoost;
+  let top = MEADOW;
+  let water = false;
+
+  // craters: a mossy bowl with a raised lip
+  for (const c of CRATERS) {
+    const d = Math.hypot(x - c.x, z - c.z);
+    if (d < c.r + 4) {
+      const bowl = 1 - sstep(0, c.r, d);
+      h -= c.d * smooth(bowl);
+      h += 1.6 * Math.max(0, 1 - Math.abs(d - c.r) / 3);
+      if (d < c.r * 0.92) {
+        top = SCARMOSS;
+        if (d < c.r * 0.55 && hash2(x * 3.1, z * 2.7) < 0.05) top = EMBERSEAM;
+      } else if (d < c.r + 2 && hash2(x * 1.9, z * 4.3) < 0.35) {
+        top = OLDROCK;
+      }
+    }
+  }
+
+  // stillwater basins: floor sunk under a fixed water level, held by a low
+  // earthen bank that eases back into the meadow
+  for (const b of BASINS) {
+    const d = Math.hypot(x - b.x, z - b.z);
+    if (d < b.r * 1.6) {
+      const core = b.r * 0.78;
+      if (d < core) {
+        h = b.wl + 1; // blocks 0..wl, water in the top two cells
+        top = STILLWATER;
+        water = true;
+      } else {
+        const t = sstep(core, b.r * 1.6, d);
+        h = (b.wl + 2) * (1 - t) + h * t;
+        if (t < 0.5) top = EARTH; // the bank
+      }
+    }
+  }
+
+  // ancient spires: ragged old towers, part of the ground itself
+  for (const s of SPIRES) {
+    const d = Math.hypot(x - s.x, z - s.z);
+    if (d < 4.6) {
+      const ragged = (hash2(x * 5.7, z * 6.1) - 0.5) * 3;
+      if (d < 1.8) h = Math.max(h, base + s.h + ragged);
+      else if (d < 3.0) h = Math.max(h, base + s.h * 0.55 + ragged);
+      else if (hash2(x * 2.3, z * 3.7) < 0.5) h = Math.max(h, base + 1.5 + ragged * 0.5);
+      if (d < 3.0) top = OLDROCK;
+    }
+  }
+
+  // the founding plaza: flat ground for the stone and the crew's yard
+  const plaza = sstep(14, 26, dGen);
+  h = PLAZA_H * (1 - plaza) + h * plaza;
+  if (dGen < 14) top = MEADOW;
+
+  // exposed rock where the crests actually broke through
+  if (ridgeBoost > 1.6 && top === MEADOW) top = OLDROCK;
+
+  // low wet pockets moss over
+  if (top === MEADOW && h < 5.2 && dGen > 30) {
+    if (valueNoise(x * 0.045 + 210, z * 0.045 + 77) > 0.72) top = SCARMOSS;
+  }
+
+  // the rim: taper into the haze
+  const r = rim(x, z);
+  if (r > 0) h = h * (1 - r * 0.9) + 2 * r * 0.9;
+
+  return { h: Math.max(1, Math.round(h)), top, water, ridgeBoost };
+}
+
+export const meadowSampler: FieldSampler = {
   heightAt(x: number, z: number): number {
-    // gentle dunes, 2..6 blocks, flattening across the dissolve band
-    const n = fractal(x * 0.022 + 31, z * 0.022 + 57);
-    const h = 2 + n * 4;
-    const r = rim(x, z);
-    return Math.max(1, Math.round(h * (1 - r) + 1 * r));
+    return sampleColumn(x, z).h;
   },
-  typeAt(_x: number, _z: number, y: number, h: number): number {
-    return y === h - 1 ? ASH : BEDROCK;
+  typeAt(x: number, z: number, y: number, h: number): number {
+    const s = sampleColumn(x, z);
+    if (s.water) {
+      // water fills the top two cells of a basin column; earth below
+      return y >= h - 2 ? STILLWATER : EARTH;
+    }
+    if (y === h - 1) return s.top;
+    // ridge crests keep rock a little deeper so torn sides read as stone
+    if (s.ridgeBoost > 1.6 && y >= h - 3) return OLDROCK;
+    if (s.top === OLDROCK && y >= h - 2) return OLDROCK;
+    return EARTH;
   },
-  // rim columns fade toward the void floor; dithered so the falloff reads
-  // as haze rather than banding
+  // painterly ground: broad light-and-dark patches in the grass, a gentle
+  // warm dim across the rim so the edge sinks into haze instead of void
   groundShade(x: number, z: number): number {
+    const patch = (fractal(x * 0.011 + 7, z * 0.011 + 3) - 0.5) * 0.2;
     const r = rim(x, z);
-    if (r <= 0) return 1;
-    const dither = hash2(x * 1.3 + 9, z * 1.7 + 4) * 0.1;
-    return Math.max(0.16, 1 - r * (0.82 + dither));
+    const dither = hash2(x * 1.3 + 9, z * 1.7 + 4) * 0.05;
+    const shade = 0.97 + patch - r * (0.3 + dither);
+    return Math.max(0.62, Math.min(1.08, shade));
   },
 };
 
-// the void floor: an oversized near-black plane under and beyond the voxel
-// grid, so the plain reads as ash flats fading into nothing
+// the floor beyond the grid: warm earth under the haze, so the world sits
+// on land, not on nothing
 export function buildVoidFloor(scene: THREE.Scene) {
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(4000, 4000, 1, 1),
-    new THREE.MeshStandardMaterial({ color: 0x0d0c0a, roughness: 1 })
+    new THREE.MeshStandardMaterial({ color: 0x5a4a36, roughness: 1 })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = 0.02;
@@ -99,7 +247,7 @@ export function buildVoidFloor(scene: THREE.Scene) {
   scene.add(floor);
 }
 
-// place the founding stone on the plain's surface at world center.
+// place the founding stone on the plaza at world center.
 // returns the world-space center of the block (for cameras + the glow).
 export function placeGenesis(field: VoxelField): THREE.Vector3 {
   const gx = GENESIS_CELL.x;
