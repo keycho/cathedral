@@ -149,7 +149,7 @@ export class Sky {
     this.follow.add(this.dome);
 
     // stars: a fixed shell of points, faded in by the script at night
-    const STAR_N = 1500;
+    const STAR_N = 1500; // the ladder can draw fewer of these
     const sp = new Float32Array(STAR_N * 3);
     for (let i = 0; i < STAR_N; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -229,6 +229,11 @@ export class Sky {
 
     this.applyPhase(0);
     this.redraw(0);
+  }
+
+  // the ladder trims the starfield without rebuilding it
+  setStarCount(n: number) {
+    (this.stars.geometry as THREE.BufferGeometry).setDrawRange(0, Math.max(0, Math.min(1500, n)));
   }
 
   // where the day currently stands, 0..1 (0 = mid golden hour)

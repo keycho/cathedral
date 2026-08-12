@@ -4,7 +4,11 @@
 
 export const GRID = 256; // voxel cells per side
 export const MAXY = 96; // vertical voxel bound
-export const CHUNK = 32; // render chunk size (must divide GRID)
+// render chunk size (must divide GRID). 64 gives 16 chunk meshes instead
+// of 64: the frame is drawn at least twice (colour and shadow), so every
+// chunk mesh is at least two draw calls, and coarser frustum culling is a
+// cheaper trade than 128 extra calls.
+export const CHUNK = 64;
 export const WORLD = GRID; // world units per side (1 unit per cell)
 
 // style tokens. the hud keeps the warm-black terminal identity; the world

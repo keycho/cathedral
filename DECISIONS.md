@@ -4,6 +4,18 @@ the choices this world is built on, and the ones deliberately deferred.
 rules live in RULES.md and are frozen; style lives in style.md; this file
 is for engineering calls that a later session would otherwise re-litigate.
 
+## one configuration, no menu
+
+there is no quality menu and there will not be one. a visitor arriving at
+a world should see the world, not a settings screen, and a 24/7 stream
+cannot depend on anyone picking the right option. the world ships one
+configuration and, when a machine cannot hold the frame, steps down a
+ladder in silence (src/quality.ts). the ladder only ever descends: a world
+that oscillates between settings is worse than one that settles a notch
+low. resolution and shadow detail go first; the grade, which carries the
+world's colour, goes last. the readout stays as a hidden debug instrument
+on `p` and carries no controls.
+
 ## render budget (measured, not guessed)
 
 the target is 60fps locked at orbit AND walking on a normal laptop gpu,
@@ -34,6 +46,40 @@ the composer calls render once per pass, so reading it after
 `composer.render()` reports the last fullscreen quad (draws 1, tris 0k).
 the readout sets `info.autoReset = false` and resets once per frame, so the
 numbers are whole-frame totals and comparable across tiers.
+
+## the frame, cut to budget
+
+a regression to 11fps was reported at the richest setting, with 198 draws
+and 2,052k triangles against an earlier 98 draws / 900k. the first
+question was whether geometry had doubled or the counters had been
+undercounting. an a/b of the same protocol against the pre-crew build
+answered it: 74,155 field instances and 291 draws before, 72,965 and 290
+after. the crew commit added two meshes (the keeper's body and head) and
+four lights. nothing doubled.
+
+the old 98 draws / 900k was a SINGLE-PASS count at the lowest setting,
+where the composer is bypassed. the richest setting was rendering the
+scene three times per frame: colour, the occlusion pass's depth/normal
+prepass, and the shadow pass.
+
+three cuts, measured on the aged world:
+
+| | draws | triangles |
+| --- | --- | --- |
+| before | 290 | 2,297k |
+| ground-truth occlusion removed | 111 | 785k |
+| chunk size 32 to 64 | **71** | **900k** |
+
+- the occlusion pass is gone for good. it rendered every chunk a second
+  time for depth and normals, roughly a third of the frame, and it washed
+  out the sun's own shadows on the way (compared side by side). contact
+  darkening is not worth a third of the budget.
+- the sun's shadow frustum tightened to 48 blocks, which culls most chunks
+  out of the shadow pass.
+- CHUNK went from 32 to 64, so the field is 16 meshes instead of 64. every
+  chunk mesh costs at least two draw calls because the frame is drawn at
+  least twice, so coarser frustum culling is the cheaper trade: triangles
+  rose 785k to 900k while draws fell 111 to 71.
 
 ## known headroom: the ground is 68k instanced cubes
 

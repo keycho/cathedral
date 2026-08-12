@@ -11,13 +11,12 @@
 
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
-import type { Effects } from "./quality";
+import type { Config } from "./quality";
 
 const LUT_SIZE = 16; // tiled 2d lut: 256x16, bilinear across slices
 
@@ -178,20 +177,19 @@ const GradeShader = {
 export class Post {
   readonly composer: EffectComposer;
   private grade: ShaderPass;
-  private gtao: GTAOPass | null = null;
   private bloom: UnrealBloomPass | null = null;
   private depth: THREE.DepthTexture;
   private luts: { day: THREE.DataTexture; golden: THREE.DataTexture; night: THREE.DataTexture };
-  private fx: Effects;
+  private fx: { bloom: boolean; grade: boolean; haze: boolean };
   private scene: THREE.Scene;
 
   constructor(
     private renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
     private camera: THREE.PerspectiveCamera,
-    fx: Effects
+    cfg: Config
   ) {
-    this.fx = { ...fx };
+    this.fx = { bloom: cfg.bloom, grade: cfg.grade, haze: cfg.haze };
     this.scene = scene;
     const size = renderer.getSize(new THREE.Vector2());
     const pr = renderer.getPixelRatio();
@@ -235,17 +233,6 @@ export class Post {
     this.composer.passes.length = 0;
     this.composer.addPass(new RenderPass(this.scene, this.camera));
 
-    if (this.fx.gtao) {
-      // ambient occlusion: contact shadows in the block crevices. the
-      // biggest look win and, on most machines, the biggest bill.
-      if (!this.gtao) {
-        this.gtao = new GTAOPass(this.scene, this.camera, w, h);
-        this.gtao.blendIntensity = 0.85;
-        this.gtao.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0 });
-      }
-      this.composer.addPass(this.gtao);
-    }
-
     if (this.fx.bloom) {
       // bloom on the emissives only: the threshold sits above anything the
       // lit world reaches, so only lanterns, glasslight, the ribbon, the
@@ -262,19 +249,19 @@ export class Post {
     }
   }
 
-  setEffects(fx: Effects) {
-    this.fx = { ...fx };
+  apply(cfg: Config) {
+    this.fx = { bloom: cfg.bloom, grade: cfg.grade, haze: cfg.haze };
     this.build();
   }
 
-  get effects(): Effects {
+  get effects(): { bloom: boolean; grade: boolean; haze: boolean } {
     return { ...this.fx };
   }
 
   // nothing on top of the scene render: main draws straight to the screen
   // and skips the composer's buffers entirely
   get bypass(): boolean {
-    return !this.fx.gtao && !this.fx.bloom && !this.fx.grade;
+    return !this.fx.bloom && !this.fx.grade;
   }
 
   // the sky hands the grade its phase and its air colour every frame
@@ -323,7 +310,6 @@ export class Post {
     this.depth.image.width = Math.floor(w * pr);
     this.depth.image.height = Math.floor(h * pr);
     this.depth.needsUpdate = true;
-    this.gtao?.setSize(w, h);
     this.bloom?.setSize(w, h);
     this.grade.uniforms.cameraNear.value = this.camera.near;
     this.grade.uniforms.cameraFar.value = this.camera.far;

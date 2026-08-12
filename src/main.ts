@@ -31,7 +31,7 @@ import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
 import { Post } from "./post";
 import { PerfHud } from "./perfhud";
-import { initialQuality, qualityFor, type Effects, type Quality, type Tier } from "./quality";
+import { AutoQuality, configAt, startStep, type Config } from "./quality";
 import { Architect } from "./architect";
 import { audio } from "./audio";
 import { CrewWorks, zoneOf as zoneOfCell, type AgentBody } from "./crew";
@@ -67,10 +67,9 @@ const renderer = new THREE.WebGLRenderer({
   antialias: true,
   powerPreference: "high-performance",
 });
-// the render budget is the product. LOW is the default until a real gpu
-// says otherwise: the composer pays for every pixel more than once, so the
-// pixel ratio is the first thing the tier owns.
-const quality: Quality = initialQuality();
+// ONE configuration. no menu, no tiers: the world ships as designed and
+// quietly steps down a ladder if the machine cannot hold the frame.
+let quality: Config = configAt(startStep());
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -697,21 +696,18 @@ const stPos = document.getElementById("st-pos");
 // ---------------------------------------------------------------------------
 // loop
 // ---------------------------------------------------------------------------
-// the post stack: nothing is on at low. every effect can be switched
-// independently from the hud so its cost can be measured on real hardware.
-const post = new Post(renderer, scene, camera, quality.fx);
+// the post stack, built from the one configuration
+const post = new Post(renderer, scene, camera, quality);
 
-// tier changes apply live: pixel ratio, shadow budget, effect set
-const applyTier = (t: Tier) => {
-  const q = qualityFor(t);
-  // the tier carries a sensible resolution (high was measured at pr 2);
-  // the readout's pr buttons override it afterwards for measurement
-  Object.assign(quality, q);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, q.pixelRatio));
+// the silent ladder: if the frame slips, the world gives something up and
+// never says so. it only ever steps down.
+const auto = new AutoQuality((cfg, step) => {
+  quality = cfg;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, cfg.pixelRatio));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  sun.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
-  sun.shadow.radius = q.shadowRadius;
-  SH = q.shadowFrustum;
+  sun.shadow.mapSize.set(cfg.shadowMapSize, cfg.shadowMapSize);
+  sun.shadow.radius = cfg.shadowRadius;
+  SH = cfg.shadowFrustum;
   sun.shadow.camera.left = -SH;
   sun.shadow.camera.right = SH;
   sun.shadow.camera.top = SH;
@@ -721,52 +717,18 @@ const applyTier = (t: Tier) => {
     sun.shadow.map.dispose();
     sun.shadow.map = null;
   }
-  post.setEffects(q.fx);
+  post.apply(cfg);
   post.setSize(window.innerWidth, window.innerHeight);
-};
-
-const perf = new PerfHud(
-  renderer,
-  post,
-  quality,
-  () => field.placedCount,
-  applyTier,
-  (fx: Effects) => {
-    quality.fx = fx;
-    post.setEffects(fx);
-    post.setSize(window.innerWidth, window.innerHeight);
-  },
-  (on: boolean) => {
-    // DEBUG ONLY, and deliberately not a castShadow flip: toggling a
-    // light's castShadow changes three's program cache key, so every
-    // material in the scene recompiles (measured: 52 programs to 61 on one
-    // flip, 64 after flipping back, the cache never shrinking). that churn
-    // is why the no-shadow path measured SLOWER than the shadowed one.
-    // shadows are mandatory at every tier now; this only freezes the map's
-    // refresh so a stale shadow can be inspected.
-    shadowsOn = on;
-    renderer.shadowMap.needsUpdate = true;
-  },
-  (pr: number) => {
-    // resolution is its own axis: measured on top of a chosen tier, never
-    // baked into one
-    quality.pixelRatio = pr;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, pr));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    post.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.needsUpdate = true;
-  }
-);
-
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  post.setSize(window.innerWidth, window.innerHeight);
+  for (let i = 0; i < ashLayers.length; i++) ashLayers[i].points.visible = i < cfg.driftLayers;
+  sky.setStarCount(cfg.stars);
+  void step;
 });
 
+// the debug readout: hidden, p reveals it. no visitor ever sees a quality
+// control anywhere in this world.
+const perf = new PerfHud(renderer, () => field.placedCount, () => auto.current);
+
 let frameNo = 0;
-let shadowsOn = true;
 
 const clock = new THREE.Clock();
 const camDir = new THREE.Vector3();
@@ -856,9 +818,10 @@ function frame() {
     0.75 + Math.sin(t * 0.9) * 0.22;
   glow.intensity = 4.4 + Math.sin(t * 0.9) * 1.2;
 
-  // the shadow map refreshes on the tier's cadence, not every frame
+  // the shadow map refreshes on a cadence, not every frame: the sun crawls
+  // and the world changes a block at a time
   frameNo++;
-  renderer.shadowMap.needsUpdate = shadowsOn && frameNo % quality.shadowEvery === 0;
+  renderer.shadowMap.needsUpdate = frameNo % quality.shadowEvery === 0;
 
   // keep the sun's shadow window centered on the view
   sun.target.position.set(camera.position.x, 0, camera.position.z);
@@ -886,7 +849,9 @@ function frame() {
     post.render();
   }
   perf.update(dt);
+  auto.update(dt, now);
 }
+auto.begin(performance.now());
 frame();
 
 // a small debug/stream handle (the director module will drive cameras
