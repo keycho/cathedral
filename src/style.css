@@ -273,9 +273,52 @@ body.walking #scene {
   color: var(--cream);
 }
 
+/* crew log */
+#journal {
+  position: fixed;
+  left: 16px;
+  top: 96px;
+  z-index: 20;
+  width: 300px;
+  background: rgba(11, 11, 10, 0.82);
+  border: 1px solid rgba(250, 243, 226, 0.14);
+  font-size: 16px;
+  user-select: none;
+}
+#journal .jr-head {
+  padding: 5px 10px;
+  color: var(--sage);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(250, 243, 226, 0.14);
+}
+#journal.folded .jr-list {
+  display: none;
+}
+#journal.folded .jr-head {
+  border-bottom: none;
+}
+#journal .jr-list {
+  padding: 6px 10px 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  line-height: 1.3;
+}
+#journal .jr-row {
+  margin-top: 4px;
+}
+#journal .jr-who {
+  margin-right: 8px;
+}
+#journal .jr-text {
+  color: var(--dim);
+}
+
 @media (max-width: 720px) {
   #panel {
     width: 210px;
     font-size: 16px;
+  }
+  #journal {
+    display: none;
   }
 }

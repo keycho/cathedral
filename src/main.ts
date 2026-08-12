@@ -27,7 +27,10 @@ import { Monuments } from "./monuments";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
 import { audio } from "./audio";
+import { CrewWorks } from "./crew";
+import { Journal } from "./journal";
 import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE } from "./palette";
+import { Surveyor } from "./surveyor";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
 import { Strata } from "./strata";
@@ -146,6 +149,14 @@ const erosion = new Erosion(field, strata, scars, hollows, kinetics, (x, y, z) =
 // the market's marks (r4 monuments, r5 seeds)
 const monuments = new Monuments(field, strata, growth, kinetics);
 
+// ---------------------------------------------------------------------------
+// the crew: embodied agents, their log, their works, their territories
+// ---------------------------------------------------------------------------
+const journal = new Journal();
+const works = new CrewWorks(scene, field, strata);
+works.placeBorders(GENESIS_CELL);
+const surveyor = new Surveyor(scene, field, strata, erosion, hollows, monuments, journal, GENESIS_CELL);
+
 // a burn's roof gives: ceiling stones tumble into the cavity and settle as
 // rubble on its floor
 hollows.onRoofFall = (x, y, z) => {
@@ -225,7 +236,10 @@ ticks.onTick = (s) => {
   // r6: ambient breathes with the tick's gross volume
   ambientTarget = Math.max(0.12, 1 - Math.exp(-s.grossVolumeUsd / 1200));
 };
-ticks.onEpoch = () => strata.advanceEpoch();
+ticks.onEpoch = (epoch) => {
+  strata.advanceEpoch();
+  surveyor.onEpoch(epoch);
+};
 
 // r2b: the mass settles one block; the founding stone's sanctity, glow and
 // the orbit's eye follow it down
@@ -375,6 +389,8 @@ function frame() {
   erosion.update(now);
   hollows.update(t);
   scars.update(now);
+  surveyor.update(dt, now);
+  surveyor.body.update(dt, t);
   panel.update(now);
 
   // r6: the tick's gross volume is authoritative; the rolling minute lets
