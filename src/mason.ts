@@ -112,8 +112,10 @@ export class Mason {
       blockColor(c.material),
       () => {
         if (!this.field.placeAt(c.x, c.y, c.z, c.material)) return;
+        // lock BEFORE registering: register tints unlocked cells with the
+        // strata epoch colour, and dressed stone is not geology
+        this.strata.lock(c.x, c.y, c.z);
         this.strata.register(c.x, c.y, c.z, AGENT_WALLET, planId);
-        this.strata.lock(c.x, c.y, c.z); // dressed stone keeps its colour
         this.works.add(c.x, c.y, c.z, c.material, planId, zone);
         if (c.material === LANTERN) this.works.addLantern(c.x, c.y, c.z);
       },

@@ -299,8 +299,8 @@ export class CrewWorks {
         const y = this.field.topAt(x, z);
         if (y >= MAXY - 3 || this.field.isSolid(x, y, z)) continue;
         if (this.field.placeAt(x, y, z, DRESSED)) {
+          this.strata.lock(x, y, z); // before register: posts keep their cut colour
           this.strata.register(x, y, z, AGENT_WALLET, "border");
-          this.strata.lock(x, y, z);
           this.add(x, y, z, DRESSED, "border", zoneOf(x, z));
         }
       }
