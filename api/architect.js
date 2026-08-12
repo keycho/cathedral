@@ -83,9 +83,12 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        // a 600 block design is roughly 18k characters of json, so the
-        // output budget has to be generous or the plan arrives truncated
-        max_tokens: 16000,
+        // a 600 block design is roughly 18k characters of json, and the
+        // model may spend budget thinking before it writes any of it. too
+        // small a budget and the whole allowance goes on thinking: the
+        // response comes back with no text block at all and the client
+        // silently falls back.
+        max_tokens: 32000,
         system: BIBLE,
         // NO assistant prefill: this model rejects a conversation that ends
         // on an assistant turn. the bible asks for bare json instead and the
@@ -99,14 +102,35 @@ export default async function handler(req, res) {
       return;
     }
     const data = await r.json();
-    const text = (data?.content ?? []).map((c) => c?.text ?? "").join("");
+    const blocks = data?.content ?? [];
+    const text = blocks.map((c) => (c?.type === "text" ? c.text ?? "" : "")).join("");
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
     if (start < 0 || end <= start) {
-      res.status(502).json({ error: "no json in response", detail: text.slice(0, 200) });
+      // say WHY. an empty detail here cost an afternoon: the useful facts
+      // are the stop reason, what block types came back and what the model
+      // spent its budget on, none of which the old message carried.
+      res.status(502).json({
+        error: "no json in response",
+        stop: data?.stop_reason ?? "?",
+        kinds: blocks.map((c) => c?.type ?? "?").join(","),
+        usage: data?.usage ?? null,
+        detail: text.slice(0, 300),
+      });
       return;
     }
-    const parsed = JSON.parse(text.slice(start, end + 1));
+    let parsed;
+    try {
+      parsed = JSON.parse(text.slice(start, end + 1));
+    } catch (e) {
+      res.status(502).json({
+        error: "malformed json",
+        stop: data?.stop_reason ?? "?",
+        usage: data?.usage ?? null,
+        detail: String(e).slice(0, 160) + " :: tail " + text.slice(-160),
+      });
+      return;
+    }
     res.status(200).json(parsed);
   } catch (e) {
     res.status(500).json({ error: String(e && e.message ? e.message : e).slice(0, 200) });
