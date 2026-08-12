@@ -35,6 +35,9 @@ function fmtClock(ms: number): string {
 }
 
 export class DevPanel {
+  // main wires this to the mason's live status
+  crewLine?: () => string;
+
   private root: HTMLElement;
   private body: HTMLElement;
   private rateOut: HTMLElement;
@@ -162,13 +165,15 @@ export class DevPanel {
 
     // holders = wallets that OWN standing blocks (the pubkey pool is not
     // a holder count; a fresh world has zero holders)
+    const crew = this.crewLine ? "\n" + this.crewLine() : "";
     this.statsOut.textContent =
       "blocks " +
       this.strata.blockCount +
       " · holders " +
       this.strata.holderCount +
       " · queued " +
-      this.growth.pending;
+      this.growth.pending +
+      crew;
 
     // re-render the log only when a new event arrived
     const latest = this.feed.log[this.feed.log.length - 1] ?? null;

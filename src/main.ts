@@ -26,9 +26,11 @@ import { Kinetics } from "./kinetics";
 import { Monuments } from "./monuments";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
+import { Architect } from "./architect";
 import { audio } from "./audio";
 import { CrewWorks } from "./crew";
 import { Journal } from "./journal";
+import { Mason } from "./mason";
 import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE } from "./palette";
 import { Surveyor } from "./surveyor";
 import { RULES } from "./rules";
@@ -149,14 +151,6 @@ const erosion = new Erosion(field, strata, scars, hollows, kinetics, (x, y, z) =
 // the market's marks (r4 monuments, r5 seeds)
 const monuments = new Monuments(field, strata, growth, kinetics);
 
-// ---------------------------------------------------------------------------
-// the crew: embodied agents, their log, their works, their territories
-// ---------------------------------------------------------------------------
-const journal = new Journal();
-const works = new CrewWorks(scene, field, strata);
-works.placeBorders(GENESIS_CELL);
-const surveyor = new Surveyor(scene, field, strata, erosion, hollows, monuments, journal, GENESIS_CELL);
-
 // a burn's roof gives: ceiling stones tumble into the cavity and settle as
 // rubble on its floor
 hollows.onRoofFall = (x, y, z) => {
@@ -221,6 +215,36 @@ feed.on((ev) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// the crew: embodied agents, their log, their works, their territories
+// ---------------------------------------------------------------------------
+const journal = new Journal();
+const works = new CrewWorks(scene, field, strata);
+works.placeBorders(GENESIS_CELL);
+const surveyor = new Surveyor(scene, field, strata, erosion, hollows, monuments, journal, GENESIS_CELL);
+const mason = new Mason(scene, field, strata, works, kinetics, journal, {
+  x: GENESIS_CELL.x + 5,
+  z: GENESIS_CELL.z + 13,
+});
+const architect = new Architect(
+  scene,
+  field,
+  strata,
+  ticks,
+  journal,
+  mason,
+  (x, y, z) => hollows.isHollow(x, y, z),
+  GENESIS_CELL,
+  { x: GENESIS_CELL.x + 14, z: GENESIS_CELL.z + 2 }
+);
+
+// dumps bite the crew's work; the mason puts it back before building new
+erosion.pickCrewCell = () => works.sample();
+erosion.onCrewBroken = (x, y, z, material) => {
+  const b = works.remove(x, y, z);
+  mason.repair({ x, y, z, material: b?.material ?? material });
+};
+
 ticks.onTick = (s) => {
   // r1: positive net flow accretes, attributed proportionally to buyers
   if (s.netFlowUsd > 0) {
@@ -239,6 +263,7 @@ ticks.onTick = (s) => {
 ticks.onEpoch = (epoch) => {
   strata.advanceEpoch();
   surveyor.onEpoch(epoch);
+  architect.onEpoch(epoch);
 };
 
 // r2b: the mass settles one block; the founding stone's sanctity, glow and
@@ -258,6 +283,7 @@ ticks.onSubside = () => {
 };
 
 const panel = new DevPanel(feed, strata, growth, ticks);
+panel.crewLine = () => mason.status;
 
 // the founding stone breathes: a faint warm core + a small light that make
 // the one block in the world read as quietly alive
@@ -391,6 +417,9 @@ function frame() {
   scars.update(now);
   surveyor.update(dt, now);
   surveyor.body.update(dt, t);
+  mason.update(now);
+  mason.body.update(dt, t);
+  architect.body.update(dt, t);
   panel.update(now);
 
   // r6: the tick's gross volume is authoritative; the rolling minute lets
@@ -456,7 +485,34 @@ declare global {
       hollows: Hollows;
       strata: Strata;
       GROW: typeof GROW;
+      ticks: TickEngine;
+      erosion: Erosion;
+      monuments: Monuments;
+      surveyor: Surveyor;
+      architect: Architect;
+      mason: Mason;
+      works: CrewWorks;
+      journal: Journal;
     };
   }
 }
-window.cathedral = { field, rig, fp, camera, genesis, feed, growth, hollows, strata, GROW };
+window.cathedral = {
+  field,
+  rig,
+  fp,
+  camera,
+  genesis,
+  feed,
+  growth,
+  hollows,
+  strata,
+  GROW,
+  ticks,
+  erosion,
+  monuments,
+  surveyor,
+  architect,
+  mason,
+  works,
+  journal,
+};
