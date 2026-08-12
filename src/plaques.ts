@@ -11,12 +11,14 @@ import type { CrewWorks } from "./crew";
 import {
   blockById,
   EMBERSEAM,
+  FALL,
   GENESIS,
   isAgentMaterial,
   isGround,
   MEADOW,
   MONUMENT,
   OLDROCK,
+  RISE,
   RUBBLE,
   SCARMOSS,
   SEED,
@@ -32,6 +34,8 @@ const REACH_ORBIT = 90;
 export class Plaques {
   // main wires this: a wallet index becomes a display name
   describeWallet: (w: number) => string = (w) => String(w);
+  // main wires this: a ribbon cell answers with its tick
+  ribbonInfo?: (x: number, y: number, z: number) => { n: number; close: number; rise: boolean } | undefined;
 
   private el: HTMLElement;
   private hideAt = 0;
@@ -95,6 +99,14 @@ export class Plaques {
     }
     if (type === STILLWATER && !this.works.at(x, y, z)) {
       return [mat, "the sky lives in it."];
+    }
+    if (type === RISE || type === FALL) {
+      const ri = this.ribbonInfo?.(x, y, z);
+      return [
+        (type === RISE ? "ascent" : "descent") + " · the price ribbon",
+        ri ? `tick ${ri.n} closed at $${ri.close.toPrecision(3)}` : "one tick of the chart",
+        "the market, walked on",
+      ];
     }
     if (type === GENESIS) {
       return ["the founding stone", "epoch 0 · the world's own", prov ? "tx " + prov.tx : ""];
