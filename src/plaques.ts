@@ -9,14 +9,18 @@ import * as THREE from "three";
 import { GRID } from "./config";
 import type { CrewWorks } from "./crew";
 import {
-  ASH,
-  BEDROCK,
   blockById,
+  EMBERSEAM,
   GENESIS,
   isAgentMaterial,
+  isGround,
+  MEADOW,
   MONUMENT,
+  OLDROCK,
   RUBBLE,
+  SCARMOSS,
   SEED,
+  STILLWATER,
 } from "./palette";
 import type { Strata } from "./strata";
 import type { VoxelField } from "./voxels";
@@ -82,8 +86,15 @@ export class Plaques {
     const prov = this.strata.provAt(x, y, z);
     const mat = blockById(type)?.name ?? "stone";
 
-    if (type === ASH || type === BEDROCK) {
-      return [mat, "the plain. it was always here."];
+    if (isGround(type)) {
+      if (type === MEADOW) return [mat, "the old world. it was always here."];
+      if (type === SCARMOSS) return [mat, "an old wound, greened over."];
+      if (type === OLDROCK) return [mat, "the bones of the land."];
+      if (type === EMBERSEAM) return [mat, "heat that never quite left."];
+      return [mat, "the old world under the grass."];
+    }
+    if (type === STILLWATER && !this.works.at(x, y, z)) {
+      return [mat, "the sky lives in it."];
     }
     if (type === GENESIS) {
       return ["the founding stone", "epoch 0 · the world's own", prov ? "tx " + prov.tx : ""];

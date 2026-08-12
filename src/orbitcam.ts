@@ -8,6 +8,9 @@ import * as THREE from "three";
 
 const AUTO_RATE = 0.05; // rad/s idle drift
 const AUTO_RESUME = 5; // s after the last drag before drifting again
+const VDRIFT_RATE = 0.045; // rad/s of slow vertical wander while idle
+const VDRIFT_LOW = 0.16; // the wander's floor and ceiling
+const VDRIFT_HIGH = 0.72;
 const DRAG_SENS = 0.005;
 const ZOOM_SENS = 0.0012;
 const R_MIN = 6;
@@ -22,6 +25,7 @@ export class OrbitRig {
   polar = 0.42;
 
   private idleFor = Infinity; // s since the last drag
+  private driftT = 0; // clock for the idle vertical wander
   private dragging = false;
   private lastX = 0;
   private lastY = 0;
@@ -74,7 +78,16 @@ export class OrbitRig {
 
   update(dt: number, camera: THREE.PerspectiveCamera) {
     this.idleFor += dt;
-    if (this.idleFor > AUTO_RESUME) this.azimuth += AUTO_RATE * dt;
+    if (this.idleFor > AUTO_RESUME) {
+      this.azimuth += AUTO_RATE * dt;
+      // a slow vertical wander: the eye sinks toward the meadow, rises for
+      // the overview, and back, so idle orbits see the world at every height
+      this.driftT += dt;
+      const mid = (VDRIFT_LOW + VDRIFT_HIGH) / 2;
+      const span = (VDRIFT_HIGH - VDRIFT_LOW) / 2;
+      const want = mid + Math.sin(this.driftT * VDRIFT_RATE) * span;
+      this.polar += (want - this.polar) * Math.min(1, dt * 0.25);
+    }
     const ch = Math.cos(this.polar) * this.radius;
     camera.position.set(
       this.target.x + Math.cos(this.azimuth) * ch,

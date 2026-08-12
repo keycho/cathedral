@@ -1,16 +1,16 @@
-// cathedral - entry. assembles the systems: renderer, ashfall dusk, the
-// voxel field with its ash plain, the founding stone, and the two ways of
+// cathedral - entry. assembles the systems: renderer, the long golden hour,
+// the voxel field with its meadow, the founding stone, and the two ways of
 // seeing: the orbit rig (default, stream shot, mobile) and the first-person
 // walker (click to enter, esc to leave).
 
 import * as THREE from "three";
 import { AshDrift } from "./ash";
 import {
-  C_VOID,
   DEV_EDIT,
   FOG_FAR,
   FOG_NEAR,
   GRID,
+  HAZE,
   MAXY,
   SUN_COLOR,
   SUN_INTENSITY,
@@ -37,9 +37,10 @@ import { Plaques } from "./plaques";
 import { Surveyor } from "./surveyor";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
-import { buildSky } from "./sky";
+import { Sky } from "./sky";
 import { Strata } from "./strata";
-import { buildVoidFloor, GENESIS_CELL, placeGenesis, plainSampler } from "./terrain";
+import { Flora } from "./flora";
+import { buildVoidFloor, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
 import { distributeBlocks, TickEngine } from "./ticks";
 import { VoxelField } from "./voxels";
 
@@ -61,8 +62,8 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(C_VOID);
-scene.fog = new THREE.Fog(C_VOID, FOG_NEAR, FOG_FAR);
+scene.background = new THREE.Color(HAZE);
+scene.fog = new THREE.Fog(HAZE, FOG_NEAR, FOG_FAR);
 
 const camera = new THREE.PerspectiveCamera(
   70,
@@ -73,7 +74,7 @@ const camera = new THREE.PerspectiveCamera(
 scene.add(camera);
 
 // ---------------------------------------------------------------------------
-// ashfall dusk - one low warm sun, long shadows, near-void ambient
+// the long golden hour - warm low sun, soft shadows, warm bounce
 // ---------------------------------------------------------------------------
 const sun = new THREE.DirectionalLight(SUN_COLOR, SUN_INTENSITY);
 sun.castShadow = true;
@@ -92,27 +93,27 @@ sun.shadow.normalBias = 0.35;
 scene.add(sun);
 scene.add(sun.target);
 
-// sun sits low (~11 degrees) so every block drags a long shadow
-const sunDir = new THREE.Vector3(-0.72, 0.2, -0.42).normalize();
+// the sun rides a fixed azimuth; the sky's day script raises and lowers it
+const SUN_AZ = Math.atan2(-0.42, -0.66);
 const SUN_DIST = 180;
 
-// the dusk band the world silhouettes against, hottest toward the sun
-buildSky(scene, Math.atan2(sunDir.z, sunDir.x));
+// the painterly sky: gradient dome, drifting clouds, stars, and the slow
+// day cycle with its long golden hour. it publishes the light script;
+// the lights below are its instruments.
+const sky = new Sky(scene, SUN_AZ);
 
-// faint warm sky over void ground; keeps unlit faces just above black
-scene.add(new THREE.HemisphereLight(0x33271d, 0x0b0b0a, 0.62));
+// warm bounce: bright sky light over meadow-green ground fill, so shadows
+// stay soft and painterly instead of harsh
+const hemi = new THREE.HemisphereLight(0xffe2b8, 0x74854e, 0.85);
+scene.add(hemi);
 
-// a whisper of sage fill from the far side so the shadow side of the mass
-// keeps its shape instead of dropping to pure void
-const fill = new THREE.DirectionalLight(0x8fae6a, 0.15);
+// a gentle cool fill from the far side for shape in the shade
+const fill = new THREE.DirectionalLight(0xaebfd8, 0.18);
 fill.position.set(120, 60, 90);
 scene.add(fill);
 
-// the viewer's fill: a soft warm-neutral light cast from the camera, so
-// whatever face of the structure you are looking at always reads its
-// strata tint. one low sun means one dark side; the structure is the
-// product and can never be a black smudge from the orbit cam.
-const viewFill = new THREE.DirectionalLight(0xd8c8ac, 0.48);
+// the viewer's fill, eased right back now the world carries daylight
+const viewFill = new THREE.DirectionalLight(0xf2e2c2, 0.22);
 scene.add(viewFill);
 scene.add(viewFill.target);
 
@@ -120,10 +121,13 @@ scene.add(viewFill.target);
 // the world: ash plain + founding stone
 // ---------------------------------------------------------------------------
 buildVoidFloor(scene);
-const field = new VoxelField(plainSampler);
+const field = new VoxelField(meadowSampler);
 scene.add(field.group);
 
 const genesis = placeGenesis(field);
+
+// the living layer: grass, wildflowers, reeds, moss, all on the same wind
+const flora = new Flora(scene, field);
 
 // strata: provenance + epoch tints. the founding stone is the world's own,
 // locked so no tint pass ever touches it.
@@ -243,6 +247,9 @@ const architect = new Architect(
   GENESIS_CELL,
   { x: GENESIS_CELL.x + 14, z: GENESIS_CELL.z + 2 }
 );
+
+// settled rubble greens over in time: ruins read reclaimed, not grim
+erosion.onRubble = (x, y, z) => flora.mossRubble(x, y, z);
 
 // dumps bite the crew's work; the mason puts it back before building new
 erosion.pickCrewCell = () => works.sample();
@@ -435,6 +442,8 @@ function frame() {
   if (walking) fp.update(dt);
   else rig.update(dt, camera);
   probe?.update();
+  sky.update(dt, t, camera.position);
+  flora.update(t);
   ash.update(dt, t, camera.position);
   feed.update(now);
   ticks.update(now);
@@ -459,8 +468,16 @@ function frame() {
     const rolling = 1 - Math.exp(-feed.grossPerMin(now) / 2500);
     ambientLevel += (Math.max(ambientTarget, rolling) - ambientLevel) * 0.25;
     ash.setLevel(ambientLevel);
-    sun.intensity = SUN_INTENSITY * (1 + 0.28 * ambientLevel);
   }
+
+  // the sky's day script plays the lights; the market breathes on top (r6)
+  sun.color.copy(sky.light.sunColor);
+  sun.intensity = sky.light.sunIntensity * (1 + 0.28 * ambientLevel);
+  hemi.color.copy(sky.light.hemiSky);
+  hemi.groundColor.copy(sky.light.hemiGround);
+  hemi.intensity = sky.light.hemiIntensity;
+  (scene.fog as THREE.Fog).color.copy(sky.light.fog);
+  (scene.background as THREE.Color).copy(sky.light.fog);
 
   if (net.enabled) {
     net.sendPos(fp.pos.x, fp.pos.y, fp.pos.z, fp.yaw, now);
@@ -474,7 +491,7 @@ function frame() {
 
   // keep the sun's shadow window centered on the view
   sun.target.position.set(camera.position.x, 0, camera.position.z);
-  sun.position.copy(sun.target.position).addScaledVector(sunDir, SUN_DIST);
+  sun.position.copy(sun.target.position).addScaledVector(sky.light.sunDir, SUN_DIST);
 
   // the viewer fill rides the camera
   camera.getWorldDirection(camDir);
@@ -524,6 +541,8 @@ declare global {
       works: CrewWorks;
       journal: Journal;
       plaques: Plaques;
+      sky: Sky;
+      flora: Flora;
       runHistory: (epochs?: number) => number;
     };
   }
@@ -548,5 +567,7 @@ window.cathedral = {
   works,
   journal,
   plaques,
+  sky,
+  flora,
   runHistory,
 };
