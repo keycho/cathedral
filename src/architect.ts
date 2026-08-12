@@ -72,9 +72,10 @@ export class Architect {
   }
 
   // the volume that funds the crew: gross usd across the trailing budget
-  // window's worth of ticks
+  // window. the window is wall-time, so compressed ticks widen the count
+  // (10 minutes of a 10x world is 200 ticks, not 20).
   private budget(): number {
-    const ticksInWindow = Math.round(RULES.crewBudgetWindowMs / RULES.tickMs);
+    const ticksInWindow = Math.max(1, Math.round(RULES.crewBudgetWindowMs / this.ticks.tickLenMs));
     let gross = 0;
     for (const s of this.ticks.history.slice(-ticksInWindow)) gross += s.grossVolumeUsd;
     return Math.min(RULES.crewBudgetMax, Math.floor(gross / RULES.crewBudgetUsdPerBlock));
@@ -148,7 +149,14 @@ export class Architect {
       }
       const score = openCells - (maxH - minH) * 2 - r * 0.4;
       if (!best || score > best.score) best = { x: ax, z: az, score };
-      if (openCells >= probes * 0.72 && (!bestOpen || score > bestOpen.score)) {
+      // a fully qualified site is open AND wholly inside its territory,
+      // so validation never trims the blueprint at a wedge border
+      const cornersIn =
+        zoneOf(ax, az) === zone &&
+        zoneOf(ax + PATCH - 1, az) === zone &&
+        zoneOf(ax, az + PATCH - 1) === zone &&
+        zoneOf(ax + PATCH - 1, az + PATCH - 1) === zone;
+      if (openCells >= probes * 0.72 && cornersIn && (!bestOpen || score > bestOpen.score)) {
         bestOpen = { x: ax, z: az, score };
       }
     }

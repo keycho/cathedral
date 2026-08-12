@@ -90,6 +90,7 @@ export function simulateHistory(deps: HistoryDeps, epochs: number): number {
   // a market with moods: multi-epoch regimes so strata bands read
   let mood = 1; // 1 bull, 0 chop, -1 bear
   let moodLeft = 0;
+  const epochGross: number[] = [];
 
   for (let e = 0; e < epochs; e++) {
     strata.epoch = startEpoch + e; // births carry the simulated epoch
@@ -100,8 +101,10 @@ export function simulateHistory(deps: HistoryDeps, epochs: number): number {
     }
     moodLeft--;
 
+    let gross = 0;
     if (mood >= 0) {
       const grown = mood === 1 ? 45 + Math.floor(Math.random() * 90) : 8 + Math.floor(Math.random() * 22);
+      gross += grown * RULES.usdPerBlock;
       // a handful of buyers share each epoch's growth
       let left = grown;
       while (left > 0) {
@@ -112,8 +115,11 @@ export function simulateHistory(deps: HistoryDeps, epochs: number): number {
       while (growth.pending > 0) growth.drain();
     }
     if (mood === -1) {
-      erodeInstant(deps, 10 + Math.floor(Math.random() * 26));
+      const eroded = 10 + Math.floor(Math.random() * 26);
+      gross += eroded * RULES.usdPerBlock;
+      erodeInstant(deps, eroded);
     }
+    epochGross.push(gross);
     // the rarer marks of a long life
     if (Math.random() < 0.06) {
       hollows.burn(2e5 + Math.random() * 2e6, (x, y, z) => growth.refreshAround(x, y, z));
@@ -124,6 +130,24 @@ export function simulateHistory(deps: HistoryDeps, epochs: number): number {
 
   strata.epoch = startEpoch + epochs;
   ticks.tick = strata.epoch * RULES.ticksPerEpoch; // the live clock resumes here
+
+  // the simulated market also funds the crew: seed the tick record with
+  // the trailing epochs' volume so an aged world does not wake up broke
+  const windowTicks = Math.max(1, Math.round(RULES.crewBudgetWindowMs / ticks.tickLenMs));
+  const tail = epochGross.slice(-Math.max(1, Math.ceil(windowTicks / RULES.ticksPerEpoch)));
+  const perTick = tail.reduce((a, b) => a + b, 0) / Math.max(1, tail.length) / RULES.ticksPerEpoch;
+  for (let k = 0; k < Math.min(windowTicks, 400); k++) {
+    ticks.history.push({
+      n: ticks.tick - windowTicks + k + 1,
+      netFlowUsd: 0,
+      grossVolumeUsd: perTick,
+      uniqueWallets: 0,
+      largestTxUsd: 0,
+      buys: new Map(),
+      sells: new Map(),
+    });
+  }
+
   strata.retintAll(); // every stratum takes its true age colour
   growth.dropper = savedDropper;
   return strata.blockCount;

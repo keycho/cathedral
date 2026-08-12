@@ -98,7 +98,9 @@ export class TickEngine {
       sells: a.sells,
     };
     this.history.push(s);
-    if (this.history.length > 40) this.history.shift();
+    // deep enough to cover the crew's funding window even under 10x
+    // compression (the budget reads real minutes, not tick counts)
+    if (this.history.length > 400) this.history.shift();
 
     if (s.netFlowUsd < 0) this.negativeRun++;
     else this.negativeRun = 0;
