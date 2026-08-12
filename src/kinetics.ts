@@ -27,6 +27,7 @@ interface Faller {
   spin: THREE.Vector3;
   landed: (cx: number, cz: number) => void; // cell x/z it came to rest over
   big: boolean; // monument-grade impact
+  stopY: number | null; // exact rest height (accretion lands IN its cell)
 }
 
 export class Kinetics {
@@ -108,11 +109,11 @@ export class Kinetics {
     cellZ: number,
     colorHex: number,
     landed: (cx: number, cz: number) => void,
-    opts?: { from?: number; driftX?: number; driftZ?: number; big?: boolean; vy?: number }
+    opts?: { from?: number; driftX?: number; driftZ?: number; big?: boolean; vy?: number; stopY?: number }
   ) {
     const wx = cellX - GRID / 2 + 0.5;
     const wz = cellZ - GRID / 2 + 0.5;
-    const surf = this.field.surfaceBelow(wx, wz, 95);
+    const surf = opts?.stopY ?? this.field.surfaceBelow(wx, wz, 95);
     const mesh = this.free.pop();
     if (!mesh) {
       landed(cellX, cellZ); // pool dry: arrive instantly
@@ -141,6 +142,7 @@ export class Kinetics {
       ),
       landed,
       big: opts?.big ?? false,
+      stopY: opts?.stopY ?? null,
     });
   }
 
@@ -154,7 +156,7 @@ export class Kinetics {
       f.z += f.vz * dt;
       f.vx *= 1 - 1.4 * dt;
       f.vz *= 1 - 1.4 * dt;
-      const floor = this.field.surfaceBelow(f.x, f.z, Math.max(2, f.y + 1));
+      const floor = f.stopY ?? this.field.surfaceBelow(f.x, f.z, Math.max(2, f.y + 1));
       if (f.y <= floor + 0.5) {
         // rest
         const cx = Math.floor(f.x + GRID / 2);

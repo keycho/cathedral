@@ -43,12 +43,16 @@ export class Growth {
   // cells no accretion may ever fill (burn hollows) or occupy right now
   // (the walker's body); assigned by main
   forbidden?: (x: number, y: number, z: number) => boolean;
+  // when set, a picked block ARRIVES: the visual falls in and commit() is
+  // called on landing. without it (headless, tests) blocks commit at once.
+  dropper?: (x: number, y: number, z: number, commit: () => void) => void;
 
   // the air frontier: empty cells adjacent to the structure, as a parallel
   // array + index map so removal is o(1) and weighted sampling is a scan
   private cand: number[] = [];
   private candPos = new Map<number, number>();
   private queue: Order[] = [];
+  private reserved = new Set<number>(); // cells with stone mid-air above them
   private salt = 1; // decorrelates the per-pick jitter stream
 
   constructor(private field: VoxelField, private strata: Strata) {}
@@ -75,6 +79,7 @@ export class Growth {
     if (z < GROW.margin || z >= GRID - GROW.margin) return false;
     if (y < 1 || y >= MAXY - 2) return false;
     if (this.field.isSolid(x, y, z)) return false;
+    if (this.reserved.has(this.idx(x, y, z))) return false;
     if (this.forbidden?.(x, y, z)) return false;
     for (const [dx, dy, dz] of DIRS) {
       if (this.isStruct(x + dx, y + dy, z + dz)) return true;
@@ -165,15 +170,23 @@ export class Growth {
         this.queue.shift(); // nowhere to grow (fully entombed); drop the order
         continue;
       }
-      const [x, y, z] = this.unpack(i);
-      if (!this.field.placeAt(x, y, z, MASS)) {
-        // could not commit (defensive); forget this candidate and retry later
-        this.refreshCell(x, y, z);
-        continue;
-      }
       this.queue.shift();
-      this.strata.register(x, y, z, order.wallet, order.tx);
-      this.refreshAround(x, y, z);
+      const [x, y, z] = this.unpack(i);
+      const commit = () => {
+        this.reserved.delete(i);
+        if (this.field.placeAt(x, y, z, MASS)) {
+          this.strata.register(x, y, z, order.wallet, order.tx);
+        }
+        this.refreshAround(x, y, z);
+      };
+      if (this.dropper) {
+        // reserve the cell so nothing else grows into it mid-air
+        this.reserved.add(i);
+        this.refreshCell(x, y, z);
+        this.dropper(x, y, z, commit);
+      } else {
+        commit();
+      }
     }
   }
 }

@@ -20,8 +20,10 @@ import { Feed } from "./feed";
 import { FirstPerson } from "./firstperson";
 import { GROW, Growth } from "./growth";
 import { Hollows } from "./hollows";
+import { Kinetics } from "./kinetics";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
+import { blockColor, MASS } from "./palette";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
 import { Strata } from "./strata";
@@ -114,9 +116,15 @@ const genesisY = Math.floor(genesis.y);
 strata.lock(GENESIS_CELL.x, genesisY, GENESIS_CELL.z);
 strata.register(GENESIS_CELL.x, genesisY, GENESIS_CELL.z, -1, "genesis");
 
-// accretion: the frontier opens on the founding stone's faces
+// kinetics: everything that enters the world falls in and thuds
+const kinetics = new Kinetics(scene, field, camera);
+
+// accretion: the frontier opens on the founding stone's faces, and every
+// grown block arrives from above
 const growth = new Growth(field, strata);
 growth.refreshAround(GENESIS_CELL.x, genesisY, GENESIS_CELL.z);
+growth.dropper = (x, y, z, commit) =>
+  kinetics.drop(x, z, blockColor(MASS), () => commit(), { stopY: y, from: 8 + Math.random() * 4 });
 
 // burn hollows: permanent carved chambers, ember-lit. the founding stone
 // is sacred and can never burn.
@@ -286,6 +294,7 @@ function frame() {
   feed.update(now);
   strata.update(now);
   growth.drain();
+  kinetics.update(dt);
   hollows.update(t);
   scars.update(now);
   panel.update(now);
