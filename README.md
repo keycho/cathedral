@@ -34,8 +34,23 @@ destabilizes frontier blocks until they break and tumble into permanent
 rubble, burns carve hollow chambers that never heal, a large single buy
 raises a monument, a new holder plants a seed block on open ground. every
 block permanently records the wallet, transaction and epoch that made it.
-strata are tinted by age: sage when young, cream as they settle, orange in
-the deepest layers.
+strata are tinted by age: young green when fresh, cream as they settle,
+sunwarm terracotta in the deepest layers, and warming toward gold where a
+large holder's stack stands.
+
+the market is also visible as itself. the price ribbon is a chart you can
+walk on, one glowing column per closed tick snaking the world's spine,
+ascents in spirit green and descents in ember. a candle row forms live at
+the founding plaza's edge. values float from the impacts as stone lands or
+breaks. under it all a quiet heartbeat keeps the pace of the trailing
+minute's transactions.
+
+the world is vertical. as the mass passes its milestones, as a great whale
+surfaces, as a major burn tears through, islands calve into the sky
+carrying the strata age of the stone they broke from, gardened and glowing
+underneath. the architect keeps one long project alive across the epochs:
+an ascent, rising stage by stage from its own wedge until a crossing joins
+the realms.
 
 on top of the geology, a small agent crew (surveyor, architect, mason,
 keeper) observes, plans, and builds. every plan is approved by a human gate
@@ -60,11 +75,16 @@ npm run dev
 
 layer 1 (market = geology) complete against the synthetic feed: ticks,
 accretion, collapse with physics and permanent rubble, subsidence, burns
-with cave-ins, monuments, seeds, storms, sound. layer 2 (agents =
-architecture) live: the crew surveys, designs against the style bible
-(claude api when a key is configured, faithful stubs otherwise) and
-builds, embodied and watchable. plaques answer for every block. no
-chain yet; the indexer is next.
+with cave-ins, monuments, seeds, storms, sound, and the sky realm's
+calved islands. the market renders itself as terrain too: the price
+ribbon, the candle row, value glyphs, the holdings aura, the heartbeat.
+layer 2 (agents = architecture) live: the crew surveys, designs against
+the style bible (claude api when a key is configured, faithful stubs
+otherwise) and builds, embodied and watchable, including the architect's
+standing ascent into the sky. the world wakes aged, with fifty epochs of
+strata and four finished works standing; ?young boots the empty meadow.
+plaques answer for every block, and the shrine of epochs replays the
+whole history in light. no chain yet; the indexer is next.
 
 ## license
 
