@@ -21,6 +21,7 @@ import { Erosion } from "./erosion";
 import { Feed } from "./feed";
 import { FirstPerson } from "./firstperson";
 import { GROW, Growth } from "./growth";
+import { simulateHistory } from "./history";
 import { Hollows } from "./hollows";
 import { Kinetics } from "./kinetics";
 import { Monuments } from "./monuments";
@@ -289,6 +290,23 @@ ticks.onSubside = () => {
 const panel = new DevPanel(feed, strata, growth, ticks);
 panel.crewLine = () => mason.status;
 
+// simulated history: age a dev world 50 epochs so the strata ramp has a
+// real past to render (blocks carry the simulated epoch they were born in)
+const runHistory = (epochs = 50) =>
+  simulateHistory(
+    {
+      field,
+      strata,
+      growth,
+      hollows,
+      ticks,
+      raiseMonument: (w, tx) => monuments.raise(w, tx),
+      plantSeed: (w, tx) => monuments.plant(w, tx),
+    },
+    epochs
+  );
+panel.onHistory = () => runHistory(50);
+
 // the founding stone breathes: a faint warm core + a small light that make
 // the one block in the world read as quietly alive
 const core = new THREE.Mesh(
@@ -497,6 +515,7 @@ declare global {
       mason: Mason;
       works: CrewWorks;
       journal: Journal;
+      runHistory: (epochs?: number) => number;
     };
   }
 }
@@ -519,4 +538,5 @@ window.cathedral = {
   mason,
   works,
   journal,
+  runHistory,
 };

@@ -176,7 +176,12 @@ export class Strata {
   // called by the tick engine every 20 ticks
   advanceEpoch() {
     this.epoch++;
-    // re-walk every stratum toward its new age colour, in batches
+    this.retintAll();
+  }
+
+  // re-walk every stratum toward its age colour, in batches (also used
+  // after a simulated-history bootstrap jumps the epoch)
+  retintAll() {
     this.retint = [...this.prov.keys()];
     this.retintAt = 0;
   }

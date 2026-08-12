@@ -37,6 +37,8 @@ function fmtClock(ms: number): string {
 export class DevPanel {
   // main wires this to the mason's live status
   crewLine?: () => string;
+  // main wires this to the simulated-history bootstrap
+  onHistory?: () => void;
 
   private root: HTMLElement;
   private body: HTMLElement;
@@ -103,10 +105,14 @@ export class DevPanel {
       const b = el("button", "pn-btn pn-" + kind, btns, kind);
       b.addEventListener("click", () => this.feed.manual(kind));
     }
-    // the storm test: 30s of compressed violent market
+    // the storm test: 30s of compressed violent market. history: replay
+    // 50 epochs of simulated life so the world looks aged (dev worlds
+    // only; the real genesis starts from nothing by law)
     const stormRow = el("div", "pn-btns", this.body);
     this.stormBtn = el("button", "pn-btn pn-storm", stormRow, "storm");
     this.stormBtn.addEventListener("click", () => this.feed.storm());
+    const histBtn = el("button", "pn-btn pn-toggle", stormRow, "history");
+    histBtn.addEventListener("click", () => this.onHistory?.());
 
     // the world clock (fast mode compresses ticks 10x, and epochs,
     // collapse and subsidence compress with them; the constitution's
