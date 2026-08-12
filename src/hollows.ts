@@ -37,6 +37,8 @@ export class Hollows {
   // main wires this: a ceiling block breaking loose during a burn (it
   // tumbles into the cavity and settles as rubble on its floor)
   onRoofFall?: (x: number, y: number, z: number) => void;
+  // where the last burn carved (island calving reads this)
+  lastBurn: { x: number; y: number; z: number } | null = null;
 
   private hollow = new Set<number>();
   private lining = new Set<number>();
@@ -110,6 +112,7 @@ export class Hollows {
     if (center < 0) return 0;
 
     const [cx, cy, cz] = this.unpack(center);
+    this.lastBurn = { x: cx, y: cy, z: cz };
     const r = this.radiusFor(amountTokens);
     const R = Math.ceil(r);
     const removed: number[] = [];

@@ -76,8 +76,14 @@ export class Strata {
   // ---- provenance ----------------------------------------------------------
 
   register(x: number, y: number, z: number, wallet: number, tx: string) {
+    this.registerAged(x, y, z, wallet, tx, this.epoch);
+  }
+
+  // register with an explicit birth epoch: calved islands inherit the age
+  // of the mass they broke away from
+  registerAged(x: number, y: number, z: number, wallet: number, tx: string, epoch: number) {
     const i = this.idx(x, y, z);
-    this.prov.set(i, { wallet, tx, epoch: this.epoch });
+    this.prov.set(i, { wallet, tx, epoch });
     this.cellPos.set(i, this.cells.length);
     this.cells.push(i);
     if (wallet >= 0) this.byWallet.set(wallet, (this.byWallet.get(wallet) ?? 0) + 1);
@@ -128,6 +134,11 @@ export class Strata {
   // the registered cells as-is (subsidence copies + sorts before walking)
   cellsSnapshot(): readonly number[] {
     return this.cells;
+  }
+
+  // walk every stratum with its provenance (the shrine reads the ages)
+  forEachProv(fn: (idx: number, p: Provenance) => void) {
+    for (const [i, p] of this.prov) fn(i, p);
   }
 
   lock(x: number, y: number, z: number) {
