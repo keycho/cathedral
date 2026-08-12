@@ -12,6 +12,9 @@ export interface JournalEntry {
   epoch: number;
   text: string;
   at: number; // wall clock, so the feed can date an entry
+  // which brain wrote it: a real claude call, or one of the fallbacks the
+  // world uses when the api is absent. the log says so plainly.
+  source?: "claude" | "founding" | "scripted" | "ascent";
 }
 
 export class Journal {
@@ -37,8 +40,8 @@ export class Journal {
   // main wires this: every entry is published as it is written
   onEntry?: (e: JournalEntry) => void;
 
-  add(agent: AgentName, epoch: number, text: string) {
-    const e: JournalEntry = { agent, epoch, text, at: Date.now() };
+  add(agent: AgentName, epoch: number, text: string, source?: JournalEntry["source"]) {
+    const e: JournalEntry = { agent, epoch, text, at: Date.now(), source };
     this.entries.push(e);
     if (this.entries.length > KEEP) this.entries.shift();
     this.onEntry?.(e);
@@ -97,6 +100,12 @@ export class Journal {
       txt.textContent = e.text;
       row.appendChild(who);
       row.appendChild(txt);
+      if (e.source) {
+        const src = document.createElement("span");
+        src.className = "jr-src";
+        src.textContent = " · " + e.source;
+        row.appendChild(src);
+      }
       this.list.appendChild(row);
     }
     this.list.scrollTop = this.list.scrollHeight;

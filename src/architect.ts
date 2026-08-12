@@ -259,7 +259,7 @@ export class Architect {
         memo?: string;
         blocks?: { x: number; y: number; z: number; m: string }[];
       };
-      return this.validate(raw, site, funded, epoch);
+      return this.validate(raw, site, funded, epoch, "claude");
     } catch {
       return null;
     }
@@ -269,7 +269,8 @@ export class Architect {
     raw: { title?: string; memo?: string; blocks?: { x: number; y: number; z: number; m: string }[] },
     site: Site,
     funded: number,
-    epoch: number
+    epoch: number,
+    source: "claude" | "founding" | "scripted" = "scripted"
   ): Blueprint | null {
     if (!raw || !Array.isArray(raw.blocks) || !raw.blocks.length) return null;
     const cells: BlueprintCell[] = [];
@@ -299,7 +300,7 @@ export class Architect {
     if (!cells.length) return null;
     const title = (raw.title ?? "untitled work").toLowerCase().slice(0, 48);
     const memo = (raw.memo ?? "").toLowerCase().slice(0, 160);
-    this.journal.add("architect", epoch, `${title}. ${memo}`.trim());
+    this.journal.add("architect", epoch, `${title}. ${memo}`.trim(), source);
     return { planId: "plan-" + (this.planCount + 1), title, zone: site.zone, cells };
   }
 
@@ -452,7 +453,8 @@ export class Architect {
       this.journal.add(
         "architect",
         epoch,
-        `the ascent climbs. stage ${a.stage}, ${left > 0 ? left + " blocks below the island" : "the island within reach"}.`
+        `the ascent climbs. stage ${a.stage}, ${left > 0 ? left + " blocks below the island" : "the island within reach"}.`,
+        "ascent"
       );
     }
 
@@ -480,6 +482,53 @@ export class Architect {
     }
   }
 
+  // ---- the brain seam ------------------------------------------------------
+
+  // the payload the architect would post for a fresh site in a zone. handed
+  // out so a brain that lives outside the browser (the deployed endpoint
+  // during a review, an sdk agent in phase 3) can answer it.
+  snapshotSite(zone: ZoneName, epoch: number): { site: Site; payload: unknown } | null {
+    const site = this.pickSite(zone);
+    if (!site) return null;
+    const funded = Math.max(RULES.crewBudgetIdleBelow, this.budget());
+    return {
+      site,
+      payload: {
+        zone: site.zone,
+        palette: ZONE_PALETTES[site.zone],
+        budget: Math.min(funded, RULES.crewBudgetMax),
+        patch: PATCH,
+        heights: site.heights,
+        blocked: site.blocked,
+        notes: this.journal.notesBy("surveyor", 5),
+        aggregates: this.ticks.history.slice(-10).map((s) => ({
+          tick: s.n,
+          net: Math.round(s.netFlowUsd),
+          gross: Math.round(s.grossVolumeUsd),
+          wallets: s.uniqueWallets,
+        })),
+        epoch,
+      },
+    };
+  }
+
+  // a design from that brain, validated against exactly the same law the
+  // live path applies, then handed to the mason
+  acceptBlueprint(
+    raw: { title?: string; memo?: string; blocks?: { x: number; y: number; z: number; m: string }[] },
+    site: Site,
+    epoch: number,
+    source: "claude" | "founding" | "scripted" = "claude"
+  ): Blueprint | null {
+    const funded = Math.max(RULES.crewBudgetIdleBelow, this.budget());
+    const bp = this.validate(raw, site, funded, epoch, source);
+    if (!bp) return null;
+    this.planCount++;
+    this.lastMode = source;
+    this.mason.assign(bp);
+    return bp;
+  }
+
   // ---- fallbacks -----------------------------------------------------------
 
   private async foundingBlueprint(site: Site, funded: number): Promise<Blueprint | null> {
@@ -487,7 +536,7 @@ export class Architect {
       const res = await fetch("./blueprints/founding.json");
       if (!res.ok) return null;
       const raw = await res.json();
-      return this.validate(raw, site, funded, this.strata.epoch);
+      return this.validate(raw, site, funded, this.strata.epoch, "founding");
     } catch {
       return null;
     }

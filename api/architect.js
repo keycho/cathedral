@@ -73,12 +73,14 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 8000,
+        // a 600 block design is roughly 18k characters of json, so the
+        // output budget has to be generous or the plan arrives truncated
+        max_tokens: 16000,
         system: BIBLE,
-        messages: [
-          { role: "user", content: user },
-          { role: "assistant", content: "{" },
-        ],
+        // NO assistant prefill: this model rejects a conversation that ends
+        // on an assistant turn. the bible asks for bare json instead and the
+        // extraction below tolerates a stray fence or sentence.
+        messages: [{ role: "user", content: user }],
       }),
     });
     if (!r.ok) {
@@ -87,13 +89,14 @@ export default async function handler(req, res) {
       return;
     }
     const data = await r.json();
-    const text = "{" + (data?.content?.[0]?.text ?? "");
+    const text = (data?.content ?? []).map((c) => c?.text ?? "").join("");
+    const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
-    if (end < 0) {
-      res.status(502).json({ error: "no json in response" });
+    if (start < 0 || end <= start) {
+      res.status(502).json({ error: "no json in response", detail: text.slice(0, 200) });
       return;
     }
-    const parsed = JSON.parse(text.slice(0, end + 1));
+    const parsed = JSON.parse(text.slice(start, end + 1));
     res.status(200).json(parsed);
   } catch (e) {
     res.status(500).json({ error: String(e && e.message ? e.message : e).slice(0, 200) });

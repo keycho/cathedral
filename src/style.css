@@ -373,3 +373,9 @@ body.walking #scene {
   color: var(--cream);
   border-color: rgba(250, 243, 226, 0.55);
 }
+
+/* which brain wrote a journal entry: a real claude call, or a fallback */
+.jr-src {
+  color: var(--dim);
+  opacity: 0.75;
+}
