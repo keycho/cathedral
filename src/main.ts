@@ -323,9 +323,11 @@ const panel = new DevPanel(feed, strata, growth, ticks);
 panel.crewLine = () => mason.status;
 
 // simulated history: age a dev world 50 epochs so the strata ramp has a
-// real past to render (blocks carry the simulated epoch they were born in)
-const runHistory = (epochs = 50) => {
-  const n = simulateHistory(
+// real past to render (blocks carry the simulated epoch they were born in),
+// then let the crew's finished works stand in it, staggered through the
+// past so their plaques carry believable ages
+const runHistory = async (epochs = 50) => {
+  simulateHistory(
     {
       field,
       strata,
@@ -338,10 +340,23 @@ const runHistory = (epochs = 50) => {
     },
     epochs
   );
+  const finalEpoch = strata.epoch;
+  const finished: { url: string; zone: "architect" | "surveyor" | "mason"; at: number }[] = [
+    { url: "./blueprints/founding.json", zone: "architect", at: Math.max(1, finalEpoch - 30) },
+    { url: "./blueprints/ember-gate.json", zone: "mason", at: Math.max(1, finalEpoch - 22) },
+    { url: "./blueprints/reed-hall.json", zone: "surveyor", at: Math.max(1, finalEpoch - 12) },
+    { url: "./blueprints/high-terrace.json", zone: "architect", at: Math.max(1, finalEpoch - 4) },
+  ];
+  for (const w of finished) {
+    strata.epoch = w.at;
+    const bp = await architect.prepareCompleted(w.url, w.zone);
+    if (bp) mason.placeInstant(bp);
+  }
+  strata.epoch = finalEpoch;
   ribbon.rebuild(); // the aged world wakes up carrying its chart
-  return n;
+  return strata.blockCount;
 };
-panel.onHistory = () => runHistory(50);
+panel.onHistory = () => void runHistory(50);
 
 // the founding stone breathes: a faint warm core + a small light that make
 // the one block in the world read as quietly alive
@@ -579,7 +594,7 @@ declare global {
       sky: Sky;
       flora: Flora;
       ribbon: Ribbon;
-      runHistory: (epochs?: number) => number;
+      runHistory: (epochs?: number) => Promise<number>;
     };
   }
 }
@@ -608,3 +623,9 @@ window.cathedral = {
   ribbon,
   runHistory,
 };
+
+// aged preview by default: the world is worth a screenshot within its
+// first ten seconds. ?young boots the empty meadow instead (and the real
+// genesis, phase 2, always starts young by law). runs last: the history
+// bootstrap drives every system, so every system must exist first.
+if (!new URLSearchParams(location.search).has("young")) void runHistory(50);
