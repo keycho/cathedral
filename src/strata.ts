@@ -14,9 +14,12 @@ import type { VoxelField } from "./voxels";
 // tint ramp: epochs of age at which a block is fully cream / fully orange
 const YOUNG_SPAN = 8; // sage -> cream across the first 8 epochs
 const OLD_SPAN = 24; // cream -> orange across the next 24
-const SAGE = { r: 0x8f, g: 0xae, b: 0x6a };
+// lifted a step above the style tokens so lit faces read their tint at
+// orbit distance under the dusk sun (the tokens are the identity; these
+// are the stage make-up)
+const SAGE = { r: 0x9d, g: 0xbd, b: 0x76 };
 const CREAM = { r: 0xfa, g: 0xf3, b: 0xe2 };
-const ORANGE = { r: 0xd4, g: 0x5a, b: 0x20 };
+const ORANGE = { r: 0xde, g: 0x66, b: 0x28 };
 
 export interface Provenance {
   wallet: number; // index into the feed's wallet pool (-1 = the world itself)

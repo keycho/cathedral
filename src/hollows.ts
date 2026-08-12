@@ -172,7 +172,7 @@ export class Hollows {
     }
 
     // a warm breathing light inside (pooled; oldest goes dark first)
-    const light = new THREE.PointLight(0xe06426, 2.4, r * 3.4 + 4, 1.9);
+    const light = new THREE.PointLight(0xe06426, 3.6, r * 3.8 + 5, 1.8);
     this.field.worldCenter(cx, cy, cz, this.tmp);
     light.position.copy(this.tmp);
     this.scene.add(light);
@@ -191,7 +191,8 @@ export class Hollows {
       (Math.min(255, LINING.r * j) << 16) |
       (Math.min(255, LINING.g * j) << 8) |
       Math.min(255, LINING.b * j);
-    this.field.tintAt(x, y, z, hex);
+    // pushed into the hot range: every burn mouth is a pool of warmth
+    this.field.tintAt(x, y, z, hex, 1.45);
   }
 
   // subsidence: the cavities sink with the mass. hollow and lining cells
@@ -238,7 +239,7 @@ export class Hollows {
 
   update(t: number) {
     for (const l of this.lights) {
-      l.light.intensity = 2.2 + Math.sin(t * 1.7 + l.phase) * 0.5;
+      l.light.intensity = 3.3 + Math.sin(t * 1.7 + l.phase) * 0.7;
     }
   }
 }

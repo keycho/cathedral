@@ -13,14 +13,15 @@ export interface Material {
 }
 
 export const MATERIALS: Material[] = [
-  // ground
-  { id: 1, key: "ash", name: "ash", color: 0x2b2219 },
-  { id: 2, key: "bedrock", name: "bedrock", color: 0x1a1512 },
+  // ground: darker and drier than anything built or grown, so matter
+  // visibly sits ON the plain
+  { id: 1, key: "ash", name: "ash", color: 0x231e19 },
+  { id: 2, key: "bedrock", name: "bedrock", color: 0x151210 },
   // the founding stone: the one block the launch tx places
   { id: 3, key: "genesis", name: "founding stone", color: 0xfaf3e2 },
   // market geology
-  { id: 4, key: "mass", name: "mass", color: 0x8fae6a }, // fresh accretion, young sage
-  { id: 5, key: "rubble", name: "rubble", color: 0x554839 }, // settled collapse
+  { id: 4, key: "mass", name: "mass", color: 0x9dbd76 }, // fresh accretion, young sage
+  { id: 5, key: "rubble", name: "rubble", color: 0x5e5040 }, // settled collapse
   { id: 6, key: "monument", name: "monument", color: 0xfaf3e2 }, // whale monolith
   { id: 7, key: "seed", name: "seed", color: 0xa4bd7f }, // new holder
   // the crew's vocabulary (style.md): geology never wears these, and the
@@ -28,7 +29,11 @@ export const MATERIALS: Material[] = [
   // glance. lantern blocks carry pooled lights; glasslight and stillwater
   // read luminous against the dusk (true translucency is a later render
   // split, noted in style.md).
-  { id: 8, key: "dressed", name: "dressed stone", color: 0xc9b896 },
+  // dressed stone sits OFF the warm strata axis entirely: a pale cool
+  // grey, so architecture reads as a different material family at a
+  // glance (the strata own sage-cream-orange; the crew owns grey + its
+  // accents)
+  { id: 8, key: "dressed", name: "dressed stone", color: 0xb2b6ac },
   { id: 9, key: "teal", name: "deep teal", color: 0x1f6d68 },
   { id: 10, key: "violet", name: "violet", color: 0x6b4a8f },
   { id: 11, key: "lantern", name: "lantern", color: 0xffc873 },

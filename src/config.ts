@@ -13,9 +13,11 @@ export const C_SAGE = 0x8fae6a;
 export const C_CREAM = 0xfaf3e2;
 export const C_ORANGE = 0xd45a20;
 
-// ashfall dusk
-export const SUN_COLOR = 0xe8a066;
-export const SUN_INTENSITY = 1.9;
+// ashfall dusk. the sun carries the contrast: lit faces read their strata
+// tint at orbit distance while the ambient floor stays near-void. colour
+// kept warm but shy of orange so cream reads cream, not amber.
+export const SUN_COLOR = 0xeeb488;
+export const SUN_INTENSITY = 2.6;
 export const FOG_NEAR = 40;
 export const FOG_FAR = 185;
 

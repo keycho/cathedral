@@ -47,8 +47,10 @@ export class Monuments {
     const place = (dy: number) => {
       const py = site.y + 1 + dy;
       if (this.field.placeAt(site.x, py, site.z, MONUMENT)) {
+        // lock BEFORE register: register tints unlocked cells with the
+        // strata colour and a monolith is bright by law
+        this.strata.lock(site.x, py, site.z);
         this.strata.register(site.x, py, site.z, wallet, tx);
-        this.strata.lock(site.x, py, site.z); // monuments stay bright
         this.growth.refreshAround(site.x, py, site.z);
       }
     };

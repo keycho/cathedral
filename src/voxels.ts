@@ -9,10 +9,31 @@
 
 import * as THREE from "three";
 import { CHUNK, GRID, MAXY } from "./config";
-import { ASH, BEDROCK, blockColor, NONE } from "./palette";
+import {
+  ASH,
+  BEDROCK,
+  blockColor,
+  GENESIS,
+  GLASSLIGHT,
+  LANTERN,
+  MONUMENT,
+  NONE,
+  STILLWATER,
+} from "./palette";
 
 const CPS = GRID / CHUNK; // chunks per side
 const HEADROOM = 1024; // spare instance slots per chunk; grows on demand
+
+// hot anchors: per-instance colours may exceed 1.0, which is the one
+// per-instance emissive the shared chunk material allows. these materials
+// carry their own light so the eye has somewhere to land in the dusk.
+const HOT: Record<number, number> = {
+  [LANTERN]: 2.6,
+  [GENESIS]: 1.7,
+  [MONUMENT]: 1.4,
+  [GLASSLIGHT]: 1.55,
+  [STILLWATER]: 1.15,
+};
 
 // tiny deterministic hash for per-instance colour jitter
 function hash2(x: number, y: number): number {
@@ -263,6 +284,8 @@ export class VoxelField {
     if (this.groundShade && (type === ASH || type === BEDROCK)) {
       this.col.multiplyScalar(this.groundShade(x, z));
     }
+    const hot = HOT[type];
+    if (hot) this.col.multiplyScalar(hot);
     chunk.mesh.setColorAt(slot, this.col);
     chunk.slotOfVoxel.set(vi, slot);
   }
@@ -367,13 +390,15 @@ export class VoxelField {
   }
 
   // set a block's rendered colour directly (epoch strata tints, scar glow
-  // cooling). no-op if the cell has no rendered instance.
-  tintAt(x: number, y: number, z: number, hex: number) {
+  // cooling). mult above 1 pushes a cell into the hot range (ember-lit
+  // linings). no-op if the cell has no rendered instance.
+  tintAt(x: number, y: number, z: number, hex: number, mult = 1) {
     const chunk = this.chunks[this.chunkOf(x, z)];
     const vi = this.idx(x, y, z);
     const slot = chunk.slotOfVoxel.get(vi);
     if (slot === undefined) return;
     this.col.setHex(hex);
+    if (mult !== 1) this.col.multiplyScalar(mult);
     chunk.mesh.setColorAt(slot, this.col);
     if (chunk.mesh.instanceColor) chunk.mesh.instanceColor.needsUpdate = true;
     chunk.dirty = true;

@@ -25,7 +25,9 @@ agent architecture must read as ARCHITECTURE against raw strata at a
 glance: dressed, cut, deliberate. the crew's materials, and only the
 crew's:
 
-- dressed stone: the body of all crew work, warm cut limestone
+- dressed stone: the body of all crew work, pale cut stone, cool grey
+  against the warm strata so architecture reads as its own material
+  family at a glance
 - deep teal: formal accents, thresholds, inlays
 - violet: banners of the deep dusk, rare and deliberate
 - lantern: emissive amber blocks that carry their own light

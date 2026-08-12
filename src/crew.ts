@@ -279,7 +279,7 @@ export class CrewWorks {
 
   // lantern blocks carry their own light (pooled)
   addLantern(x: number, y: number, z: number) {
-    const l = new THREE.PointLight(0xffc873, 1.7, 7.5, 1.8);
+    const l = new THREE.PointLight(0xffc873, 3.0, 10, 1.8);
     l.position.set(x - GRID / 2 + 0.5, y + 1.1, z - GRID / 2 + 0.5);
     this.scene.add(l);
     this.lanterns.push(l);

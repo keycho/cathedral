@@ -35,6 +35,7 @@ import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE } from "./palette";
 import { Surveyor } from "./surveyor";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
+import { buildSky } from "./sky";
 import { Strata } from "./strata";
 import { buildVoidFloor, GENESIS_CELL, placeGenesis, plainSampler } from "./terrain";
 import { distributeBlocks, TickEngine } from "./ticks";
@@ -93,6 +94,9 @@ scene.add(sun.target);
 const sunDir = new THREE.Vector3(-0.72, 0.2, -0.42).normalize();
 const SUN_DIST = 180;
 
+// the dusk band the world silhouettes against, hottest toward the sun
+buildSky(scene, Math.atan2(sunDir.z, sunDir.x));
+
 // faint warm sky over void ground; keeps unlit faces just above black
 scene.add(new THREE.HemisphereLight(0x33271d, 0x0b0b0a, 0.62));
 
@@ -106,7 +110,7 @@ scene.add(fill);
 // whatever face of the structure you are looking at always reads its
 // strata tint. one low sun means one dark side; the structure is the
 // product and can never be a black smudge from the orbit cam.
-const viewFill = new THREE.DirectionalLight(0xd8c8ac, 0.55);
+const viewFill = new THREE.DirectionalLight(0xd8c8ac, 0.48);
 scene.add(viewFill);
 scene.add(viewFill.target);
 
@@ -291,14 +295,14 @@ const core = new THREE.Mesh(
   new THREE.BoxGeometry(1.06, 1.06, 1.06),
   new THREE.MeshStandardMaterial({
     color: 0xfaf3e2,
-    emissive: 0xd4a25a,
-    emissiveIntensity: 0.5,
+    emissive: 0xe0aa5e,
+    emissiveIntensity: 0.85,
     roughness: 0.6,
   })
 );
 core.position.copy(genesis);
 scene.add(core);
-const glow = new THREE.PointLight(0xe8b070, 3.4, 9, 1.8);
+const glow = new THREE.PointLight(0xe8b070, 5.0, 12, 1.8);
 glow.position.copy(genesis).add(new THREE.Vector3(0, 1.4, 0));
 scene.add(glow);
 
@@ -439,8 +443,8 @@ function frame() {
 
   // the founding stone breathes on a slow cycle
   (core.material as THREE.MeshStandardMaterial).emissiveIntensity =
-    0.42 + Math.sin(t * 0.9) * 0.16;
-  glow.intensity = 3.0 + Math.sin(t * 0.9) * 0.9;
+    0.75 + Math.sin(t * 0.9) * 0.22;
+  glow.intensity = 4.4 + Math.sin(t * 0.9) * 1.2;
 
   // keep the sun's shadow window centered on the view
   sun.target.position.set(camera.position.x, 0, camera.position.z);
