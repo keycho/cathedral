@@ -33,6 +33,28 @@ export const RULES = {
   lanternsPerVisitorPerDay: 1,
   bellCooldownMs: 60_000, // one toll per minute, global
   gravestoneChars: 60,
+
+  // the crew (agents build above the geology, never instead of it)
+  agentBlockMs: 8_000, // the mason lays one block per ~8 seconds
+  architectEpochs: 6, // the architect plans every 6 epochs (hourly at real cadence)
+  crewBudgetUsdPerBlock: 40, // one blueprint block per $40 of trailing gross
+  crewBudgetWindowMs: 10 * 60_000, // the trailing window that funds the crew
+  crewBudgetIdleBelow: 12, // under this many funded blocks the crew idles + repairs
+  crewBudgetMax: 400, // a single blueprint never exceeds this
 } as const;
+
+// r1 growth shaping, frozen after judging (accretion is terrain: geology
+// the crew architects on; it does not need to be interesting alone).
+// weights are per candidate face at pick time; see src/growth.ts.
+export const GROW = {
+  wBelow: 2.4, // sprouting up off a top face
+  wSide: 1.0, // spreading laterally off a wall
+  wAbove: 0.22, // hanging under an overhang (rare)
+  wSameWallet: 1.3, // added per neighbour owned by the same wallet
+  wCompact: 0.32, // added per structure neighbour beyond the first
+  jitter: 0.3, // organic wobble on every weight
+  margin: 8, // keep growth off the grid rim
+  maxPerFrame: 5, // drain cap during heavy backlog
+};
 
 export const EPOCH_MS = RULES.tickMs * RULES.ticksPerEpoch;

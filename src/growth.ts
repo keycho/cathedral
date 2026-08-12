@@ -12,21 +12,11 @@
 
 import { GRID, MAXY } from "./config";
 import { GENESIS, MASS } from "./palette";
+import { GROW } from "./rules";
 import type { Strata } from "./strata";
 import type { VoxelField } from "./voxels";
 
-// growth shaping (tunable in one place; candidates are re-weighted at pick
-// time, so these can be adjusted live from the console while judging r1)
-export const GROW = {
-  wBelow: 2.4, // sprouting up off a top face
-  wSide: 1.0, // spreading laterally off a wall
-  wAbove: 0.22, // hanging under an overhang (rare)
-  wSameWallet: 1.3, // added per neighbour owned by the same wallet
-  wCompact: 0.32, // added per structure neighbour beyond the first
-  jitter: 0.3, // +-, organic wobble on every weight
-  margin: 8, // keep growth off the grid rim
-  maxPerFrame: 5, // drain cap during heavy backlog
-};
+export { GROW };
 
 const DIRS: [number, number, number][] = [
   [1, 0, 0],
