@@ -34,12 +34,21 @@ function randn(rng: () => number): number {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
+// price impact: how many usd of one-sided flow it takes to move the price
+// by e (the synthetic pool's depth). small txs barely move it; a whale
+// leaves a visible step in the ribbon.
+const LIQUIDITY_USD = 60_000;
+
 export class Feed {
   // live controls (the dev panel writes these; use setRate so a pending
   // long gap is re-drawn under the new rate immediately)
   ratePerHour = 600; // 10 .. 5000
   buyBias = 0.62; // p(buy) among swap events
   running = true;
+
+  // the price: a walk pushed around by the same events the world eats.
+  // the ribbon, the candles and the glyphs all read this one number.
+  price = 0.0042; // usd per token
 
   // the wallet pool: index -> stable pubkey
   private pubkeys: string[] = [];
@@ -115,7 +124,14 @@ export class Feed {
     if (this.log.length > 32) this.log.shift();
     if (ev.kind === "buy" || ev.kind === "sell") {
       this.volume.push({ t: performance.now(), usd: ev.amountUsd });
+      // the walk: buys push up, sells push down, depth decides how far
+      const impact = ev.amountUsd / LIQUIDITY_USD;
+      this.price *= ev.kind === "buy" ? 1 + impact : 1 / (1 + impact);
+    } else if (ev.kind === "burn") {
+      this.price *= 1.002; // supply leaves; the pool notices a little
     }
+    // a breath of micro-noise so flat stretches still read as a market
+    this.price *= 1 + (this.rng() - 0.5) * 0.003;
     for (const fn of this.listeners) fn(ev);
   }
 
@@ -125,6 +141,12 @@ export class Feed {
     let s = 0;
     for (const v of this.volume) s += v.usd;
     return s;
+  }
+
+  // transactions in the trailing minute (the world's pulse rate)
+  txPerMin(now: number): number {
+    while (this.volume.length && now - this.volume[0].t > 60_000) this.volume.shift();
+    return this.volume.length;
   }
 
   // ---- the timer -----------------------------------------------------------

@@ -24,6 +24,9 @@ export interface HistoryDeps {
   ticks: TickEngine;
   raiseMonument: (wallet: number, tx: string) => void;
   plantSeed: (wallet: number, tx: string) => void;
+  // the live walk's current price: the simulated series is scaled to end
+  // here, so the ribbon runs seamlessly from the past into the present
+  endPrice?: number;
 }
 
 function unpack(i: number): [number, number, number] {
@@ -91,6 +94,11 @@ export function simulateHistory(deps: HistoryDeps, epochs: number): number {
   let mood = 1; // 1 bull, 0 chop, -1 bear
   let moodLeft = 0;
   const epochGross: number[] = [];
+  // the simulated price: one close per simulated tick, drifting with the
+  // mood, so the ribbon and candles wake up carrying the same past the
+  // strata do
+  const closes: number[] = [];
+  let price = 1;
 
   for (let e = 0; e < epochs; e++) {
     strata.epoch = startEpoch + e; // births carry the simulated epoch
@@ -100,6 +108,12 @@ export function simulateHistory(deps: HistoryDeps, epochs: number): number {
       moodLeft = 2 + Math.floor(Math.random() * 5);
     }
     moodLeft--;
+
+    const drift = mood === 1 ? 1.0035 : mood === 0 ? 1.0 : 0.9955;
+    for (let t = 0; t < RULES.ticksPerEpoch; t++) {
+      price *= drift * (1 + (Math.random() - 0.5) * 0.016);
+      closes.push(price);
+    }
 
     let gross = 0;
     if (mood >= 0) {
@@ -131,18 +145,25 @@ export function simulateHistory(deps: HistoryDeps, epochs: number): number {
   strata.epoch = startEpoch + epochs;
   ticks.tick = strata.epoch * RULES.ticksPerEpoch; // the live clock resumes here
 
-  // the simulated market also funds the crew: seed the tick record with
-  // the trailing epochs' volume so an aged world does not wake up broke
+  // the simulated market also funds the crew and hands the ribbon its
+  // chart: seed the tick record with the trailing epochs' volume (so an
+  // aged world does not wake up broke) and the price walk's tail (so the
+  // ribbon and candles wake up mid-story). the series is scaled to end at
+  // the live price, making past and present one line.
   const windowTicks = Math.max(1, Math.round(RULES.crewBudgetWindowMs / ticks.tickLenMs));
   const tail = epochGross.slice(-Math.max(1, Math.ceil(windowTicks / RULES.ticksPerEpoch)));
   const perTick = tail.reduce((a, b) => a + b, 0) / Math.max(1, tail.length) / RULES.ticksPerEpoch;
-  for (let k = 0; k < Math.min(windowTicks, 400); k++) {
+  const seedN = Math.min(Math.max(windowTicks, 240), 400, closes.length);
+  const closeTail = closes.slice(-seedN);
+  const scale = deps.endPrice && closeTail.length ? deps.endPrice / closeTail[closeTail.length - 1] : 1;
+  for (let k = 0; k < seedN; k++) {
     ticks.history.push({
-      n: ticks.tick - windowTicks + k + 1,
+      n: ticks.tick - seedN + k + 1,
       netFlowUsd: 0,
-      grossVolumeUsd: perTick,
+      grossVolumeUsd: k >= seedN - windowTicks ? perTick : 0,
       uniqueWallets: 0,
       largestTxUsd: 0,
+      close: closeTail[k] * scale,
       buys: new Map(),
       sells: new Map(),
     });

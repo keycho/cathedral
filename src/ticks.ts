@@ -15,6 +15,7 @@ export interface TickSummary {
   grossVolumeUsd: number;
   uniqueWallets: number;
   largestTxUsd: number;
+  close: number; // the price when the tick closed (0 = no source wired)
   buys: Map<number, number>; // wallet -> usd this tick
   sells: Map<number, number>;
 }
@@ -41,6 +42,8 @@ export class TickEngine {
   onTick?: (s: TickSummary) => void;
   onEpoch?: (epoch: number) => void;
   onSubside?: () => void;
+  // where the closing price comes from (main wires the feed's walk)
+  priceSource?: () => number;
 
   private tickMs: number = RULES.tickMs;
   private lastClose = performance.now();
@@ -94,6 +97,7 @@ export class TickEngine {
       grossVolumeUsd: a.gross,
       uniqueWallets: a.wallets.size,
       largestTxUsd: a.largest,
+      close: this.priceSource?.() ?? 0,
       buys: a.buys,
       sells: a.sells,
     };
