@@ -227,6 +227,7 @@ export class AgentBody {
 export interface CrewBlock {
   material: number;
   planId: string;
+  title: string; // the work it belongs to (plaques name it)
   zone: AgentName;
 }
 
@@ -242,11 +243,15 @@ export class CrewWorks {
     return (x * GRID + z) * MAXY + y;
   }
 
-  add(x: number, y: number, z: number, material: number, planId: string, zone: AgentName) {
+  add(x: number, y: number, z: number, material: number, planId: string, title: string, zone: AgentName) {
     const i = this.idx(x, y, z);
-    this.blocks.set(i, { material, planId, zone });
+    this.blocks.set(i, { material, planId, title, zone });
     this.cellPos.set(i, this.cellList.length);
     this.cellList.push(i);
+  }
+
+  at(x: number, y: number, z: number): CrewBlock | undefined {
+    return this.blocks.get(this.idx(x, y, z));
   }
 
   remove(x: number, y: number, z: number): CrewBlock | undefined {
@@ -301,7 +306,7 @@ export class CrewWorks {
         if (this.field.placeAt(x, y, z, DRESSED)) {
           this.strata.lock(x, y, z); // before register: posts keep their cut colour
           this.strata.register(x, y, z, AGENT_WALLET, "border");
-          this.add(x, y, z, DRESSED, "border", zoneOf(x, z));
+          this.add(x, y, z, DRESSED, "border", "the territory line", zoneOf(x, z));
         }
       }
     }

@@ -314,6 +314,26 @@ body.walking #scene {
   color: var(--dim);
 }
 
+/* provenance plaque: the box is ALSO styled inline by src/plaques.ts
+   (some compositors drop late-toggled stylesheet boxes over the canvas;
+   real browsers honour either path) */
+#plaque {
+  display: none;
+}
+#plaque.show {
+  display: block;
+}
+#plaque .pq-title {
+  color: var(--cream);
+}
+#plaque .pq-line {
+  color: var(--dim);
+}
+#plaque .pq-at {
+  margin-top: 3px;
+  color: rgba(250, 243, 226, 0.24);
+}
+
 @media (max-width: 720px) {
   #panel {
     width: 210px;

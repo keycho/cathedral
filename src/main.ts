@@ -33,6 +33,7 @@ import { CrewWorks } from "./crew";
 import { Journal } from "./journal";
 import { Mason } from "./mason";
 import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE } from "./palette";
+import { Plaques } from "./plaques";
 import { Surveyor } from "./surveyor";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
@@ -367,6 +368,12 @@ canvas.addEventListener("pointerup", (e) => {
   }
 });
 
+// plaques: every block answers for itself (walk: aim + e · orbit: right
+// click). wallet indices become the feed's stable pubkeys; the crew and
+// the world answer by name.
+const plaques = new Plaques(field, strata, works, camera, canvas);
+plaques.describeWallet = (w) => (w === -1 ? "the world" : w === -3 ? "the crew" : feed.short(w));
+
 // multiplayer transport: DORMANT behind NET_ENABLED. wired now so the place
 // layer only has to flip the flag; while dormant nothing connects.
 const net = new Net();
@@ -442,6 +449,7 @@ function frame() {
   mason.update(now);
   mason.body.update(dt, t);
   architect.body.update(dt, t);
+  plaques.update(now);
   panel.update(now);
 
   // r6: the tick's gross volume is authoritative; the rolling minute lets
@@ -515,6 +523,7 @@ declare global {
       mason: Mason;
       works: CrewWorks;
       journal: Journal;
+      plaques: Plaques;
       runHistory: (epochs?: number) => number;
     };
   }
@@ -538,5 +547,6 @@ window.cathedral = {
   mason,
   works,
   journal,
+  plaques,
   runHistory,
 };

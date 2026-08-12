@@ -97,7 +97,7 @@ export class Mason {
     return Math.hypot(wx - this.body.x, wz - this.body.z) <= REACH && Math.abs(c.y - this.body.y) <= 4;
   }
 
-  private place(c: BlueprintCell, zone: AgentName, planId: string, now: number) {
+  private place(c: BlueprintCell, zone: AgentName, planId: string, title: string, now: number) {
     this.lastPlace = now;
     // the world may have changed since the blueprint was drawn: a filled
     // cell is skipped, not fought
@@ -116,7 +116,7 @@ export class Mason {
         // strata epoch colour, and dressed stone is not geology
         this.strata.lock(c.x, c.y, c.z);
         this.strata.register(c.x, c.y, c.z, AGENT_WALLET, planId);
-        this.works.add(c.x, c.y, c.z, c.material, planId, zone);
+        this.works.add(c.x, c.y, c.z, c.material, planId, title, zone);
         if (c.material === LANTERN) this.works.addLantern(c.x, c.y, c.z);
       },
       { stopY: c.y, from: 2.6 }
@@ -131,7 +131,14 @@ export class Mason {
       this.walkTarget = null;
       if (now - this.lastPlace >= this.paceMs) {
         const bp = this.queue[0];
-        this.place(c, bp?.zone ?? "mason", this.repairs.length ? "repair" : bp?.planId ?? "repair", now);
+        const repairing = this.repairs.length > 0;
+        this.place(
+          c,
+          bp?.zone ?? "mason",
+          repairing ? "repair" : bp?.planId ?? "repair",
+          repairing ? "a repair" : bp?.title ?? "a repair",
+          now
+        );
       }
       return;
     }
@@ -143,7 +150,14 @@ export class Mason {
       // anyway after a beat (the mason leans out) rather than stalling
       if (now - this.lastPlace >= this.paceMs * 1.5) {
         const bp = this.queue[0];
-        this.place(c, bp?.zone ?? "mason", this.repairs.length ? "repair" : bp?.planId ?? "repair", now);
+        const repairing = this.repairs.length > 0;
+        this.place(
+          c,
+          bp?.zone ?? "mason",
+          repairing ? "repair" : bp?.planId ?? "repair",
+          repairing ? "a repair" : bp?.title ?? "a repair",
+          now
+        );
         this.walkTarget = null;
       }
       return;
