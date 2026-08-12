@@ -27,6 +27,7 @@ import {
   GOLD,
   isAgentMaterial,
   isGeology,
+  isGround,
   LANTERN,
   TEAL,
   VIOLET,
@@ -63,7 +64,16 @@ export class Architect {
   // the sky realm (wired by main); when islands exist the architect keeps
   // one signature project alive: the ascent that joins the realms
   islands?: Islands;
-  private ascent: { anchorX: number; anchorZ: number; topY: number; stage: number; done: boolean } | null = null;
+  // the ascent knows only where it stands and how far it has come; its
+  // height is measured from the world, never remembered
+  private ascent: {
+    anchorX: number;
+    anchorZ: number;
+    baseY: number;
+    lastTop: number; // the height the world stood at when the last stage was drawn
+    stage: number;
+    done: boolean;
+  } | null = null;
   private planCount = 0;
   private lastPlanEpoch = -999;
   private cycling = false;
@@ -315,7 +325,6 @@ export class Architect {
   private ascentBlueprint(funded: number, epoch: number): Blueprint | null {
     if (!this.islands || this.islands.count === 0) return null;
     if (this.ascent?.done) return null;
-    if (funded < 40) return null;
 
     // anchor once: open ground in the architect's own wedge, as near the
     // island's shadow as the wedge allows. the island may hang over any
@@ -333,8 +342,10 @@ export class Architect {
         if (x < 12 || x >= GRID - 12 || z < 12 || z >= GRID - 12) continue;
         if (zoneOf(x, z) !== "architect") continue;
         const h = this.field.topAt(x, z);
-        const t = this.field.typeAt(x, h - 1, z);
-        if (isGeology(t) || isAgentMaterial(t)) continue;
+        // the ascent starts on open ground, never on the market's stone,
+        // another work, or a column standing under an island
+        if (h >= SKY_Y) continue;
+        if (!isGround(this.field.typeAt(x, h - 1, z))) continue;
         const d = Math.hypot(x - isl.cx, z - isl.cz);
         if (d < bd) {
           bd = d;
@@ -342,10 +353,24 @@ export class Architect {
         }
       }
       if (!anchor) return null;
-      this.ascent = { anchorX: anchor.x, anchorZ: anchor.z, topY: this.field.topAt(anchor.x, anchor.z), stage: 0, done: false };
+      const baseY = this.field.topAt(anchor.x, anchor.z);
+      this.ascent = { anchorX: anchor.x, anchorZ: anchor.z, baseY, lastTop: baseY - 1, stage: 0, done: false };
     }
 
     const a = this.ascent;
+    // how high the ascent actually stands, measured from the mast's own
+    // column: a stage the mason could not finish is drawn again, never
+    // skipped over
+    const topY = Math.max(a.baseY, this.field.topAt(a.anchorX, a.anchorZ));
+
+    // a stage that did not lift the world is a stage the mason could not
+    // build: the footing is wrong, so the architect leaves it standing as
+    // it is and starts the ascent again on better ground
+    if (a.stage > 0 && topY <= a.lastTop) {
+      this.journal.add("architect", epoch, "the stair would not rise there. the ascent begins again on better ground.");
+      this.ascent = null;
+      return null;
+    }
     const isl = this.islands.nearestTo(a.anchorX, a.anchorZ);
     if (!isl) return null;
     const cells: BlueprintCell[] = [];
@@ -357,7 +382,7 @@ export class Architect {
 
     const targetY = isl.baseY + 2; // the island's walking surface
     let title: string;
-    if (a.topY + 1 >= targetY) {
+    if (topY + 1 >= targetY) {
       // the crossing: a two-wide deck with glasslight rails to the island
       const y = targetY;
       const dx = isl.cx - a.anchorX;
@@ -366,12 +391,18 @@ export class Architect {
       for (let k = 0; k <= len + 2; k++) {
         const x = Math.round(a.anchorX + (dx * k) / Math.max(1, len));
         const z = Math.round(a.anchorZ + (dz * k) / Math.max(1, len));
-        if (this.field.isSolid(x, y, z)) break; // we have reached the island
+        if (this.field.isSolid(x, y, z)) {
+          // the tower's own crown is solid: step out through it, and stop
+          // only once the deck has met the island's stone
+          if (k > 3) break;
+          continue;
+        }
         const px = Math.abs(dx) > Math.abs(dz) ? 0 : 1; // deck runs 2 wide
         put(x, y, z, DRESSED);
         put(x + px, y, z + (1 - px), DRESSED);
         if (k % 3 === 0) put(x - px, y + 1, z - (1 - px), GLASSLIGHT);
       }
+      if (!cells.length) return null; // the span is already there, or blocked
       a.done = true;
       title = "the ascent, the crossing";
       this.journal.add("architect", epoch, "the crossing is laid. the realms are joined.");
@@ -383,35 +414,51 @@ export class Architect {
       for (let i = 1; i >= -2; i--) ring.push([i, 2]);
       for (let i = 1; i >= -1; i--) ring.push([-2, i]);
       if (a.stage === 0) {
-        // grounds first: a pad and lantern posts at the foot
+        // grounds first: a pad and lantern posts at the foot. the pad
+        // follows the ground it sits on, and a column that runs away
+        // upward (one standing under an island) is left alone.
+        const padY = (x: number, z: number): number | null => {
+          const h = this.field.topAt(x, z);
+          return Math.abs(h - a.baseY) <= 3 ? h : null;
+        };
         for (let dx = -3; dx <= 3; dx++) {
           for (let dz = -3; dz <= 3; dz++) {
-            if (Math.abs(dx) === 3 || Math.abs(dz) === 3) {
-              put(a.anchorX + dx, this.field.topAt(a.anchorX + dx, a.anchorZ + dz), a.anchorZ + dz, DRESSED);
-            }
+            if (Math.abs(dx) !== 3 && Math.abs(dz) !== 3) continue;
+            const y = padY(a.anchorX + dx, a.anchorZ + dz);
+            if (y !== null) put(a.anchorX + dx, y, a.anchorZ + dz, DRESSED);
           }
         }
         for (const [px, pz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]] as const) {
-          put(a.anchorX + px, this.field.topAt(a.anchorX + px, a.anchorZ + pz) + 1, a.anchorZ + pz, LANTERN);
+          const y = padY(a.anchorX + px, a.anchorZ + pz);
+          if (y !== null) put(a.anchorX + px, y + 1, a.anchorZ + pz, LANTERN);
         }
       }
-      for (let k = 0; k < ring.length; k++) {
-        const y = a.topY + 1 + Math.floor(k / 2);
-        put(a.anchorX + ring[k][0], y, a.anchorZ + ring[k][1], k % 5 === 4 ? TEAL : DRESSED);
-      }
-      // the mast, banded in glasslight so the stair glows from the meadow
-      for (let y = a.topY + 1; y <= a.topY + 8; y++) {
+      // the mast first, banded in glasslight so the stair glows from the
+      // meadow: a stage clipped by a thin budget still lifts the tower, and
+      // the next cycle carries on from the height that actually stands
+      for (let y = topY + 1; y <= topY + 8; y++) {
         put(a.anchorX, y, a.anchorZ, y % 5 === 0 ? GLASSLIGHT : DRESSED);
       }
-      put(a.anchorX, a.topY + 9, a.anchorZ, LANTERN);
-      a.topY += 8;
+      put(a.anchorX, topY + 9, a.anchorZ, LANTERN);
+      // then the stair winding around it, one step per two cells
+      for (let k = 0; k < ring.length; k++) {
+        const y = topY + 1 + Math.floor(k / 2);
+        put(a.anchorX + ring[k][0], y, a.anchorZ + ring[k][1], k % 5 === 4 ? TEAL : DRESSED);
+      }
+      if (!cells.length) return null; // nothing lawful here; the state stands
       a.stage++;
+      a.lastTop = topY;
+      const left = targetY - (topY + 8);
       title = `the ascent, stage ${a.stage}`;
-      this.journal.add("architect", epoch, `the ascent climbs. stage ${a.stage}, ${targetY - a.topY > 0 ? targetY - a.topY + " blocks below the island" : "the island within reach"}.`);
+      this.journal.add(
+        "architect",
+        epoch,
+        `the ascent climbs. stage ${a.stage}, ${left > 0 ? left + " blocks below the island" : "the island within reach"}.`
+      );
     }
 
     if (!cells.length) return null;
-    return { planId: "ascent-" + (a.stage + (a.done ? 1 : 0)), title, zone: "architect", cells };
+    return { planId: "ascent-" + a.stage + (a.done ? "-crossing" : ""), title, zone: "architect", cells };
   }
 
   // ---- simulated history ---------------------------------------------------

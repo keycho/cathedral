@@ -626,6 +626,7 @@ declare global {
       ribbon: Ribbon;
       islands: Islands;
       shrine: Shrine;
+      kinetics: Kinetics;
       runHistory: (epochs?: number) => Promise<number>;
     };
   }
@@ -655,6 +656,7 @@ window.cathedral = {
   ribbon,
   islands,
   shrine,
+  kinetics,
   runHistory,
 };
 

@@ -161,6 +161,16 @@ export class Mason {
 
     // walk to a column beside the stone
     if (this.body.moving) return;
+
+    // already standing at the foot of the work: a stone overhead is set
+    // from here rather than walked to, so a tower rises past the mason's
+    // own reach instead of stalling on a walk it has already made
+    const fx = c.x - GRID / 2 + 0.5;
+    const fz = c.z - GRID / 2 + 0.5;
+    if (Math.hypot(fx - this.body.x, fz - this.body.z) <= REACH) {
+      this.walkTarget = { x: c.x, z: c.z };
+    }
+
     if (this.walkTarget && this.walkTarget.x === c.x && this.walkTarget.z === c.z) {
       // arrived as close as the route allows; if still out of reach, place
       // anyway after a beat (the mason leans out) rather than stalling
