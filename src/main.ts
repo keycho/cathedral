@@ -48,6 +48,7 @@ import { Keeper } from "./keeper";
 import { Tombs } from "./tombs";
 import { Vitality } from "./vitality";
 import { Voice } from "./voice";
+import { firstTierWithGrounds } from "./components/compose";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
 import { Sky } from "./sky";
@@ -578,6 +579,33 @@ const runHistory = async (epochs = 50) => {
   return strata.blockCount;
 };
 panel.onHistory = () => void runHistory(50);
+// THE GATE PIECE: one structure composed from the component library, put
+// down where it can be judged. it is not wired into the architect's cycle
+// and it does not fill the world: it is called by hand for review.
+const buildGatePiece = (cellX = GENESIS_CELL.x + 30, cellZ = GENESIS_CELL.z - 34) => {
+  const work = firstTierWithGrounds();
+  const groundY = field.topAt(cellX + Math.floor(work.footprint.w / 2), cellZ + Math.floor(work.footprint.d / 2));
+  const cells = work.cells.map((c) => ({
+    x: cellX + c.dx,
+    y: groundY + c.dy,
+    z: cellZ + c.dz,
+    material: c.m,
+  }));
+  const placed = mason.placeInstant({
+    planId: "great-work-tier-1",
+    title: "the first tier",
+    zone: "architect",
+    cells,
+  });
+  journal.add(
+    "architect",
+    strata.epoch,
+    "the first tier of the great work. it will carry six more, and none of them are the last.",
+    "scripted"
+  );
+  return { placed, designed: cells.length, manifest: work.manifest, height: work.height, at: { x: cellX, z: cellZ, groundY } };
+};
+
 // dev only: the market decides life and death, but a test needs a lever
 panel.onLife = (mode) => {
   for (const r of ["surveyor", "architect", "mason", "keeper"] as const) vitality.setOverride(r, mode);
@@ -882,6 +910,13 @@ declare global {
       tombs: Tombs;
       director: Director;
       voice: Voice;
+      buildGatePiece: (x?: number, z?: number) => {
+        placed: number;
+        designed: number;
+        manifest: { component: string; instances: number }[];
+        height: number;
+        at: { x: number; z: number; groundY: number };
+      };
       plaques: Plaques;
       sky: Sky;
       flora: Flora;
@@ -919,6 +954,7 @@ window.cathedral = {
   tombs,
   director,
   voice,
+  buildGatePiece,
   plaques,
   sky,
   flora,

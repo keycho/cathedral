@@ -63,6 +63,56 @@ export const SWATCH = {
   lead: 0x5b6068, // lead grey: gates, straps, lamp posts
   teal: 0x2b5f58, // deep teal, a SPARING accent only
 
+  // -------------------------------------------------------------------
+  // THE TEMPLE REGISTER (the heights and the sky islands)
+  // timber post and beam, plaster infill, dark stacked tile. the older
+  // register, and the one the great work is built in.
+  // -------------------------------------------------------------------
+  tileCharcoal: 0x2f3742, // dark charcoal-blue roof tile, the register's signature
+  tileRidge: 0x3f4a58, // the ridge and hip courses, a value up so edges read
+  plasterBone: 0xe4dcc6, // bone plaster infill between the posts
+  vermilion: 0xb8412c, // ACCENT ONLY: gates, railings, a banner
+  foliageDeep: 0x38491f, // deep foliage, the mass of a canopy
+  foliageSun: 0x53682a, // its sunward layer
+  blossom: 0xdfb0ba, // the seasonal accent. sparing: a single tree, a drift.
+  verdigris: 0x5f8f7a, // patinated copper: finials, bells, roof caps. the ONLY
+  // green the temple buildings are allowed. green otherwise lives in the
+  // grounds (moss, beds, canopy) so the buildings read AGAINST the hillside.
+
+  // -------------------------------------------------------------------
+  // SHARED BETWEEN THE REGISTERS (and nothing else is shared)
+  // stone and timber are how a world stays one world.
+  // -------------------------------------------------------------------
+  stoneGrey: 0x8d8b84, // grey stone: stairs, retaining walls, kerbs, bridges
+  timberDark: 0x3b2b1d, // structural posts, beams, brackets
+  timberMid: 0x5a4230, // rails, frames, scaffolding
+  timberLight: 0x7a5a3e, // decking, shutters, stalls
+
+  // -------------------------------------------------------------------
+  // THE TOWN REGISTER (the flats)
+  // concrete, painted panel, glass. the newer register, and the one that
+  // grows a skyline when the market sustains.
+  // -------------------------------------------------------------------
+  concretePale: 0x8a8781,
+  concreteMid: 0x6f6c68,
+  concreteDark: 0x565450,
+  panelCream: 0xcfc2a4, // muted painted panels
+  panelBlue: 0x8fa3ad,
+  panelGreen: 0x7e9184,
+  glassBlue: 0x59707e, // blue-grey glazing
+  interiorWarm: 0xf0c882, // warm light behind a window, emissive
+  // the town GLOWS after dark, and warm: the contrast between the quiet
+  // dark heights and the electric flats is the world's signature night.
+  // reds and ambers lead, cyan answers them. never magenta cyberpunk.
+  neonEmber: 0xff5a3c,
+  neonAmber: 0xffab4a,
+  neonCyan: 0x63c4c0,
+  spill: 0xffc487, // the warm pool a shopfront throws onto the street
+
+  // the sky realm's underside: mist pooling under an island so it reads as
+  // floating rather than pasted on the sky
+  mist: 0xd6dcd8,
+
   // light: the only things that glow
   lantern: 0xe8a94e,
   glasslight: 0xdbe4d2,
@@ -124,6 +174,34 @@ export const MATERIALS: Material[] = [
   // the market rendered as terrain: the price ribbon
   { id: 21, key: "rise", name: "ascent", color: SWATCH.rise },
   { id: 22, key: "fall", name: "descent", color: SWATCH.fall },
+  // the temple register
+  { id: 23, key: "tilecharcoal", name: "roof tile", color: SWATCH.tileCharcoal },
+  { id: 24, key: "tileridge", name: "ridge tile", color: SWATCH.tileRidge },
+  { id: 25, key: "plaster", name: "plaster", color: SWATCH.plasterBone },
+  { id: 26, key: "vermilion", name: "vermilion", color: SWATCH.vermilion },
+  { id: 27, key: "foliage", name: "foliage", color: SWATCH.foliageDeep },
+  { id: 28, key: "foliagesun", name: "sunward foliage", color: SWATCH.foliageSun },
+  { id: 29, key: "blossom", name: "blossom", color: SWATCH.blossom },
+  // shared: stone and timber
+  { id: 30, key: "stone", name: "grey stone", color: SWATCH.stoneGrey },
+  { id: 31, key: "timberdark", name: "structural timber", color: SWATCH.timberDark },
+  { id: 32, key: "timbermid", name: "timber", color: SWATCH.timberMid },
+  { id: 33, key: "timberlight", name: "pale timber", color: SWATCH.timberLight },
+  // the town register
+  { id: 34, key: "concretepale", name: "concrete", color: SWATCH.concretePale },
+  { id: 35, key: "concretemid", name: "shaded concrete", color: SWATCH.concreteMid },
+  { id: 36, key: "concretedark", name: "deep concrete", color: SWATCH.concreteDark },
+  { id: 37, key: "panelcream", name: "painted panel", color: SWATCH.panelCream },
+  { id: 38, key: "panelblue", name: "blue panel", color: SWATCH.panelBlue },
+  { id: 39, key: "panelgreen", name: "green panel", color: SWATCH.panelGreen },
+  { id: 40, key: "glassblue", name: "glazing", color: SWATCH.glassBlue },
+  { id: 41, key: "interior", name: "lit window", color: SWATCH.interiorWarm },
+  { id: 42, key: "neonember", name: "neon sign", color: SWATCH.neonEmber },
+  { id: 43, key: "neoncyan", name: "neon sign", color: SWATCH.neonCyan },
+  { id: 44, key: "neonamber", name: "neon sign", color: SWATCH.neonAmber },
+  { id: 45, key: "spill", name: "shopfront spill", color: SWATCH.spill },
+  { id: 46, key: "verdigris", name: "patinated copper", color: SWATCH.verdigris },
+  { id: 47, key: "mist", name: "mist", color: SWATCH.mist },
 ];
 
 export const MEADOW = 1;
@@ -148,11 +226,48 @@ export const RUSTDEEP = 19;
 export const LEAD = 20;
 export const RISE = 21;
 export const FALL = 22;
+// the temple register
+export const TILECHARCOAL = 23;
+export const TILERIDGE = 24;
+export const PLASTER = 25;
+export const VERMILION = 26;
+export const FOLIAGE = 27;
+export const FOLIAGESUN = 28;
+export const BLOSSOM = 29;
+// shared
+export const STONE = 30;
+export const TIMBERDARK = 31;
+export const TIMBERMID = 32;
+export const TIMBERLIGHT = 33;
+// the town register
+export const CONCRETEPALE = 34;
+export const CONCRETEMID = 35;
+export const CONCRETEDARK = 36;
+export const PANELCREAM = 37;
+export const PANELBLUE = 38;
+export const PANELGREEN = 39;
+export const GLASSBLUE = 40;
+export const INTERIOR = 41;
+export const NEONEMBER = 42;
+export const NEONCYAN = 43;
+export const NEONAMBER = 44;
+export const SPILL = 45;
+export const VERDIGRIS = 46;
+export const MIST = 47;
 
 // families: geology is grown by the market; agent materials are built by
 // the crew; ground is the old world; rise/fall belong to the price ribbon.
 const GEOLOGY = new Set([GENESIS, MASS, RUBBLE, MONUMENT, SEED]);
-const AGENT = new Set([CREAM, CREAMWARM, TEAL, TIMBER, TILE, LEAD, LANTERN, GLASSLIGHT, STILLWATER]);
+const AGENT = new Set([
+  CREAM, CREAMWARM, TEAL, TIMBER, TILE, LEAD, LANTERN, GLASSLIGHT, STILLWATER,
+  // the temple register
+  TILECHARCOAL, TILERIDGE, PLASTER, VERMILION, FOLIAGE, FOLIAGESUN, BLOSSOM,
+  // shared
+  STONE, TIMBERDARK, TIMBERMID, TIMBERLIGHT,
+  // the town register
+  CONCRETEPALE, CONCRETEMID, CONCRETEDARK, PANELCREAM, PANELBLUE, PANELGREEN,
+  GLASSBLUE, INTERIOR, NEONEMBER, NEONCYAN, NEONAMBER, SPILL, VERDIGRIS,
+]);
 const GROUND = new Set([MEADOW, EARTH, SCARMOSS, RUST, RUSTDEEP, EMBERSEAM]);
 
 export function isGeology(id: number): boolean {
@@ -178,6 +293,32 @@ export const AGENT_KEYS: Record<string, number> = {
   lantern: LANTERN,
   glasslight: GLASSLIGHT,
   stillwater: STILLWATER,
+  // the temple register
+  tilecharcoal: TILECHARCOAL,
+  tileridge: TILERIDGE,
+  plaster: PLASTER,
+  vermilion: VERMILION,
+  foliage: FOLIAGE,
+  foliagesun: FOLIAGESUN,
+  blossom: BLOSSOM,
+  stone: STONE,
+  timberdark: TIMBERDARK,
+  timbermid: TIMBERMID,
+  timberlight: TIMBERLIGHT,
+  // the town register
+  concretepale: CONCRETEPALE,
+  concretemid: CONCRETEMID,
+  concretedark: CONCRETEDARK,
+  panelcream: PANELCREAM,
+  panelblue: PANELBLUE,
+  panelgreen: PANELGREEN,
+  glassblue: GLASSBLUE,
+  interior: INTERIOR,
+  neonember: NEONEMBER,
+  neoncyan: NEONCYAN,
+  neonamber: NEONAMBER,
+  spill: SPILL,
+  verdigris: VERDIGRIS,
   // legacy names from the first blueprints
   dressed: CREAM,
   dressedwarm: CREAMWARM,

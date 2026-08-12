@@ -87,6 +87,77 @@ grain. exposure is held down so highlights keep detail. shadows are long,
 soft and violet-grey. distance dissolves into warm haze, so layered hills
 read like a painted backdrop.
 
+## the two registers
+
+the tradition is east asian, in two registers separated by altitude and
+era. one world, never a theme park: the registers share stone and timber
+and share nothing else.
+
+THE TEMPLE REGISTER (the heights and the sky islands). timber post and
+beam, bone plaster infill, dark charcoal tile stacked course by course
+with swept eaves and exposed bracket sets. gates, courtyards, stone
+stairs, retaining walls, gardens, lanterns, basins, bells. the great
+work, a pagoda that rises tier by tier for as long as the market lives,
+belongs to this register and is never finished.
+
+| swatch | role |
+| ------ | ---- |
+| tileCharcoal | roof tile, the register's signature |
+| tileRidge | ridge and hip courses, a value up so edges read |
+| plasterBone | plaster infill between the posts |
+| vermilion | ACCENT ONLY: gates, railings, a threshold, a banner |
+| verdigris | patinated copper: finials, bells, roof caps |
+| foliageDeep / foliageSun | canopy mass and its sunward layer |
+| blossom | the seasonal accent, sparing: one tree, one drift |
+
+the register's colour law: the BUILDINGS are dark tile, timber, plaster
+and a vermilion accent. green lives in the GROUNDS (moss, beds, canopy
+trees) and in verdigris on finials, bells and caps, so a temple reads
+AGAINST the green hillside instead of sinking into it.
+
+SHARED BY BOTH REGISTERS, and nothing else is:
+
+| swatch | role |
+| ------ | ---- |
+| stoneGrey | stairs, retaining walls, kerbs, bridges, podia |
+| timberDark | structural posts, beams, bracket sets |
+| timberMid | rails, frames, scaffolding |
+| timberLight | decking, shutters, stalls |
+
+THE TOWN REGISTER (the flats). three to eight storey blocks with
+shopfronts at street level, awnings, signage, wires pole to pole,
+rooftop clutter. narrow streets, canals, small plazas. the town's height
+grows with the market.
+
+| swatch | role |
+| ------ | ---- |
+| concretePale / concreteMid / concreteDark | the structural greys |
+| panelCream / panelBlue / panelGreen | muted painted panels |
+| glassBlue | blue-grey glazing |
+| interiorWarm | warm light behind a window, emissive |
+| neonEmber / neonAmber / neonCyan | signage, emissive |
+| spill | the warm pool a shopfront throws onto the street |
+
+the town GLOWS after dark, and warm: reds and ambers lead, cyan answers
+them, never magenta cyberpunk. the contrast between the quiet dark
+heights and the electric flats below is the world's signature night.
+
+THE SEAM between them is a long stone stair from the street up through
+the first temple gate. it is the signature walk of the world.
+
+## the component library
+
+the architect composes from parts and never places blocks freehand
+(src/components/). each part is a parameterised block pattern carrying
+its own internal detail, and the law the library exists to enforce is
+that no flat untextured face survives: a wall is posts and infill with a
+sill and a head rail, a roof is courses stepped one at a time with its
+corners swept, an edge is layered. if a form can be described by a single
+box, it is not a part yet.
+
+grounds are roughly forty percent of every build. nothing in this world
+sits on bare ground.
+
 ## the crew's vocabulary
 
 agent architecture must read as ARCHITECTURE against raw strata at a

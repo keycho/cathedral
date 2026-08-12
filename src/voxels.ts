@@ -15,9 +15,14 @@ import {
   FALL,
   GENESIS,
   GLASSLIGHT,
+  INTERIOR,
   isGround,
   LANTERN,
   MONUMENT,
+  NEONAMBER,
+  NEONCYAN,
+  NEONEMBER,
+  SPILL,
   NONE,
   RISE,
   STILLWATER,
@@ -38,6 +43,13 @@ const HOT: Record<number, number> = {
   [EMBERSEAM]: 2.0,
   [RISE]: 1.8,
   [FALL]: 1.8,
+  // the town's own light. the flats GLOW after dark against the quiet dark
+  // heights, and they glow warm: ember and amber lead, cyan answers.
+  [INTERIOR]: 2.3,
+  [NEONEMBER]: 3.0,
+  [NEONAMBER]: 3.0,
+  [NEONCYAN]: 2.7,
+  [SPILL]: 2.4,
 };
 
 // tiny deterministic hash for per-instance colour jitter
