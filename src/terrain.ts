@@ -12,9 +12,10 @@ import {
   EMBERSEAM,
   GENESIS,
   MEADOW,
-  OLDROCK,
+  RUST,
   SCARMOSS,
   STILLWATER,
+  SWATCH,
 } from "./palette";
 import type { FieldSampler, VoxelField } from "./voxels";
 
@@ -152,7 +153,7 @@ function computeColumn(x: number, z: number): Sample {
         top = SCARMOSS;
         if (d < c.r * 0.55 && hash2(x * 3.1, z * 2.7) < 0.05) top = EMBERSEAM;
       } else if (d < c.r + 2 && hash2(x * 1.9, z * 4.3) < 0.35) {
-        top = OLDROCK;
+        top = RUST;
       }
     }
   }
@@ -183,7 +184,7 @@ function computeColumn(x: number, z: number): Sample {
       if (d < 1.8) h = Math.max(h, base + s.h + ragged);
       else if (d < 3.0) h = Math.max(h, base + s.h * 0.55 + ragged);
       else if (hash2(x * 2.3, z * 3.7) < 0.5) h = Math.max(h, base + 1.5 + ragged * 0.5);
-      if (d < 3.0) top = OLDROCK;
+      if (d < 3.0) top = RUST;
     }
   }
 
@@ -193,7 +194,7 @@ function computeColumn(x: number, z: number): Sample {
   if (dGen < 14) top = MEADOW;
 
   // exposed rock where the crests actually broke through
-  if (ridgeBoost > 1.6 && top === MEADOW) top = OLDROCK;
+  if (ridgeBoost > 1.6 && top === MEADOW) top = RUST;
 
   // low wet pockets moss over
   if (top === MEADOW && h < 5.2 && dGen > 30) {
@@ -219,9 +220,23 @@ export const meadowSampler: FieldSampler = {
     }
     if (y === h - 1) return s.top;
     // ridge crests keep rock a little deeper so torn sides read as stone
-    if (s.ridgeBoost > 1.6 && y >= h - 3) return OLDROCK;
-    if (s.top === OLDROCK && y >= h - 2) return OLDROCK;
+    if (s.ridgeBoost > 1.6 && y >= h - 3) return RUST;
+    if (s.top === RUST && y >= h - 2) return RUST;
     return EARTH;
+  },
+  // the land's colour varies with where it sits: valley floors hold water
+  // and read richer and greener, ridgelines dry out paler and warmer, and a
+  // slow macro noise keeps neighbouring hills from reading identical
+  groundTint(x: number, z: number): [number, number, number] {
+    const s = sampleColumn(x, z);
+    const macro = fractal(x * 0.006 + 611, z * 0.006 + 133); // region character
+    const moisture = 1 - sstep(4.5, 12, s.h); // low ground stays wet
+    const dry = sstep(8, 15, s.h);
+    // wet: greener and deeper. dry: paler, warmer, a little bleached.
+    const r = 1 + dry * 0.16 - moisture * 0.1 + (macro - 0.5) * 0.1;
+    const g = 1 + moisture * 0.07 + dry * 0.04 + (macro - 0.5) * 0.06;
+    const b = 1 - moisture * 0.06 + dry * 0.1 + (macro - 0.5) * 0.05;
+    return [r, g, b];
   },
   // painterly ground: broad light-and-dark patches in the grass, a gentle
   // warm dim across the rim so the edge sinks into haze instead of void
@@ -239,7 +254,7 @@ export const meadowSampler: FieldSampler = {
 export function buildVoidFloor(scene: THREE.Scene) {
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(4000, 4000, 1, 1),
-    new THREE.MeshStandardMaterial({ color: 0x5a4a36, roughness: 1 })
+    new THREE.MeshStandardMaterial({ color: SWATCH.earth, roughness: 1 })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = 0.02;

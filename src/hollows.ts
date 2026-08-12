@@ -9,7 +9,7 @@
 
 import * as THREE from "three";
 import { GRID, MAXY } from "./config";
-import { isGeology } from "./palette";
+import { isGeology, SWATCH } from "./palette";
 import { RULES } from "./rules";
 import type { Strata } from "./strata";
 import type { VoxelField } from "./voxels";
@@ -175,7 +175,7 @@ export class Hollows {
     }
 
     // a warm breathing light inside (pooled; oldest goes dark first)
-    const light = new THREE.PointLight(0xe06426, 3.6, r * 3.8 + 5, 1.8);
+    const light = new THREE.PointLight(SWATCH.emberseam, 3.6, r * 3.8 + 5, 1.8);
     this.field.worldCenter(cx, cy, cz, this.tmp);
     light.position.copy(this.tmp);
     this.scene.add(light);

@@ -70,6 +70,10 @@ export interface FieldSampler {
   // optional per-column brightness for GROUND cells (horizon dissolve);
   // structure blocks are never shaded by it
   groundShade?(x: number, z: number): number;
+  // per-column rgb multipliers for ground blocks: valley floors read
+  // richer, ridgelines paler, and macro noise keeps neighbouring hills
+  // from reading identical
+  groundTint?(x: number, z: number): [number, number, number];
 }
 
 export class VoxelField {
@@ -84,9 +88,11 @@ export class VoxelField {
   private dummy = new THREE.Object3D();
   private col = new THREE.Color();
   private groundShade?: (x: number, z: number) => number;
+  private groundTint?: (x: number, z: number) => [number, number, number];
 
   constructor(sampler: FieldSampler) {
     this.groundShade = sampler.groundShade?.bind(sampler);
+    this.groundTint = sampler.groundTint?.bind(sampler);
     this.solid = new Uint8Array(GRID * GRID * MAXY);
     this.btype = new Uint8Array(GRID * GRID * MAXY);
     this.top = new Int16Array(GRID * GRID);
@@ -286,8 +292,14 @@ export class VoxelField {
     this.col
       .setHex(blockColor(type))
       .multiplyScalar(0.92 + hash2(x * 3.7 + y, z * 1.9) * 0.16);
-    if (this.groundShade && isGround(type)) {
-      this.col.multiplyScalar(this.groundShade(x, z));
+    if (isGround(type)) {
+      if (this.groundShade) this.col.multiplyScalar(this.groundShade(x, z));
+      if (this.groundTint) {
+        const [tr, tg, tb] = this.groundTint(x, z);
+        this.col.r *= tr;
+        this.col.g *= tg;
+        this.col.b *= tb;
+      }
     }
     const hot = HOT[type];
     if (hot) this.col.multiplyScalar(hot);

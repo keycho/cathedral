@@ -6,6 +6,7 @@
 // black, so the world's own lights carry it.
 
 import * as THREE from "three";
+import { SWATCH } from "./palette";
 
 const CYCLE_S = 1200; // one full day
 const DOME_R = 460; // inside the camera's far plane, following the camera
@@ -29,19 +30,22 @@ interface Key {
   glow: number; // sun disc opacity
 }
 
-// the day, keyed. golden hour holds the start and the wrap, day is bright
-// and soft, night is short and indigo. t=0 is where a fresh visitor lands.
+// the day, keyed, every colour drawn from the palette lock. golden hour
+// holds the start and the wrap and is the world's identity; noon is brief
+// and cooler; dusk earns the lantern phase; night is short and indigo,
+// never black. t=0 is where a fresh visitor lands.
+const S = SWATCH;
 const KEYS: Key[] = [
-  { t: 0.00, top: 0x7d9bb8, mid: 0xc9b490, hor: 0xf2c98e, fog: 0xd8c4a4, sun: 0xffd9a0, sunI: 2.3, sunE: 0.34, hemiSky: 0xffe2b8, hemiGround: 0x74854e, hemiI: 0.85, stars: 0, cloud: 0xffe8c8, cloudA: 0.5, glow: 0.7 },
-  { t: 0.16, top: 0x6f86ad, mid: 0xc8a184, hor: 0xf0b070, fog: 0xd2b394, sun: 0xffc888, sunI: 2.0, sunE: 0.24, hemiSky: 0xf6d0a8, hemiGround: 0x6a7a48, hemiI: 0.75, stars: 0, cloud: 0xffd9b0, cloudA: 0.5, glow: 0.65 },
-  { t: 0.24, top: 0x3d4b74, mid: 0x8a6d88, hor: 0xe08a5a, fog: 0xa98a80, sun: 0xff9a58, sunI: 1.15, sunE: 0.14, hemiSky: 0xd8a888, hemiGround: 0x4c5560, hemiI: 0.5, stars: 0.25, cloud: 0x9a7d90, cloudA: 0.45, glow: 0.5 },
-  { t: 0.32, top: 0x10142c, mid: 0x1b2340, hor: 0x2e3a58, fog: 0x252c44, sun: 0x9fb6d8, sunI: 0.42, sunE: 0.4, hemiSky: 0x39466a, hemiGround: 0x232a20, hemiI: 0.34, stars: 1, cloud: 0x2c3450, cloudA: 0.3, glow: 0 },
-  { t: 0.44, top: 0x10142c, mid: 0x1b2340, hor: 0x2e3a58, fog: 0x252c44, sun: 0x9fb6d8, sunI: 0.42, sunE: 0.4, hemiSky: 0x39466a, hemiGround: 0x232a20, hemiI: 0.34, stars: 1, cloud: 0x2c3450, cloudA: 0.3, glow: 0 },
-  { t: 0.54, top: 0x4a5d88, mid: 0xa87d84, hor: 0xf0a878, fog: 0xbf9f92, sun: 0xffb87a, sunI: 1.3, sunE: 0.2, hemiSky: 0xe8c0a0, hemiGround: 0x505c48, hemiI: 0.55, stars: 0.12, cloud: 0xe8b8a8, cloudA: 0.45, glow: 0.55 },
-  { t: 0.64, top: 0x79a8d0, mid: 0x93b8d4, hor: 0xe8ddc0, fog: 0xdcdcc4, sun: 0xfff2d8, sunI: 2.5, sunE: 0.62, hemiSky: 0xdfeaf2, hemiGround: 0x7c8c58, hemiI: 0.95, stars: 0, cloud: 0xffffff, cloudA: 0.55, glow: 0.6 },
-  { t: 0.82, top: 0x79a8d0, mid: 0x93b8d4, hor: 0xe8ddc0, fog: 0xdcdcc4, sun: 0xfff2d8, sunI: 2.5, sunE: 0.62, hemiSky: 0xdfeaf2, hemiGround: 0x7c8c58, hemiI: 0.95, stars: 0, cloud: 0xffffff, cloudA: 0.55, glow: 0.6 },
-  { t: 0.92, top: 0x86a0bc, mid: 0xc2b49a, hor: 0xeecf9e, fog: 0xd8ccae, sun: 0xffe6b8, sunI: 2.4, sunE: 0.44, hemiSky: 0xf2dcc0, hemiGround: 0x788850, hemiI: 0.9, stars: 0, cloud: 0xfff0d8, cloudA: 0.55, glow: 0.65 },
-  { t: 1.00, top: 0x7d9bb8, mid: 0xc9b490, hor: 0xf2c98e, fog: 0xd8c4a4, sun: 0xffd9a0, sunI: 2.3, sunE: 0.34, hemiSky: 0xffe2b8, hemiGround: 0x74854e, hemiI: 0.85, stars: 0, cloud: 0xffe8c8, cloudA: 0.5, glow: 0.7 },
+  { t: 0.00, top: S.skyZenithGolden, mid: S.bounceWarm, hor: S.skyHorizonGolden, fog: S.haze, sun: S.sunGolden, sunI: 2.05, sunE: 0.30, hemiSky: S.bounceWarm, hemiGround: S.meadowDeep, hemiI: 0.62, stars: 0, cloud: S.petal, cloudA: 0.5, glow: 0.42 },
+  { t: 0.18, top: S.skyZenithGolden, mid: S.bounceWarm, hor: S.skyHorizonGolden, fog: S.haze, sun: S.sunGolden, sunI: 1.95, sunE: 0.22, hemiSky: S.bounceWarm, hemiGround: S.meadowDeep, hemiI: 0.58, stars: 0, cloud: S.petal, cloudA: 0.5, glow: 0.44 },
+  { t: 0.26, top: 0x2f3f63, mid: S.bloomMauve, hor: S.sunDusk, fog: 0xa98a7e, sun: S.sunDusk, sunI: 1.1, sunE: 0.12, hemiSky: 0xc79a86, hemiGround: 0x44503c, hemiI: 0.42, stars: 0.3, cloud: S.bloomMauve, cloudA: 0.45, glow: 0.4 },
+  { t: 0.34, top: S.skyZenithNight, mid: 0x1a2440, hor: S.skyHorizonNight, fog: 0x2a3450, sun: S.moon, sunI: 0.34, sunE: 0.42, hemiSky: S.bounceNight, hemiGround: 0x20261e, hemiI: 0.26, stars: 1, cloud: 0x2b3550, cloudA: 0.28, glow: 0 },
+  { t: 0.46, top: S.skyZenithNight, mid: 0x1a2440, hor: S.skyHorizonNight, fog: 0x2a3450, sun: S.moon, sunI: 0.34, sunE: 0.42, hemiSky: S.bounceNight, hemiGround: 0x20261e, hemiI: 0.26, stars: 1, cloud: 0x2b3550, cloudA: 0.28, glow: 0 },
+  { t: 0.56, top: 0x415878, mid: 0x9a7a80, hor: S.sunDusk, fog: 0xb0917f, sun: 0xe8a464, sunI: 1.15, sunE: 0.18, hemiSky: 0xd2a684, hemiGround: 0x46523e, hemiI: 0.45, stars: 0.14, cloud: 0xd8a290, cloudA: 0.45, glow: 0.42 },
+  { t: 0.66, top: S.skyZenithDay, mid: 0x93aeb8, hor: S.skyHorizonDay, fog: 0xc4c3ab, sun: S.sunNoon, sunI: 2.25, sunE: 0.60, hemiSky: S.bounceCool, hemiGround: S.meadow, hemiI: 0.72, stars: 0, cloud: 0xe8e6d6, cloudA: 0.55, glow: 0.34 },
+  { t: 0.78, top: S.skyZenithDay, mid: 0x93aeb8, hor: S.skyHorizonDay, fog: 0xc4c3ab, sun: S.sunNoon, sunI: 2.25, sunE: 0.60, hemiSky: S.bounceCool, hemiGround: S.meadow, hemiI: 0.72, stars: 0, cloud: 0xe8e6d6, cloudA: 0.55, glow: 0.34 },
+  { t: 0.90, top: 0x6b8bad, mid: S.bounceWarm, hor: 0xd8b27e, fog: 0xcbb392, sun: 0xf6cf94, sunI: 2.15, sunE: 0.40, hemiSky: S.bounceWarm, hemiGround: S.meadowDeep, hemiI: 0.66, stars: 0, cloud: S.petal, cloudA: 0.55, glow: 0.4 },
+  { t: 1.00, top: S.skyZenithGolden, mid: S.bounceWarm, hor: S.skyHorizonGolden, fog: S.haze, sun: S.sunGolden, sunI: 2.05, sunE: 0.30, hemiSky: S.bounceWarm, hemiGround: S.meadowDeep, hemiI: 0.62, stars: 0, cloud: S.petal, cloudA: 0.5, glow: 0.42 },
 ];
 
 // what main applies to its lights each frame
@@ -145,7 +149,7 @@ export class Sky {
     this.follow.add(this.dome);
 
     // stars: a fixed shell of points, faded in by the script at night
-    const STAR_N = 650;
+    const STAR_N = 1500;
     const sp = new Float32Array(STAR_N * 3);
     for (let i = 0; i < STAR_N; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -159,7 +163,7 @@ export class Sky {
     sg.setAttribute("position", new THREE.BufferAttribute(sp, 3));
     this.starMat = new THREE.PointsMaterial({
       color: 0xdfe8ff,
-      size: 1.7,
+      size: 1.5,
       sizeAttenuation: false,
       transparent: true,
       opacity: 0,
@@ -194,7 +198,7 @@ export class Sky {
       fog: false,
     });
     this.glowSprite = new THREE.Sprite(this.glowMat);
-    this.glowSprite.scale.set(150, 150, 1);
+    this.glowSprite.scale.set(118, 118, 1);
     this.glowSprite.renderOrder = -1;
     this.follow.add(this.glowSprite);
 
@@ -332,11 +336,14 @@ export class Sky {
     this.tex.needsUpdate = true;
   }
 
-  update(dt: number, t: number, camPos: THREE.Vector3) {
+  update(dt: number, t: number, camPos: THREE.Vector3, windX = 1, windZ = 0, gust = 0.5) {
     const p = this.phase01(t);
     this.applyPhase(p);
     this.follow.position.copy(camPos);
-    this.clouds.rotation.y += dt * 0.0016;
+    // the clouds walk with the world's wind, not on a private clock
+    this.clouds.position.x += windX * gust * dt * 1.2;
+    this.clouds.position.z += windZ * gust * dt * 1.2;
+    this.clouds.rotation.y += dt * 0.0006;
     this.sinceDraw += dt;
     if (this.sinceDraw >= REDRAW_S) {
       this.sinceDraw = 0;

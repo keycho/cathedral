@@ -29,12 +29,13 @@ import { Monuments } from "./monuments";
 import { Shrine } from "./shrine";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
+import { pickTier, Post } from "./post";
 import { Architect } from "./architect";
 import { audio } from "./audio";
 import { CrewWorks } from "./crew";
 import { Journal } from "./journal";
 import { Mason } from "./mason";
-import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE } from "./palette";
+import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE, SWATCH } from "./palette";
 import { Candles } from "./candles";
 import { Glyphs } from "./glyphs";
 import { Plaques } from "./plaques";
@@ -45,6 +46,7 @@ import { Scars } from "./scars";
 import { Sky } from "./sky";
 import { Strata } from "./strata";
 import { Flora } from "./flora";
+import { Wind } from "./wind";
 import { buildVoidFloor, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
 import { distributeBlocks, TickEngine } from "./ticks";
 import { VoxelField } from "./voxels";
@@ -62,7 +64,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+// pulled well down: the sky was blowing to white and the meadow was
+// washing out. highlights hold detail here and the grade does the rest.
+renderer.toneMappingExposure = 0.92;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -95,8 +99,14 @@ sun.shadow.camera.bottom = -SH;
 // shadow (a large normal bias silently erases exactly that)
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.35;
+sun.shadow.radius = 4.5; // long shadows with soft edges, never a hard stamp
 scene.add(sun);
 scene.add(sun.target);
+
+// shadows are violet-grey, never black: a low ambient in the shadow tint
+// fills what the sun cannot reach, so every frame keeps shape in the dark
+const shadowFill = new THREE.AmbientLight(SWATCH.shadowTint, 0.5);
+scene.add(shadowFill);
 
 // the sun rides a fixed azimuth; the sky's day script raises and lowers it
 const SUN_AZ = Math.atan2(-0.42, -0.66);
@@ -109,16 +119,16 @@ const sky = new Sky(scene, SUN_AZ);
 
 // warm bounce: bright sky light over meadow-green ground fill, so shadows
 // stay soft and painterly instead of harsh
-const hemi = new THREE.HemisphereLight(0xffe2b8, 0x74854e, 0.85);
+const hemi = new THREE.HemisphereLight(SWATCH.bounceWarm, SWATCH.meadowDeep, 0.62);
 scene.add(hemi);
 
 // a gentle cool fill from the far side for shape in the shade
-const fill = new THREE.DirectionalLight(0xaebfd8, 0.18);
+const fill = new THREE.DirectionalLight(SWATCH.bounceCool, 0.14);
 fill.position.set(120, 60, 90);
 scene.add(fill);
 
 // the viewer's fill, eased right back now the world carries daylight
-const viewFill = new THREE.DirectionalLight(0xf2e2c2, 0.22);
+const viewFill = new THREE.DirectionalLight(SWATCH.bounceWarm, 0.16);
 scene.add(viewFill);
 scene.add(viewFill.target);
 
@@ -131,8 +141,12 @@ scene.add(field.group);
 
 const genesis = placeGenesis(field);
 
+// one wind field: the grass, the seeds, the clouds and the banners all
+// obey it, so the air reads as weather and not as separate animations
+const wind = new Wind();
+
 // the living layer: grass, wildflowers, reeds, moss, all on the same wind
-const flora = new Flora(scene, field);
+const flora = new Flora(scene, field, wind);
 
 // strata: provenance + epoch tints. the founding stone is the world's own,
 // locked so no tint pass ever touches it.
@@ -388,21 +402,25 @@ panel.onHistory = () => void runHistory(50);
 const core = new THREE.Mesh(
   new THREE.BoxGeometry(1.06, 1.06, 1.06),
   new THREE.MeshStandardMaterial({
-    color: 0xfaf3e2,
-    emissive: 0xe0aa5e,
+    color: SWATCH.genesis,
+    emissive: SWATCH.lantern,
     emissiveIntensity: 0.85,
     roughness: 0.6,
   })
 );
 core.position.copy(genesis);
 scene.add(core);
-const glow = new THREE.PointLight(0xe8b070, 5.0, 12, 1.8);
+const glow = new THREE.PointLight(SWATCH.lantern, 4.2, 12, 1.8);
 glow.position.copy(genesis).add(new THREE.Vector3(0, 1.4, 0));
 scene.add(glow);
 
-// ash drift: sparse motes through the dusk. the level is driven by market
-// volume once the feed lands (r6); until then a quiet baseline falls.
-const ash = new AshDrift(scene);
+// the air is layered: seeds tumbling close by, motes catching the light in
+// the middle distance, faint specks drifting far out over the mass. all
+// three ride the same wind at their own speeds.
+const ashNear = new AshDrift(scene, wind, 1.0, 0.1, 0.5, SWATCH.petal);
+const ashMid = new AshDrift(scene, wind, 0.55, 0.055, 0.34, SWATCH.bloomCream);
+const ashFar = new AshDrift(scene, wind, 0.3, 0.03, 0.2, SWATCH.haze);
+const ashLayers = [ashNear, ashMid, ashFar];
 
 // ---------------------------------------------------------------------------
 // seeing: orbit rig (default) + first-person walker (click to enter)
@@ -493,10 +511,21 @@ window.addEventListener("keydown", (e) => {
 // ---------------------------------------------------------------------------
 // loop
 // ---------------------------------------------------------------------------
+// the post stack: occlusion, bloom on the emissives, tone map, grade.
+// the tier decides what a weaker machine gives up first.
+const TIER_OVERRIDE = new URLSearchParams(location.search).get("tier");
+const post = new Post(
+  renderer,
+  scene,
+  camera,
+  (TIER_OVERRIDE as "high" | "medium" | "low" | null) ?? pickTier()
+);
+
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  post.setSize(window.innerWidth, window.innerHeight);
 });
 
 const clock = new THREE.Clock();
@@ -515,9 +544,10 @@ function frame() {
   if (walking) fp.update(dt);
   else rig.update(dt, camera);
   probe?.update();
-  sky.update(dt, t, camera.position);
+  sky.update(dt, t, camera.position, wind.dirX, wind.dirZ, wind.gust);
   flora.update(t);
-  ash.update(dt, t, camera.position);
+  wind.update(dt, t);
+  for (const a of ashLayers) a.update(dt, t, camera.position);
   feed.update(now);
   ticks.update(now);
   strata.update(now);
@@ -544,7 +574,7 @@ function frame() {
     lastAmbient = now;
     const rolling = 1 - Math.exp(-feed.grossPerMin(now) / 2500);
     ambientLevel += (Math.max(ambientTarget, rolling) - ambientLevel) * 0.25;
-    ash.setLevel(ambientLevel);
+    for (const a of ashLayers) a.setLevel(ambientLevel);
     // the heartbeat: the trailing minute's tx count sets the world's pulse
     const beats = feed.txPerMin(now);
     audio.setPulse(beats > 0 ? 20 + Math.min(60, beats) : 0);
@@ -593,7 +623,8 @@ function frame() {
     fpsFrames = 0;
   }
 
-  renderer.render(scene, camera);
+  post.setPhase(sky.phase01(t), sky.light.fog, t);
+  post.render();
 }
 frame();
 

@@ -17,11 +17,11 @@ const OLD_SPAN = 24; // cream -> sunwarm terracotta across the next 24
 // the geology's age reads like weathered growth: fresh mass is a living
 // green, settles to cream stone, and the oldest buried layers bake to the
 // same sunwarm terracotta as the world's exposed ridges
-const SAGE = { r: 0x8f, g: 0xbc, b: 0x66 };
-const CREAM = { r: 0xfa, g: 0xf3, b: 0xe2 };
-const ORANGE = { r: 0xc2, g: 0x7a, b: 0x48 };
+const SAGE = { r: 0x6d, g: 0x7d, b: 0x33 };
+const CREAM = { r: 0xc9, g: 0xbd, b: 0xa0 };
+const ORANGE = { r: 0xa1, g: 0x5b, b: 0x2c };
 // large holders' stone warms toward this (the holdings aura)
-const GOLD_AURA = { r: 0xff, g: 0xd2, b: 0x7a };
+const GOLD_AURA = { r: 0xb0, g: 0x8a, b: 0x4e };
 
 export interface Provenance {
   wallet: number; // index into the feed's wallet pool (-1 = the world itself)
@@ -181,7 +181,7 @@ export class Strata {
     else c = mix(CREAM, ORANGE, Math.min(1, (age - YOUNG_SPAN) / OLD_SPAN));
     if (p && p.wallet >= 0) {
       const held = this.byWallet.get(p.wallet) ?? 0;
-      const warmth = Math.min(1, held / 150) * 0.25;
+      const warmth = Math.min(1, held / 150) * 0.16;
       if (warmth > 0.02) c = mix(c, GOLD_AURA, warmth);
     }
     const j = 0.92 + hashCell(idx) * 0.14;

@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { audio } from "./audio";
 import { GRID } from "./config";
+import { SWATCH } from "./palette";
 import type { VoxelField } from "./voxels";
 
 const POOL = 140; // concurrent falling cubes
@@ -61,7 +62,7 @@ export class Kinetics {
     const points = new THREE.Points(
       this.dustGeo,
       new THREE.PointsMaterial({
-        color: 0xa89a74,
+        color: SWATCH.dust,
         size: 0.12,
         sizeAttenuation: true,
         transparent: true,

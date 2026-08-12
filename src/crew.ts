@@ -5,7 +5,7 @@
 
 import * as THREE from "three";
 import { GRID, MAXY } from "./config";
-import { DRESSED } from "./palette";
+import { CREAM, SWATCH } from "./palette";
 import type { Strata } from "./strata";
 import type { VoxelField } from "./voxels";
 
@@ -13,9 +13,9 @@ export type AgentName = "surveyor" | "architect" | "mason";
 export const AGENT_WALLET = -3; // provenance wallet id for all crew work
 
 export const AGENT_COLORS: Record<AgentName, number> = {
-  surveyor: 0xe8d9ae, // ash and lantern
-  architect: 0x8fd8ca, // teal and glass
-  mason: 0xbb98e0, // violet and crimson
+  surveyor: SWATCH.crewSurveyor,
+  architect: SWATCH.crewArchitect,
+  mason: SWATCH.crewMason
 };
 
 // territory wedges around the founding stone (see style.md). angles from
@@ -284,7 +284,7 @@ export class CrewWorks {
 
   // lantern blocks carry their own light (pooled)
   addLantern(x: number, y: number, z: number) {
-    const l = new THREE.PointLight(0xffc873, 3.0, 10, 1.8);
+    const l = new THREE.PointLight(SWATCH.lantern, 3.0, 10, 1.8);
     l.position.set(x - GRID / 2 + 0.5, y + 1.1, z - GRID / 2 + 0.5);
     this.scene.add(l);
     this.lanterns.push(l);
@@ -303,10 +303,10 @@ export class CrewWorks {
         if (x < 6 || x >= GRID - 6 || z < 6 || z >= GRID - 6) continue;
         const y = this.field.topAt(x, z);
         if (y >= MAXY - 3 || this.field.isSolid(x, y, z)) continue;
-        if (this.field.placeAt(x, y, z, DRESSED)) {
+        if (this.field.placeAt(x, y, z, CREAM)) {
           this.strata.lock(x, y, z); // before register: posts keep their cut colour
           this.strata.register(x, y, z, AGENT_WALLET, "border");
-          this.add(x, y, z, DRESSED, "border", "the territory line", zoneOf(x, z));
+          this.add(x, y, z, CREAM, "border", "the territory line", zoneOf(x, z));
         }
       }
     }

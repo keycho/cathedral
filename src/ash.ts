@@ -5,6 +5,8 @@
 // name; the ash became seeds when the world greened.)
 
 import * as THREE from "three";
+import { SWATCH } from "./palette";
+import type { Wind } from "./wind";
 
 const MAX = 900; // particles at level 1
 const BOX_W = 110; // wrap volume around the camera
@@ -21,7 +23,7 @@ export class AshDrift {
   private level01 = 0.3;
   private geo: THREE.BufferGeometry;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, private wind: Wind, private speed = 1, size = 0.085, opacity = 0.5, color: number = SWATCH.petal) {
     this.pos = new Float32Array(MAX * 3);
     this.fall = new Float32Array(MAX);
     this.phase = new Float32Array(MAX);
@@ -36,11 +38,11 @@ export class AshDrift {
     this.geo.setAttribute("position", new THREE.BufferAttribute(this.pos, 3));
     this.geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), BOX_W); // recentered each frame
     const mat = new THREE.PointsMaterial({
-      color: 0xf6dfc0,
-      size: 0.085,
+      color,
+      size,
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.5,
+      opacity,
       depthWrite: false,
     });
     this.points = new THREE.Points(this.geo, mat);
@@ -65,9 +67,12 @@ export class AshDrift {
       let x = this.pos[i * 3];
       let y = this.pos[i * 3 + 1];
       let z = this.pos[i * 3 + 2];
+      // the shared wind carries them; the phase keeps each seed's own
+      // tumble so a gust never looks like a rigid sheet
+      const g = this.wind.gust * (0.6 + 0.4 * Math.sin(t * 0.7 + this.phase[i]));
       y -= this.fall[i] * dt;
-      x += Math.sin(t * 0.4 + this.phase[i]) * SWAY * dt;
-      z += Math.cos(t * 0.31 + this.phase[i] * 1.7) * SWAY * 0.7 * dt;
+      x += (this.wind.dirX * g * 2.2 + Math.sin(t * 0.4 + this.phase[i]) * SWAY) * dt * this.speed;
+      z += (this.wind.dirZ * g * 2.2 + Math.cos(t * 0.31 + this.phase[i] * 1.7) * SWAY * 0.7) * dt * this.speed;
       // wrap into the box around the camera
       if (y < cy - 6) y += BOX_H;
       if (x < cx - BOX_W / 2) x += BOX_W;

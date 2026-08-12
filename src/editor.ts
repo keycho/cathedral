@@ -5,7 +5,7 @@
 // places a mass block. active only while pointer-locked in a dev build.
 
 import * as THREE from "three";
-import { MASS } from "./palette";
+import { MASS, SWATCH } from "./palette";
 import type { VoxelField } from "./voxels";
 import type { RayHit } from "./voxels";
 
@@ -33,7 +33,7 @@ export class EditProbe {
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.04, 1.04, 1.04));
     this.outline = new THREE.LineSegments(
       edges,
-      new THREE.LineBasicMaterial({ color: 0xfaf3e2, transparent: true, opacity: 0.5 })
+      new THREE.LineBasicMaterial({ color: SWATCH.genesis, transparent: true, opacity: 0.5 })
     );
     this.outline.visible = false;
     scene.add(this.outline);

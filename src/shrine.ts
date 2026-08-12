@@ -7,12 +7,12 @@
 // furniture, not the crew's work.
 
 import { GRID, MAXY } from "./config";
-import { DRESSED, GLASSLIGHT, LANTERN } from "./palette";
+import { CREAM, GLASSLIGHT, LANTERN, SWATCH } from "./palette";
 import type { Strata } from "./strata";
 import type { VoxelField } from "./voxels";
 import { audio } from "./audio";
 
-const FLASH = 0xffe9a8; // the memory colour
+const FLASH = SWATCH.holdings; // the memory colour
 const EPOCH_MS = 420; // replay pace: one epoch cohort per this
 const HOLD_MS = 1300; // how long a cohort holds its flash
 
@@ -48,11 +48,11 @@ export class Shrine {
       return this.idx(x, y0 + types.length - 1, z);
     };
     // three posts in an arc northwest of the stone, the middle one lit
-    place(gx - 6, gz - 3, [DRESSED, DRESSED]);
-    place(gx - 5, gz - 5, [DRESSED, DRESSED, LANTERN]);
-    place(gx - 3, gz - 6, [DRESSED, DRESSED]);
+    place(gx - 6, gz - 3, [CREAM, CREAM]);
+    place(gx - 5, gz - 5, [CREAM, CREAM, LANTERN]);
+    place(gx - 3, gz - 6, [CREAM, CREAM]);
     // the tablet: a glasslight face on a dressed base
-    this.tablet = place(gx - 4, gz - 4, [DRESSED, GLASSLIGHT]);
+    this.tablet = place(gx - 4, gz - 4, [CREAM, GLASSLIGHT]);
   }
 
   private idx(x: number, y: number, z: number): number {

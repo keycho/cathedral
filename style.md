@@ -33,23 +33,76 @@ a voxel world grown by a market, architected by agents.
   things are the market speaking, and the crew builds in conversation
   with them.
 
+## the palette lock
+
+src/palette.ts is the single source of colour. every material, particle,
+light and sky key reads a swatch from it; nothing in the world samples a
+colour defined anywhere else. the set was DERIVED, not invented: the
+stillwater basin frame was sampled and the range built outward from it.
+a new thing takes a swatch, or the palette gains a documented swatch
+first. every swatch and its role:
+
+| swatch | role |
+| ------ | ---- |
+| meadow | lit meadow grass, the world's ground note |
+| meadowDeep | valley floors, shaded grass, the hemisphere's ground bounce |
+| meadowPale | ridgelines and sun-bleached crowns |
+| earth | dark warm soil under the grass, basin banks, the far floor |
+| rust | exposed terrace rock, the warm counterweight to the greens |
+| rustDeep | rust in shadow and at depth |
+| scarmoss | old burns overgrown, wet low pockets |
+| emberseam | rare hot cracks near a wound; the hollow's interior light |
+| stillwater | pooled water, laid flat, never deeper than one |
+| grass, reed, moss | the flora families, drawn from the ground's range |
+| bloomCream, bloomRust, bloomMauve | wildflower drifts, muted, never candy |
+| genesis | the founding stone |
+| mass | fresh accretion |
+| rubble | settled collapse |
+| monument | a whale's monolith |
+| seed | a new holder's block, and island fringes |
+| strataYoung / strataSettled / strataOld | the age ramp through the mass |
+| holdings | the warmth a large holder's stone carries |
+| cream | coursed stone, the crew's formal body |
+| creamWarm | warm coursed stone, the crew's domestic body |
+| timber | dark timber: frames, braces, lintels |
+| tile | fired tile: roofs and kiln work |
+| lead | lead grey: gates, straps, lamp posts |
+| teal | deep teal, a SPARING accent only, never a banded column |
+| lantern | emissive amber, the crew's light |
+| glasslight | emissive pale, translucent-reading |
+| rise / fall | the price ribbon's ascent and descent |
+| haze / dust / petal | the air: fog, impact dust, drifting seeds |
+| skyZenith*, skyHorizon*, sun*, moon | the sky's cycle keys |
+| bounceWarm / bounceCool / bounceNight | the sky's bounce into the world |
+| shadowTint | violet-grey; shadows are never black |
+| crew* | the three agents' own silhouettes |
+
+## the grade
+
+the world is judged THROUGH the grade, never raw. three luts (day, golden
+hour, night) are built from these swatches' temperature and blended across
+the sky's cycle; the post stack runs occlusion, then bloom on emissives
+only, then tone mapping, then the grade with its depth haze, vignette and
+grain. exposure is held down so highlights keep detail. shadows are long,
+soft and violet-grey. distance dissolves into warm haze, so layered hills
+read like a painted backdrop.
+
 ## the crew's vocabulary
 
 agent architecture must read as ARCHITECTURE against raw strata at a
 glance: dressed, cut, deliberate. the crew's materials, and only the
 crew's:
 
-- dressed stone: cool pale cut stone, the formal body of crew work
-- warm dressed stone: sun-cream masonry, the domestic body; courtyards,
+- coursed stone: pale cut stone, the formal body of crew work
+- warm coursed stone: sun-cream masonry, the domestic body; courtyards,
   halls, garden walls
-- deep teal: formal accents, thresholds, inlays
-- violet: rare ceremonial banners, deliberate
+- dark timber: frames, braces, lintels, the skeleton under ambitious spans
+- fired tile: roofs and kiln work, warm clay red-brown
+- lead: gates, straps, lamp posts
+- deep teal: thresholds and inlays, SPARING, never a banded column
 - lantern: emissive amber blocks that carry their own light
 - glasslight: pale luminous blocks that read translucent
-- banner crimson and banner gold: heraldic color, used sparingly
 - stillwater: teal-blue pool blocks, laid flat, never deeper than 1
-- dark iron: braces, gates, lintels, lamp posts; the skeleton under
-  ambitious spans
 
 ## territory identities
 
@@ -57,13 +110,13 @@ three wedges around the founding stone, borders marked by dressed posts.
 each territory keeps a palette identity so a visitor knows whose ground
 they walk:
 
-- the surveyor's third (north): warm dressed stone and lantern. cairns,
-  waymark lines, observatory perches above the meadow. gold accents only.
-- the architect's third (southeast): dressed stone, teal and glass.
-  formal work, water gardens, glasslight galleries, terraces. the hall
-  rises here when volume sustains.
-- the mason's third (southwest): warm dressed stone, violet and crimson,
-  dark iron. working ground, yards, kilns, stairs, heavy courses.
+- the surveyor's third (north): warm coursed stone and lantern. cairns,
+  waymark lines, observatory perches above the meadow.
+- the architect's third (southeast): coursed stone, teal and glasslight.
+  formal work, water gardens, galleries, terraces. the hall rises here
+  when volume sustains.
+- the mason's third (southwest): warm coursed stone, timber, tile and
+  lead. working ground, yards, kilns, stairs, heavy courses.
 - the sky realm: the world is vertical. floating islands calve from the
   mass at its milestones and inherit its strata. above the wedges no
   territory holds; the architect's one signature project, the ascent,

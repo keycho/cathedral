@@ -19,18 +19,17 @@ import type { Journal } from "./journal";
 import type { Blueprint, BlueprintCell, Mason } from "./mason";
 import {
   AGENT_KEYS,
-  CRIMSON,
-  DARKIRON,
-  DRESSED,
-  DRESSEDWARM,
+  LEAD,
+  CREAM,
+  CREAMWARM,
   GLASSLIGHT,
-  GOLD,
   isAgentMaterial,
   isGeology,
   isGround,
   LANTERN,
+  TILE,
+  TIMBER,
   TEAL,
-  VIOLET,
 } from "./palette";
 import { RULES } from "./rules";
 import type { Islands } from "./islands";
@@ -44,9 +43,9 @@ const SKY_Y = 40; // above this is the sky realm: no wedge claims it
 
 const ZONES: AgentName[] = ["architect", "surveyor", "mason"];
 const ZONE_PALETTES: Record<AgentName, string> = {
-  surveyor: "dressedwarm, lantern, gold (cairns, waymark lines, observatory perches above the meadow)",
-  architect: "dressed, teal, glasslight, stillwater, lantern (formal, terraced, water gardens, glass galleries)",
-  mason: "dressedwarm, violet, crimson, darkiron, lantern (yards, kilns, heavy courses, braced spans)",
+  surveyor: "creamwarm, lantern, timber (cairns, waymark lines, observatory perches above the meadow)",
+  architect: "cream, teal, glasslight, stillwater, lantern (formal, terraced, water gardens, glass galleries)",
+  mason: "creamwarm, timber, tile, lead, lantern (yards, kilns, heavy courses, braced spans)",
 };
 
 interface Site {
@@ -398,8 +397,8 @@ export class Architect {
           continue;
         }
         const px = Math.abs(dx) > Math.abs(dz) ? 0 : 1; // deck runs 2 wide
-        put(x, y, z, DRESSED);
-        put(x + px, y, z + (1 - px), DRESSED);
+        put(x, y, z, CREAM);
+        put(x + px, y, z + (1 - px), CREAM);
         if (k % 3 === 0) put(x - px, y + 1, z - (1 - px), GLASSLIGHT);
       }
       if (!cells.length) return null; // the span is already there, or blocked
@@ -425,7 +424,7 @@ export class Architect {
           for (let dz = -3; dz <= 3; dz++) {
             if (Math.abs(dx) !== 3 && Math.abs(dz) !== 3) continue;
             const y = padY(a.anchorX + dx, a.anchorZ + dz);
-            if (y !== null) put(a.anchorX + dx, y, a.anchorZ + dz, DRESSED);
+            if (y !== null) put(a.anchorX + dx, y, a.anchorZ + dz, CREAM);
           }
         }
         for (const [px, pz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]] as const) {
@@ -437,13 +436,13 @@ export class Architect {
       // meadow: a stage clipped by a thin budget still lifts the tower, and
       // the next cycle carries on from the height that actually stands
       for (let y = topY + 1; y <= topY + 8; y++) {
-        put(a.anchorX, y, a.anchorZ, y % 5 === 0 ? GLASSLIGHT : DRESSED);
+        put(a.anchorX, y, a.anchorZ, y % 5 === 0 ? GLASSLIGHT : CREAM);
       }
       put(a.anchorX, topY + 9, a.anchorZ, LANTERN);
       // then the stair winding around it, one step per two cells
       for (let k = 0; k < ring.length; k++) {
         const y = topY + 1 + Math.floor(k / 2);
-        put(a.anchorX + ring[k][0], y, a.anchorZ + ring[k][1], k % 5 === 4 ? TEAL : DRESSED);
+        put(a.anchorX + ring[k][0], y, a.anchorZ + ring[k][1], k % 5 === 4 ? TEAL : CREAM);
       }
       if (!cells.length) return null; // nothing lawful here; the state stands
       a.stage++;
@@ -503,10 +502,10 @@ export class Architect {
       const name = Object.keys(AGENT_KEYS).find((k) => AGENT_KEYS[k] === m) ?? "dressed";
       cells.push({ x, y, z, m: name });
     };
-    const accent = site.zone === "architect" ? TEAL : site.zone === "mason" ? VIOLET : GOLD;
-    const banner = site.zone === "mason" ? CRIMSON : GOLD;
-    const body = site.zone === "architect" ? DRESSED : DRESSEDWARM;
-    const post = site.zone === "mason" ? DARKIRON : DRESSED;
+    const accent = site.zone === "architect" ? TEAL : site.zone === "mason" ? TILE : TIMBER;
+    const banner = site.zone === "mason" ? TILE : CREAMWARM;
+    const body = site.zone === "architect" ? CREAM : CREAMWARM;
+    const post = site.zone === "mason" ? LEAD : CREAM;
     const c = PATCH / 2;
     const hAt = (x: number, z: number) =>
       site.heights[Math.max(0, Math.min(PATCH - 1, z))][Math.max(0, Math.min(PATCH - 1, x))];

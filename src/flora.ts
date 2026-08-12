@@ -7,8 +7,9 @@
 
 import * as THREE from "three";
 import { GRID } from "./config";
-import { EARTH, MEADOW, SCARMOSS } from "./palette";
+import { EARTH, MEADOW, SCARMOSS, SWATCH } from "./palette";
 import { BASINS, meadowSampler } from "./terrain";
+import type { Wind } from "./wind";
 import type { VoxelField } from "./voxels";
 
 const GRASS_N = 8000;
@@ -18,7 +19,7 @@ const MOSS_N = 1200;
 const MOSS_POOL = 400; // runtime moss for fresh rubble
 const MOSS_DELAY_S = 45; // rubble sits bare this long before greening
 
-const FLOWER_COLORS = [0xf2e8c8, 0xe89078, 0xb094c8, 0xe8c060, 0xd86868, 0xf5f2e0];
+const FLOWER_COLORS = [SWATCH.bloomCream, SWATCH.bloomRust, SWATCH.bloomMauve];
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -59,7 +60,7 @@ export class Flora {
   private dummy = new THREE.Object3D();
   private color = new THREE.Color();
 
-  constructor(scene: THREE.Scene, field: VoxelField) {
+  constructor(scene: THREE.Scene, field: VoxelField, private wind: Wind) {
     const rand = mulberry32(0xf10ea);
     const shade = meadowSampler.groundShade
       ? meadowSampler.groundShade.bind(meadowSampler)
@@ -77,16 +78,21 @@ export class Flora {
       });
       mat.onBeforeCompile = (shader) => {
         shader.uniforms.uTime = this.uTime;
+        shader.uniforms.uWind = this.wind.uniform;
         shader.vertexShader = shader.vertexShader
-          .replace("#include <common>", "#include <common>\n uniform float uTime;")
+          .replace("#include <common>", "#include <common>\n uniform float uTime;\n uniform vec4 uWind;")
           .replace(
             "#include <begin_vertex>",
             `#include <begin_vertex>
              #ifdef USE_INSTANCING
-             float fPh = instanceMatrix[3][0] * 0.43 + instanceMatrix[3][2] * 0.61;
-             float fGust = sin(uTime * 1.5 + fPh) + 0.35 * sin(uTime * 3.7 + fPh * 1.7);
-             transformed.x += fGust * ${sway.toFixed(3)} * max(transformed.y, 0.0);
-             transformed.z += 0.6 * cos(uTime * 1.2 + fPh * 0.9) * ${sway.toFixed(3)} * max(transformed.y, 0.0);
+             // one wind for the whole world: the gust rolls across the
+             // meadow as a wave, and every blade leans along its direction
+             float fPh = instanceMatrix[3][0] * 0.05 + instanceMatrix[3][2] * 0.04;
+             float fWave = sin(fPh - uWind.w * 0.6);
+             float fGust = uWind.z * (0.55 + 0.45 * fWave) + 0.2 * sin(uWind.w * 3.1 + fPh * 7.0);
+             float fLean = fGust * ${sway.toFixed(3)} * max(transformed.y, 0.0);
+             transformed.x += fLean * uWind.x;
+             transformed.z += fLean * uWind.y;
              #endif`
           );
         // flora is lit like the ground it grows from: force the shading
@@ -146,7 +152,7 @@ export class Flora {
       const x = cell();
       const z = cell();
       if (topType(x, z) !== MEADOW) continue;
-      place(grass, x, z, topOf(x, z), 0.7 + rand() * 0.6, 0x93b258, 0.05);
+      place(grass, x, z, topOf(x, z), 0.7 + rand() * 0.6, SWATCH.grass, 0.05);
     }
 
     // wildflowers: drifts, not confetti - clusters seeded on the meadow
@@ -180,7 +186,7 @@ export class Flora {
         if (tt !== EARTH && tt !== MEADOW) continue;
         const y = topOf(x, z);
         if (y < b.wl || y > b.wl + 3) continue;
-        place(reeds, x, z, y, 0.7 + rand() * 0.6, 0x567a52, 0.04);
+        place(reeds, x, z, y, 0.7 + rand() * 0.6, SWATCH.reed, 0.04);
         placed++;
       }
     }
@@ -203,13 +209,13 @@ export class Flora {
     }
     for (let i = 0; i < MOSS_N && scarCells.length; i++) {
       const c = scarCells[Math.floor(rand() * scarCells.length)];
-      place(this.mossMesh, c.x, c.z, topOf(c.x, c.z) + 0.02, 0.7 + rand() * 0.7, 0x5f7a42, 0.04);
+      place(this.mossMesh, c.x, c.z, topOf(c.x, c.z) + 0.02, 0.7 + rand() * 0.7, SWATCH.moss, 0.04);
     }
 
     // stillwater sheen: a faint breathing gloss over each basin
     for (const b of BASINS) {
       const mat = new THREE.MeshBasicMaterial({
-        color: 0xcfeee4,
+        color: SWATCH.glasslight,
         transparent: true,
         opacity: 0.12,
         depthWrite: false,
@@ -243,7 +249,7 @@ export class Flora {
       this.dummy.scale.set(s, 1, s);
       this.dummy.updateMatrix();
       this.mossMesh.setMatrixAt(i, this.dummy.matrix);
-      this.color.setHex(0x5f7a42).offsetHSL(0, 0, (Math.random() - 0.5) * 0.06);
+      this.color.setHex(SWATCH.moss).offsetHSL(0, 0, (Math.random() - 0.5) * 0.06);
       this.mossMesh.setColorAt(i, this.color);
       if (this.mossMesh.count < i + 1) this.mossMesh.count = i + 1;
       this.mossMesh.instanceMatrix.needsUpdate = true;
