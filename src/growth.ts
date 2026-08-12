@@ -37,6 +37,9 @@ function hash1(i: number): number {
 interface Order {
   wallet: number;
   tx: string;
+  // a one-shot annotation (the buy's dollar value); fires onNote when the
+  // order's first block lands
+  note?: string;
 }
 
 export class Growth {
@@ -46,6 +49,8 @@ export class Growth {
   // when set, a picked block ARRIVES: the visual falls in and commit() is
   // called on landing. without it (headless, tests) blocks commit at once.
   dropper?: (x: number, y: number, z: number, commit: () => void) => void;
+  // a landed block carrying a note announces it (value glyphs)
+  onNote?: (x: number, y: number, z: number, note: string) => void;
 
   // the air frontier: empty cells adjacent to the structure, as a parallel
   // array + index map so removal is o(1) and weighted sampling is a scan
@@ -148,9 +153,10 @@ export class Growth {
 
   // ---- public --------------------------------------------------------------
 
-  // request n blocks of accretion attributed to a wallet + tx
-  enqueue(n: number, wallet: number, tx: string) {
-    for (let k = 0; k < n; k++) this.queue.push({ wallet, tx });
+  // request n blocks of accretion attributed to a wallet + tx. the note
+  // rides the first block only: one glyph per order, not per stone.
+  enqueue(n: number, wallet: number, tx: string, note?: string) {
+    for (let k = 0; k < n; k++) this.queue.push(k === 0 ? { wallet, tx, note } : { wallet, tx });
   }
   get pending(): number {
     return this.queue.length;
@@ -176,6 +182,7 @@ export class Growth {
         this.reserved.delete(i);
         if (this.field.placeAt(x, y, z, MASS)) {
           this.strata.register(x, y, z, order.wallet, order.tx);
+          if (order.note) this.onNote?.(x, y, z, order.note);
         }
         this.refreshAround(x, y, z);
       };
