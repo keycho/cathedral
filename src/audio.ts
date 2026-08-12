@@ -11,6 +11,9 @@ class WorldAudio {
   private master: GainNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
   private lastThud = 0;
+  // the heartbeat: a felt low lub-dub whose rate is the market's tx rate
+  private bpm = 0;
+  private nextBeat = 0;
 
   constructor() {
     const unlock = () => {
@@ -59,9 +62,9 @@ class WorldAudio {
     src.stop(t + duration);
   }
 
-  private tone(freq: number, gain: number, decay: number, drop = 0) {
+  private tone(freq: number, gain: number, decay: number, drop = 0, delaySec = 0) {
     if (!this.ctx || !this.master) return;
-    const t = this.ctx.currentTime;
+    const t = this.ctx.currentTime + delaySec;
     const o = this.ctx.createOscillator();
     o.type = "sine";
     o.frequency.setValueAtTime(freq, t);
@@ -91,6 +94,23 @@ class WorldAudio {
     const v = Math.min(1, vol);
     this.noise(1.7, 130, 0.55 * v, 1.7);
     this.tone(46, 0.4 * v, 1.5, 14);
+  }
+
+  // the world's pulse rate; 0 silences it
+  setPulse(bpm: number) {
+    this.bpm = Math.max(0, Math.min(120, bpm));
+  }
+
+  // called every frame: schedules the next beat when due. very quiet - it
+  // should be felt under everything, not heard over anything.
+  update(now: number) {
+    if (!this.ctx || this.bpm <= 0) return;
+    if (now < this.nextBeat) return;
+    const period = 60_000 / this.bpm;
+    // resync after a stall (tab hidden) instead of drumrolling to catch up
+    this.nextBeat = now - this.nextBeat > 2_000 ? now + period : this.nextBeat + period;
+    this.tone(50, 0.085, 0.16, 12);
+    this.tone(42, 0.06, 0.14, 8, 0.15); // the dub trails the lub
   }
 
   // the monument slam (and one day the bell): a deep toll

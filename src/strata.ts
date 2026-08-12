@@ -20,6 +20,8 @@ const OLD_SPAN = 24; // cream -> sunwarm terracotta across the next 24
 const SAGE = { r: 0x8f, g: 0xbc, b: 0x66 };
 const CREAM = { r: 0xfa, g: 0xf3, b: 0xe2 };
 const ORANGE = { r: 0xc2, g: 0x7a, b: 0x48 };
+// large holders' stone warms toward this (the holdings aura)
+const GOLD_AURA = { r: 0xff, g: 0xd2, b: 0x7a };
 
 export interface Provenance {
   wallet: number; // index into the feed's wallet pool (-1 = the world itself)
@@ -157,13 +159,20 @@ export class Strata {
 
   // ---- tints ---------------------------------------------------------------
 
-  // the colour a block rests at for its age, with a stable per-cell jitter
+  // the colour a block rests at for its age, with a stable per-cell jitter.
+  // holdings aura: stone owned by a large holder warms toward gold, so a
+  // whale's formation reads as one wealthy mass from orbit.
   restingColor(idx: number): number {
     const p = this.prov.get(idx);
     const age = p ? this.epoch - p.epoch : 0;
     let c;
     if (age <= YOUNG_SPAN) c = mix(SAGE, CREAM, age / YOUNG_SPAN);
     else c = mix(CREAM, ORANGE, Math.min(1, (age - YOUNG_SPAN) / OLD_SPAN));
+    if (p && p.wallet >= 0) {
+      const held = this.byWallet.get(p.wallet) ?? 0;
+      const warmth = Math.min(1, held / 150) * 0.25;
+      if (warmth > 0.02) c = mix(c, GOLD_AURA, warmth);
+    }
     const j = 0.92 + hashCell(idx) * 0.14;
     const r = Math.min(255, c.r * j);
     const g = Math.min(255, c.g * j);
