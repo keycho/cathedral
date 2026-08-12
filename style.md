@@ -64,6 +64,12 @@ they walk:
   rises here when volume sustains.
 - the mason's third (southwest): warm dressed stone, violet and crimson,
   dark iron. working ground, yards, kilns, stairs, heavy courses.
+- the sky realm: the world is vertical. floating islands calve from the
+  mass at its milestones and inherit its strata. above the wedges no
+  territory holds; the architect's one signature project, the ascent,
+  climbs stage by stage until a crossing joins the realms. islands and
+  crossings must be stunning from the ground: gardened, glowing
+  undersides, glasslight rails the meadow can see.
 
 ## the mandate
 

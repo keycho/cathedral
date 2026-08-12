@@ -23,8 +23,10 @@ import { FirstPerson } from "./firstperson";
 import { GROW, Growth } from "./growth";
 import { simulateHistory } from "./history";
 import { Hollows } from "./hollows";
+import { Islands } from "./islands";
 import { Kinetics } from "./kinetics";
 import { Monuments } from "./monuments";
+import { Shrine } from "./shrine";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
 import { Architect } from "./architect";
@@ -164,6 +166,12 @@ const erosion = new Erosion(field, strata, scars, hollows, kinetics, (x, y, z) =
 // the market's marks (r4 monuments, r5 seeds)
 const monuments = new Monuments(field, strata, growth, kinetics);
 
+// the sky realm: islands calved from the mass at its milestones
+const islands = new Islands(field, strata, kinetics, (x, y, z) => growth.refreshAround(x, y, z));
+
+// the shrine of epochs: the world's own furniture beside the stone
+const shrine = new Shrine(field, strata, GENESIS_CELL);
+
 // a burn's roof gives: ceiling stones tumble into the cavity and settle as
 // rubble on its floor
 hollows.onRoofFall = (x, y, z) => {
@@ -219,8 +227,14 @@ feed.on((ev) => {
   switch (ev.kind) {
     case "buy":
       ticks.ingest(ev);
-      // r4: a whale tx raises its monolith immediately
-      if (ev.amountUsd > RULES.whaleUsd) monuments.raise(ev.wallet, ev.tx);
+      // r4: a whale tx raises its monolith immediately; a great whale's
+      // monolith seeds an island above the place it surfaced
+      if (ev.amountUsd > RULES.whaleUsd) {
+        monuments.raise(ev.wallet, ev.tx);
+        if (ev.amountUsd > RULES.whaleUsd * 2.5 && monuments.lastMonument) {
+          islands.calveWhale(monuments.lastMonument.x, monuments.lastMonument.z);
+        }
+      }
       break;
     case "sell":
       ticks.ingest(ev);
@@ -228,6 +242,10 @@ feed.on((ev) => {
     case "burn": {
       const carved = hollows.burn(ev.amountTokens, (x, y, z) => growth.refreshAround(x, y, z));
       if (carved > 0) audio.rumble(Math.min(1, carved / 150));
+      // a major burn launches a hollowed ruin-island over the wound
+      if (carved > 110 && hollows.lastBurn) {
+        islands.calveRuin(hollows.lastBurn.x, hollows.lastBurn.z);
+      }
       break;
     }
     case "newHolder":
@@ -258,6 +276,7 @@ const architect = new Architect(
   GENESIS_CELL,
   { x: GENESIS_CELL.x + 14, z: GENESIS_CELL.z + 2 }
 );
+architect.islands = islands; // the signature project watches the sky
 
 // settled rubble greens over in time: ruins read reclaimed, not grim
 erosion.onRubble = (x, y, z) => flora.mossRubble(x, y, z);
@@ -294,6 +313,8 @@ ticks.onTick = (s) => {
   }
   // the chart advances one column
   ribbon.rebuild();
+  // the mass calves an island at each standing-blocks milestone
+  islands.maybeMilestone(strata.blockCount, GENESIS_CELL.x, GENESIS_CELL.z);
   // r6: ambient breathes with the tick's gross volume
   ambientTarget = Math.max(0.12, 1 - Math.exp(-s.grossVolumeUsd / 1200));
 };
@@ -353,6 +374,10 @@ const runHistory = async (epochs = 50) => {
     if (bp) mason.placeInstant(bp);
   }
   strata.epoch = finalEpoch;
+  // the aged mass has passed its milestones: the sky already has land
+  for (let k = 0; k < 3; k++) {
+    islands.maybeMilestone(strata.blockCount, GENESIS_CELL.x, GENESIS_CELL.z);
+  }
   ribbon.rebuild(); // the aged world wakes up carrying its chart
   return strata.blockCount;
 };
@@ -424,6 +449,10 @@ canvas.addEventListener("pointerup", (e) => {
 const plaques = new Plaques(field, strata, works, camera, canvas);
 plaques.describeWallet = (w) => (w === -1 ? "the world" : w === -3 ? "the crew" : feed.short(w));
 plaques.ribbonInfo = (x, y, z) => ribbon.infoAt(x, y, z);
+plaques.special = (x, y, z) => (shrine.isPart(x, y, z) ? shrine.plaque(x, y, z) : undefined);
+plaques.onInspect = (x, y, z) => {
+  if (shrine.isTablet(x, y, z)) shrine.play(performance.now());
+};
 
 // multiplayer transport: DORMANT behind NET_ENABLED. wired now so the place
 // layer only has to flip the flag; while dormant nothing connects.
@@ -505,6 +534,7 @@ function frame() {
   candles.update();
   glyphs.update(dt);
   audio.update(now);
+  shrine.update(now);
   plaques.update(now);
   panel.update(now);
 
@@ -594,6 +624,8 @@ declare global {
       sky: Sky;
       flora: Flora;
       ribbon: Ribbon;
+      islands: Islands;
+      shrine: Shrine;
       runHistory: (epochs?: number) => Promise<number>;
     };
   }
@@ -621,6 +653,8 @@ window.cathedral = {
   sky,
   flora,
   ribbon,
+  islands,
+  shrine,
   runHistory,
 };
 
