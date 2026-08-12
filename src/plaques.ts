@@ -36,6 +36,10 @@ export class Plaques {
   describeWallet: (w: number) => string = (w) => String(w);
   // main wires this: a ribbon cell answers with its tick
   ribbonInfo?: (x: number, y: number, z: number) => { n: number; close: number; rise: boolean } | undefined;
+  // world furniture answers before any family rule (the shrine)
+  special?: (x: number, y: number, z: number) => string[] | undefined;
+  // fired whenever a block is inspected (the shrine's tablet listens)
+  onInspect?: (x: number, y: number, z: number) => void;
 
   private el: HTMLElement;
   private hideAt = 0;
@@ -87,6 +91,8 @@ export class Plaques {
   private lines(x: number, y: number, z: number): string[] {
     const type = this.field.typeAt(x, y, z);
     if (type === 0) return [];
+    const sp = this.special?.(x, y, z);
+    if (sp) return sp;
     const prov = this.strata.provAt(x, y, z);
     const mat = blockById(type)?.name ?? "stone";
 
@@ -140,6 +146,7 @@ export class Plaques {
   }
 
   show(x: number, y: number, z: number) {
+    this.onInspect?.(x, y, z);
     const lines = this.lines(x, y, z).filter((s) => s.length > 0);
     if (!lines.length) return;
     this.el.innerHTML = "";
