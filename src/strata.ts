@@ -120,9 +120,36 @@ export class Strata {
     if (!this.cells.length) return undefined;
     return this.cells[Math.min(this.cells.length - 1, Math.floor(rand * this.cells.length))];
   }
+  // the registered cells as-is (subsidence copies + sorts before walking)
+  cellsSnapshot(): readonly number[] {
+    return this.cells;
+  }
 
   lock(x: number, y: number, z: number) {
     this.locked.add(this.idx(x, y, z));
+  }
+
+  // subsidence: a block slides one cell down carrying its provenance,
+  // birth epoch and lock with it, and is re-tinted at its new home
+  transfer(x: number, y: number, z: number, ny: number) {
+    const from = this.idx(x, y, z);
+    const to = this.idx(x, ny, z);
+    const p = this.prov.get(from);
+    if (!p) return;
+    this.prov.delete(from);
+    this.prov.set(to, p);
+    const pos = this.cellPos.get(from);
+    if (pos !== undefined) {
+      this.cells[pos] = to;
+      this.cellPos.delete(from);
+      this.cellPos.set(to, pos);
+    }
+    if (this.locked.has(from)) {
+      this.locked.delete(from);
+      this.locked.add(to);
+      return; // its owner repaints it
+    }
+    this.field.tintAt(x, ny, z, this.restingColor(to));
   }
 
   // ---- tints ---------------------------------------------------------------

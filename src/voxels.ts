@@ -187,6 +187,19 @@ export class VoxelField {
       this.emptyAt(x, y, z - 1)
     );
   }
+  // how many faces of a solid cell meet air (0 = buried); erosion targets
+  // the most weather-beaten stones first
+  exposedFaces(x: number, y: number, z: number): number {
+    if (!this.isSolid(x, y, z)) return 0;
+    let n = 0;
+    if (this.emptyAt(x + 1, y, z)) n++;
+    if (this.emptyAt(x - 1, y, z)) n++;
+    if (this.emptyAt(x, y + 1, z)) n++;
+    if (this.emptyAt(x, y - 1, z)) n++;
+    if (this.emptyAt(x, y, z + 1)) n++;
+    if (this.emptyAt(x, y, z - 1)) n++;
+    return n;
+  }
 
   // ---- chunked instanced rendering ----------------------------------------
 

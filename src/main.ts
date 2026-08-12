@@ -11,11 +11,13 @@ import {
   FOG_FAR,
   FOG_NEAR,
   GRID,
+  MAXY,
   SUN_COLOR,
   SUN_INTENSITY,
 } from "./config";
 import { DevPanel } from "./devpanel";
 import { EditProbe } from "./editor";
+import { Erosion } from "./erosion";
 import { Feed } from "./feed";
 import { FirstPerson } from "./firstperson";
 import { GROW, Growth } from "./growth";
@@ -23,7 +25,7 @@ import { Hollows } from "./hollows";
 import { Kinetics } from "./kinetics";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
-import { blockColor, MASS } from "./palette";
+import { blockColor, GENESIS as GENESIS_ID, MASS } from "./palette";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
 import { Strata } from "./strata";
@@ -134,6 +136,11 @@ const hollows = new Hollows(scene, field, strata, strata.idx(GENESIS_CELL.x, gen
 // erosion scars: freshly torn faces glow ember and cool over ~2h
 const scars = new Scars(field, strata);
 
+// collapse + subsidence (r2, r2b)
+const erosion = new Erosion(field, strata, scars, hollows, kinetics, (x, y, z) =>
+  growth.refreshAround(x, y, z)
+);
+
 // the market never entombs a visitor, and hollow never re-accretes
 const insideWalker = (x: number, y: number, z: number): boolean => {
   const wx = x - GRID / 2 + 0.5;
@@ -180,11 +187,30 @@ ticks.onTick = (s) => {
       growth.enqueue(count, wallet, "tick-" + s.n);
     }
   }
-  // r2 collapse wires in with the erosion commit
+  // r2: negative net flow destabilizes the frontier, sellers first
+  if (s.netFlowUsd < 0) {
+    erosion.erode(Math.floor(-s.netFlowUsd / RULES.usdPerBlock), s, ticks.tickLenMs);
+  }
   // r6: ambient breathes with the tick's gross volume
   ambientTarget = Math.max(0.12, 1 - Math.exp(-s.grossVolumeUsd / 1200));
 };
 ticks.onEpoch = () => strata.advanceEpoch();
+
+// r2b: the mass settles one block; the founding stone's sanctity, glow and
+// the orbit's eye follow it down
+ticks.onSubside = () => {
+  erosion.subside();
+  for (let y = MAXY - 1; y >= 1; y--) {
+    if (field.typeAt(GENESIS_CELL.x, y, GENESIS_CELL.z) === GENESIS_ID) {
+      genesis.setY(y + 0.5);
+      core.position.copy(genesis);
+      glow.position.copy(genesis).add(new THREE.Vector3(0, 1.4, 0));
+      rig.target.copy(genesis);
+      hollows.setSacred(strata.idx(GENESIS_CELL.x, y, GENESIS_CELL.z));
+      break;
+    }
+  }
+};
 
 const panel = new DevPanel(feed, strata, growth, ticks);
 
@@ -315,6 +341,7 @@ function frame() {
   strata.update(now);
   growth.drain();
   kinetics.update(dt);
+  erosion.update(now);
   hollows.update(t);
   scars.update(now);
   panel.update(now);

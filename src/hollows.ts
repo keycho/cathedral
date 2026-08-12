@@ -35,6 +35,7 @@ function hash1(i: number): number {
 
 export class Hollows {
   private hollow = new Set<number>();
+  private lining = new Set<number>();
   private lights: { light: THREE.PointLight; phase: number }[] = [];
   private tmp = new THREE.Vector3();
 
@@ -44,6 +45,11 @@ export class Hollows {
     private strata: Strata,
     private sacred: number // the founding stone's cell index
   ) {}
+
+  // the founding stone moves when the mass subsides; its sanctity follows
+  setSacred(idx: number) {
+    this.sacred = idx;
+  }
 
   private idx(x: number, y: number, z: number): number {
     return (x * GRID + z) * MAXY + y;
@@ -136,12 +142,8 @@ export class Hollows {
         const ni = this.idx(nx, ny, nz);
         if (ni === this.sacred) continue;
         this.strata.locked.add(ni);
-        const j = 0.8 + hash1(ni) * 0.4;
-        const hex =
-          (Math.min(255, LINING.r * j) << 16) |
-          (Math.min(255, LINING.g * j) << 8) |
-          Math.min(255, LINING.b * j);
-        this.field.tintAt(nx, ny, nz, hex);
+        this.lining.add(ni);
+        this.paintLining(nx, ny, nz);
       }
     }
 
@@ -156,6 +158,53 @@ export class Hollows {
       if (old) this.scene.remove(old.light);
     }
     return removed.length;
+  }
+
+  private paintLining(x: number, y: number, z: number) {
+    const i = this.idx(x, y, z);
+    const j = 0.8 + hash1(i) * 0.4;
+    const hex =
+      (Math.min(255, LINING.r * j) << 16) |
+      (Math.min(255, LINING.g * j) << 8) |
+      Math.min(255, LINING.b * j);
+    this.field.tintAt(x, y, z, hex);
+  }
+
+  // subsidence: the cavities sink with the mass. hollow and lining cells
+  // shift one down unless the cell below is inside the ground; linings are
+  // repainted at their new homes (the transfer kept them locked).
+  shiftDown() {
+    const shift = (set: Set<number>): Set<number> => {
+      const out = new Set<number>();
+      for (const i of set) {
+        const [x, y, z] = this.unpack(i);
+        if (y > 1 && !this.field.isSolid(x, y - 1, z)) out.add(this.idx(x, y - 1, z));
+        else out.add(i);
+      }
+      return out;
+    };
+    this.hollow = shift(this.hollow);
+    // linings follow their blocks: a lining cell that is still solid keeps
+    // its index; one whose block slid down follows it
+    const next = new Set<number>();
+    for (const i of this.lining) {
+      const [x, y, z] = this.unpack(i);
+      if (this.field.isSolid(x, y, z)) {
+        next.add(i);
+        this.paintLining(x, y, z);
+      } else if (y > 1 && this.field.isSolid(x, y - 1, z)) {
+        next.add(this.idx(x, y - 1, z));
+        this.paintLining(x, y - 1, z);
+      }
+    }
+    this.lining = next;
+    for (const l of this.lights) l.light.position.y -= 1;
+  }
+
+  // erosion tearing a lining block away: drop its membership so the cell
+  // does not stay locked as air
+  onLiningBroken(x: number, y: number, z: number) {
+    this.lining.delete(this.idx(x, y, z));
   }
 
   update(t: number) {
