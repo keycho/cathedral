@@ -11,6 +11,7 @@ import type { Kinetics } from "./kinetics";
 import { blockColor, LANTERN } from "./palette";
 import { RULES } from "./rules";
 import type { Strata } from "./strata";
+import type { Voice } from "./voice";
 import type { VoxelField } from "./voxels";
 
 export interface BlueprintCell {
@@ -35,6 +36,10 @@ export class Mason {
   private cursor = 0;
   private repairs: BlueprintCell[] = [];
   private lastPlace = 0;
+  private repairsDone = 0;
+  private stepsWalked = 0;
+  // main wires this: a finished work is a fact other systems care about
+  onFinished?: (bp: Blueprint) => void;
   private walkTarget: { x: number; z: number } | null = null;
   private walkFailedAt = 0;
 
@@ -45,7 +50,8 @@ export class Mason {
     private works: CrewWorks,
     private kinetics: Kinetics,
     private journal: Journal,
-    home: { x: number; z: number }
+    home: { x: number; z: number },
+    private voice?: Voice
   ) {
     this.body = new AgentBody("mason", field, home.x, home.z, scene);
   }
@@ -90,7 +96,13 @@ export class Mason {
     const bp = this.queue[0];
     if (!bp) return null;
     if (this.cursor >= bp.cells.length) {
-      this.journal.add("mason", this.strata.epoch, `set the last stone of ${bp.title}.`);
+      const line = this.voice
+        ? this.voice.mason({ title: bp.title, set: bp.cells.length, repairs: this.repairsDone, steps: this.stepsWalked, planId: bp.planId })
+        : `set the last stone of ${bp.title}.`;
+      this.repairsDone = 0;
+      this.stepsWalked = 0;
+      this.journal.add("mason", this.strata.epoch, line);
+      this.onFinished?.(bp);
       this.queue.shift();
       this.cursor = 0;
       return this.nextCell();
@@ -101,6 +113,7 @@ export class Mason {
   private advance(placed: boolean) {
     if (this.repairs.length) {
       this.repairs.shift();
+      this.repairsDone++;
       return;
     }
     this.cursor++;
@@ -192,6 +205,7 @@ export class Mason {
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [0, 0]] as const) {
       if (this.body.walkTo(c.x + dx, c.z + dz)) {
         this.walkTarget = { x: c.x, z: c.z };
+        this.stepsWalked++;
         return;
       }
     }

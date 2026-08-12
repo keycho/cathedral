@@ -14,7 +14,7 @@
 
 import * as THREE from "three";
 import { GRID, MAXY } from "./config";
-import { AgentBody, zoneOf, type AgentName } from "./crew";
+import { AgentBody, zoneOf, type ZoneName } from "./crew";
 import type { Journal } from "./journal";
 import type { Blueprint, BlueprintCell, Mason } from "./mason";
 import {
@@ -41,15 +41,15 @@ const PATCH = 30; // blueprint frame is a PATCH x PATCH site
 const API_TIMEOUT_MS = 45_000;
 const SKY_Y = 40; // above this is the sky realm: no wedge claims it
 
-const ZONES: AgentName[] = ["architect", "surveyor", "mason"];
-const ZONE_PALETTES: Record<AgentName, string> = {
+const ZONES: ZoneName[] = ["architect", "surveyor", "mason"];
+const ZONE_PALETTES: Record<ZoneName, string> = {
   surveyor: "creamwarm, lantern, timber (cairns, waymark lines, observatory perches above the meadow)",
   architect: "cream, teal, glasslight, stillwater, lantern (formal, terraced, water gardens, glass galleries)",
   mason: "creamwarm, timber, tile, lead, lantern (yards, kilns, heavy courses, braced spans)",
 };
 
 interface Site {
-  zone: AgentName;
+  zone: ZoneName;
   anchorX: number; // cell of patch origin (corner)
   anchorZ: number;
   groundY: number; // y=0 of the blueprint frame
@@ -159,7 +159,7 @@ export class Architect {
 
   // ---- site + snapshot -----------------------------------------------------
 
-  private pickSite(zone: AgentName): Site | null {
+  private pickSite(zone: ZoneName): Site | null {
     // the mass grows with age: seek open ground from the near ring out to
     // well past a large world's edge, requiring genuinely buildable sites
     // (an aged mass swallows the near ring entirely)
@@ -465,7 +465,7 @@ export class Architect {
   // stage a pre-authored finished work for a zone: pick a site and run the
   // exact validation the live path runs. the caller (simulated history)
   // lays it instantly through the mason. the journal keeps its memo.
-  async prepareCompleted(url: string, zone: AgentName): Promise<Blueprint | null> {
+  async prepareCompleted(url: string, zone: ZoneName): Promise<Blueprint | null> {
     try {
       const site = this.pickSite(zone);
       if (!site) return null;

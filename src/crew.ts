@@ -9,18 +9,22 @@ import { CREAM, SWATCH } from "./palette";
 import type { Strata } from "./strata";
 import type { VoxelField } from "./voxels";
 
-export type AgentName = "surveyor" | "architect" | "mason";
+export type AgentName = "surveyor" | "architect" | "mason" | "keeper";
 export const AGENT_WALLET = -3; // provenance wallet id for all crew work
 
 export const AGENT_COLORS: Record<AgentName, number> = {
   surveyor: SWATCH.crewSurveyor,
   architect: SWATCH.crewArchitect,
-  mason: SWATCH.crewMason
+  mason: SWATCH.crewMason,
+  keeper: SWATCH.lantern, // the one who carries the light
 };
 
 // territory wedges around the founding stone (see style.md). angles from
 // atan2(dz, dx) in (-pi, pi].
-export function zoneOf(x: number, z: number): AgentName {
+export type ZoneName = "surveyor" | "architect" | "mason";
+
+// the keeper holds no wedge: it walks all three
+export function zoneOf(x: number, z: number): ZoneName {
   const a = Math.atan2(z - GRID / 2, x - GRID / 2);
   if (a >= -Math.PI / 3 && a < Math.PI / 3) return "architect";
   if (a >= Math.PI / 3 && a < Math.PI) return "mason";
@@ -31,7 +35,11 @@ export function zoneOf(x: number, z: number): AgentName {
 
 const WALK_SPEED = 2.3;
 
-function makeNameSprite(name: string, colorHex: number): THREE.Sprite {
+interface NameSprite extends THREE.Sprite {
+  setName?: (n: string) => void;
+}
+
+function makeNameSprite(name: string, colorHex: number): NameSprite {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 64;
@@ -44,15 +52,20 @@ function makeNameSprite(name: string, colorHex: number): THREE.Sprite {
     g.textBaseline = "middle";
     const c = new THREE.Color(colorHex);
     g.fillStyle = `rgb(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)})`;
-    g.fillText(name, 128, 34);
+    g.fillText(current, 128, 34);
     tex.needsUpdate = true;
   };
+  let current = name;
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.92 })
   );
   sprite.scale.set(2.6, 0.65, 1);
+  (sprite as NameSprite).setName = (n: string) => {
+    current = n;
+    draw();
+  };
   draw();
   // vt323 may land after first paint; redraw once fonts settle
   document.fonts?.ready.then(draw).catch(() => undefined);
@@ -63,9 +76,10 @@ export class Avatar {
   readonly group = new THREE.Group();
   private body: THREE.Mesh;
   private head: THREE.Mesh;
+  private label: NameSprite;
 
-  constructor(name: AgentName) {
-    const color = AGENT_COLORS[name];
+  constructor(name: string, role: AgentName = "mason") {
+    const color = AGENT_COLORS[role];
     // a brighter silhouette: slight emissive so the crew reads against dusk
     const mat = new THREE.MeshStandardMaterial({
       color,
@@ -79,9 +93,14 @@ export class Avatar {
     this.head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 0.42), mat);
     this.head.position.y = 1.36;
     this.head.castShadow = true;
-    const label = makeNameSprite(name, color);
-    label.position.y = 2.05;
-    this.group.add(this.body, this.head, label);
+    this.label = makeNameSprite(name, color);
+    this.label.position.y = 2.05;
+    this.group.add(this.body, this.head, this.label);
+  }
+
+  // a successor inherits the role and the colour, never the name
+  setName(n: string) {
+    this.label.setName?.(n);
   }
 
   bob(t: number, moving: boolean) {
@@ -167,12 +186,17 @@ export class AgentBody {
   z: number;
   private path: { x: number; z: number }[] = [];
 
-  constructor(readonly name: AgentName, private field: VoxelField, cellX: number, cellZ: number, scene: THREE.Scene) {
-    this.avatar = new Avatar(name);
+  constructor(readonly name: AgentName, private field: VoxelField, cellX: number, cellZ: number, scene: THREE.Scene, personName?: string) {
+    this.avatar = new Avatar(personName ?? name, name);
     this.x = cellX - GRID / 2 + 0.5;
     this.z = cellZ - GRID / 2 + 0.5;
     this.y = field.surfaceBelow(this.x, this.z, 60);
     scene.add(this.avatar.group);
+  }
+
+  // the person walking the role today
+  setPersonName(n: string) {
+    this.avatar.setName(n);
   }
 
   get cellX(): number {
@@ -236,6 +260,8 @@ export class CrewWorks {
   private cellList: number[] = [];
   private cellPos = new Map<number, number>();
   private lanterns: THREE.PointLight[] = [];
+  private lanternCellList: { x: number; z: number }[] = [];
+  private lanternDim = 1;
 
   constructor(private scene: THREE.Scene, private field: VoxelField, private strata: Strata) {}
 
@@ -283,8 +309,22 @@ export class CrewWorks {
   }
 
   // lantern blocks carry their own light (pooled)
+  // the keeper walks these: every lamp the crew has set, as cells
+  lanternCells(): { x: number; z: number }[] {
+    return this.lanternCellList;
+  }
+
+  // the crew's lamps burn low while a marker stands: the world's version
+  // of flags at half mast
+  dimLanterns(k: number) {
+    this.lanternDim = k;
+    for (const l of this.lanterns) l.intensity = 3.0 * k;
+  }
+
   addLantern(x: number, y: number, z: number) {
-    const l = new THREE.PointLight(SWATCH.lantern, 3.0, 10, 1.8);
+    this.lanternCellList.push({ x, z });
+    if (this.lanternCellList.length > 24) this.lanternCellList.shift();
+    const l = new THREE.PointLight(SWATCH.lantern, 3.0 * this.lanternDim, 10, 1.8);
     l.position.set(x - GRID / 2 + 0.5, y + 1.1, z - GRID / 2 + 0.5);
     this.scene.add(l);
     this.lanterns.push(l);

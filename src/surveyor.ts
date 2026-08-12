@@ -10,6 +10,7 @@ import type { Hollows } from "./hollows";
 import type { Journal } from "./journal";
 import type { Monuments } from "./monuments";
 import type { Strata } from "./strata";
+import type { Voice } from "./voice";
 import type { VoxelField } from "./voxels";
 import * as THREE from "three";
 
@@ -33,7 +34,15 @@ export class Surveyor {
     private hollows: Hollows,
     private monuments: Monuments,
     private journal: Journal,
-    genesisCell: { x: number; z: number }
+    genesisCell: { x: number; z: number },
+    private voice: Voice,
+    private extras: {
+      islands: () => number;
+      subsideRun: () => number;
+      sinceSubside: () => number;
+      newestWork: () => { title: string; by: "surveyor" | "architect" | "mason" | "keeper" } | undefined;
+      isDusk: () => boolean;
+    }
   ) {
     // the ridge: the highest ground in the surveyor's third, ring 20..34
     let best = { x: genesisCell.x - 24, z: genesisCell.z - 10, h: -1 };
@@ -87,17 +96,45 @@ export class Surveyor {
     const rubbleNow = this.erosion.lastRubble.length;
     const rubbleNew = Math.max(0, rubbleNow - this.lastRubbleSeen);
     this.lastRubbleSeen = rubbleNow;
-    const parts: string[] = [`epoch ${epoch}. the mass stands ${blocks} stones.`];
-    if (grew > 12) parts.push(`it grew ${grew} since my last walk.`);
-    else if (grew < -12) parts.push(`it lost ${-grew}. the wind was against us.`);
-    if (rubbleNew > 6) parts.push(`fresh rubble at the foot, ${rubbleNew} fallen.`);
-    if (this.hollows.count > 0) parts.push(`${Math.max(1, Math.round(this.hollows.count / 90))} chambers burn below.`);
-    if (this.monuments.count > 0) parts.push(`${this.monuments.count} monoliths keep their watch.`);
-    if (parts.length === 1) parts.push(`quiet ground. the ash settles where it falls.`);
-    this.journal.add("surveyor", epoch, parts.join(" "));
+    // the doomed formation it keeps visiting: the tallest thing standing on
+    // ground the market is actively chewing
+    const doomed =
+      rubbleNew > 4 ? { name: "east spire", lean: 2 + Math.min(6, Math.round(rubbleNew / 4)) } : undefined;
+    this.journal.add(
+      "surveyor",
+      epoch,
+      this.voice.surveyor({
+        epoch,
+        blocks,
+        grew,
+        rubbleNew,
+        chambers: Math.max(0, Math.round(this.hollows.count / 90)),
+        monoliths: this.monuments.count,
+        sinceSubside: this.extras.sinceSubside(),
+        subsideRun: this.extras.subsideRun(),
+        islands: this.extras.islands(),
+        newestWork: this.extras.newestWork(),
+        doomed,
+      })
+    );
+  }
+
+  // the ridge it always returns to: a visitor learns where to find it
+  get ridgeCell(): { x: number; z: number } {
+    return this.ridge;
   }
 
   update(_dt: number, now: number) {
+    // the dusk pause: whatever else is pending, it goes up to the same
+    // ridge and stands there while the light goes
+    if (this.extras.isDusk() && !this.walking && !this.body.moving) {
+      const onRidge = this.body.cellX === this.ridge.x && this.body.cellZ === this.ridge.z;
+      if (!onRidge) {
+        this.body.walkTo(this.ridge.x, this.ridge.z);
+        return;
+      }
+    }
+
     // start a walk when an epoch closed and the last one is done
     if (this.pendingEpoch >= 0 && !this.walking && !this.body.moving) {
       this.planWalk();

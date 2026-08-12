@@ -34,7 +34,7 @@ import { PerfHud } from "./perfhud";
 import { initialQuality, qualityFor, type Effects, type Quality, type Tier } from "./quality";
 import { Architect } from "./architect";
 import { audio } from "./audio";
-import { CrewWorks } from "./crew";
+import { CrewWorks, zoneOf as zoneOfCell, type AgentBody } from "./crew";
 import { Journal } from "./journal";
 import { Mason } from "./mason";
 import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE, SWATCH } from "./palette";
@@ -43,6 +43,11 @@ import { Glyphs } from "./glyphs";
 import { Plaques } from "./plaques";
 import { Ribbon } from "./ribbon";
 import { Surveyor } from "./surveyor";
+import { Director } from "./director";
+import { Keeper } from "./keeper";
+import { Tombs } from "./tombs";
+import { Vitality } from "./vitality";
+import { Voice } from "./voice";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
 import { Sky } from "./sky";
@@ -264,6 +269,14 @@ feed.on((ev) => {
       // monolith seeds an island above the place it surfaced
       if (ev.amountUsd > RULES.whaleUsd) {
         monuments.raise(ev.wallet, ev.tx);
+        // the ritual: a whale surfacing brings the crew to the stone
+        if (monuments.lastMonument) {
+          const m = monuments.lastMonument;
+          keeper.gatherAt(m.x, m.z);
+          surveyor.body.walkTo(m.x + 2, m.z - 1);
+          architect.body.walkTo(m.x - 2, m.z + 1);
+          director.cut("gathering", m.x, m.z, m.y, performance.now());
+        }
         if (ev.amountUsd > RULES.whaleUsd * 2.5 && monuments.lastMonument) {
           islands.calveWhale(monuments.lastMonument.x, monuments.lastMonument.z);
         }
@@ -291,13 +304,50 @@ feed.on((ev) => {
 // the crew: embodied agents, their log, their works, their territories
 // ---------------------------------------------------------------------------
 const journal = new Journal();
+// the four registers live in crew/*.md and run through here
+const voice = new Voice();
+// the crew log is public: entries are posted to the feed as they are
+// written (batched, and silent when the endpoint is absent in dev)
+let feedQueue: { agent: string; epoch: number; text: string; at: number }[] = [];
+let feedFlushAt = 0;
+journal.onEntry = (e) => feedQueue.push({ agent: e.agent, epoch: e.epoch, text: e.text, at: e.at });
+const tombs = new Tombs();
 const works = new CrewWorks(scene, field, strata);
 works.placeBorders(GENESIS_CELL);
-const surveyor = new Surveyor(scene, field, strata, erosion, hollows, monuments, journal, GENESIS_CELL);
-const mason = new Mason(scene, field, strata, works, kinetics, journal, {
-  x: GENESIS_CELL.x + 5,
-  z: GENESIS_CELL.z + 13,
-});
+let lastFinished: { title: string; by: "surveyor" | "architect" | "mason" | "keeper" } | undefined;
+let lastSubsideTick = 0;
+const surveyor = new Surveyor(
+  scene,
+  field,
+  strata,
+  erosion,
+  hollows,
+  monuments,
+  journal,
+  GENESIS_CELL,
+  voice,
+  {
+    islands: () => islands.count,
+    subsideRun: () => ticks.negativeRun,
+    sinceSubside: () => ticks.tick - lastSubsideTick,
+    newestWork: () => lastFinished,
+    // the dusk pause: the long golden hour tipping over into evening
+    isDusk: () => {
+      const p = sky.phase01(clock.elapsedTime);
+      return p > 0.2 && p < 0.32;
+    },
+  }
+);
+const mason = new Mason(
+  scene,
+  field,
+  strata,
+  works,
+  kinetics,
+  journal,
+  { x: GENESIS_CELL.x + 5, z: GENESIS_CELL.z + 13 },
+  voice
+);
 const architect = new Architect(
   scene,
   field,
@@ -313,6 +363,107 @@ architect.islands = islands; // the signature project watches the sky
 
 // settled rubble greens over in time: ruins read reclaimed, not grim
 erosion.onRubble = (x, y, z) => flora.mossRubble(x, y, z);
+
+mason.onFinished = (bp) => {
+  lastFinished = { title: bp.title, by: bp.zone };
+  vitality.creditWork("mason");
+  vitality.creditWork("architect");
+  if (bp.planId.startsWith("tomb-")) {
+    const t = tombs.list[tombs.list.length - 1];
+    if (t) director.cut("tomb", t.x, t.z, t.y + 3, performance.now());
+  }
+};
+
+// the keeper: the fourth agent, holding no territory and walking all of
+// it. it needs the tombs (its round includes the graves) and the visitor.
+const keeper = new Keeper(
+  scene,
+  field,
+  works,
+  journal,
+  voice,
+  tombs,
+  GENESIS_CELL,
+  () => strata.epoch,
+  () => {
+    const p = sky.phase01(clock.elapsedTime);
+    return p > 0.26 && p < 0.56; // dusk through night: the lamps matter
+  },
+  () => (walking ? { x: Math.floor(fp.pos.x + GRID / 2), z: Math.floor(fp.pos.z + GRID / 2) } : null),
+  { x: GENESIS_CELL.x + 3, z: GENESIS_CELL.z - 2 }
+);
+
+let mourningUntil = 0;
+// mortality. the crew lives on the market's volume and nothing else, and
+// no mechanic anywhere lets anyone pay to kill or save one of them.
+const vitality = new Vitality(ticks, ["surveyor", "architect", "mason", "keeper"], strata.epoch);
+const bodyOf = (role: string): AgentBody | null =>
+  role === "surveyor" ? surveyor.body : role === "architect" ? architect.body : role === "mason" ? mason.body : keeper.body;
+
+vitality.onStage = (role, health) => {
+  if (health === "hale") return;
+  journal.add(role, strata.epoch, voice.decline(role, health as "thin" | "failing" | "dying"));
+  if (health === "dying") {
+    const b = bodyOf(role);
+    if (b) director.cutTo("dying", () => new THREE.Vector3(b.x, b.y + 1, b.z), performance.now());
+  }
+};
+
+vitality.onDeath = (life) => {
+  const now = performance.now();
+  const b = bodyOf(life.role);
+  if (b) director.cut("death", Math.floor(b.x + GRID / 2), Math.floor(b.z + GRID / 2), b.y, now);
+  journal.add(life.role, strata.epoch, `${life.name} does not answer the round.`);
+
+  // the architect chooses the ground; the mason raises the marker
+  const site = tombSite(life.role);
+  const cells = tombs.design(site.x, site.z, field.topAt(site.x, site.z), life.role);
+  const tomb = tombs.record(
+    { x: site.x, z: site.z, y: field.topAt(site.x, site.z), role: life.role, name: life.name, epoch: strata.epoch, works: life.works },
+    cells
+  );
+  mason.assign({ planId: "tomb-" + tomb.name, title: `${tomb.name}'s marker`, zone: "mason", cells });
+  director.cut("tomb", site.x, site.z, field.topAt(site.x, site.z) + 2, now + 1);
+
+  // the survivors write, each in their own register
+  for (const other of ["surveyor", "architect", "mason", "keeper"] as const) {
+    if (other === life.role) continue;
+    const l = vitality.get(other);
+    if (!l || l.health === "dead") continue;
+    journal.add(other, strata.epoch, voice.eulogy(other, life.name, life.works));
+  }
+
+  // the flags lower for a day: the crew's lamps burn low while it stands
+  works.dimLanterns(0.35);
+  mourningUntil = now + 1200_000 * 0.25; // a quarter of a day cycle
+  // and the successor arrives after the marker is raised
+  setTimeout(() => {
+    const next = vitality.succeed(life.role, strata.epoch);
+    if (!next) return;
+    voice.forget(life.role); // the duties carry over, the memories do not
+    const nb = bodyOf(life.role);
+    nb?.setPersonName(next.name);
+    journal.add(life.role, strata.epoch, voice.arrival(life.role, next.name));
+  }, 45_000);
+};
+
+// the tomb ground: open ground in the dead agent's own third, near the
+// pilgrim path so the graves read as one walk
+function tombSite(role: string): { x: number; z: number } {
+  const start = tombs.list.length;
+  for (let k = 0; k < 300; k++) {
+    const ang = Math.random() * Math.PI * 2;
+    const r = 14 + ((start * 3) % 10) + Math.random() * 16;
+    const x = Math.round(GENESIS_CELL.x + Math.cos(ang) * r);
+    const z = Math.round(GENESIS_CELL.z + Math.sin(ang) * r);
+    if (x < 6 || z < 6 || x > GRID - 7 || z > GRID - 7) continue;
+    if (role !== "keeper" && zoneOfCell(x, z) !== role) continue;
+    const h = field.topAt(x, z);
+    if (h < 2 || field.isSolid(x, h, z)) continue;
+    return { x, z };
+  }
+  return { x: GENESIS_CELL.x + 8, z: GENESIS_CELL.z - 8 };
+}
 
 // dumps bite the crew's work; the mason puts it back before building new
 erosion.pickCrewCell = () => works.sample();
@@ -428,6 +579,10 @@ const runHistory = async (epochs = 50) => {
   return strata.blockCount;
 };
 panel.onHistory = () => void runHistory(50);
+// dev only: the market decides life and death, but a test needs a lever
+panel.onLife = (mode) => {
+  for (const r of ["surveyor", "architect", "mason", "keeper"] as const) vitality.setOverride(r, mode);
+};
 
 // the founding stone breathes: a faint warm core + a small light that make
 // the one block in the world read as quietly alive
@@ -458,6 +613,11 @@ if (quality.driftLayers > 2) ashLayers.push(new AshDrift(scene, wind, 0.3, 0.03,
 // ---------------------------------------------------------------------------
 const rig = new OrbitRig(canvas);
 rig.target.copy(genesis);
+
+// the stream director: drama outranks progress in the camera. it stands
+// down entirely while a visitor is walking.
+const director = new Director(rig);
+director.enabled = !new URLSearchParams(location.search).has("nodirector");
 
 // spawn a few steps out from the stone, facing it
 const spawnX = genesis.x + 9;
@@ -498,7 +658,8 @@ canvas.addEventListener("pointerup", (e) => {
 const plaques = new Plaques(field, strata, works, camera, canvas);
 plaques.describeWallet = (w) => (w === -1 ? "the world" : w === -3 ? "the crew" : feed.short(w));
 plaques.ribbonInfo = (x, y, z) => ribbon.infoAt(x, y, z);
-plaques.special = (x, y, z) => (shrine.isPart(x, y, z) ? shrine.plaque(x, y, z) : undefined);
+plaques.special = (x, y, z) =>
+  tombs.plaque(x, y, z) ?? (shrine.isPart(x, y, z) ? shrine.plaque(x, y, z) : undefined);
 plaques.onInspect = (x, y, z) => {
   if (shrine.isTablet(x, y, z)) shrine.play(performance.now());
 };
@@ -635,6 +796,25 @@ function frame() {
   scars.update(now);
   surveyor.update(dt, now);
   surveyor.body.update(dt, t);
+  keeper.update(dt, now);
+  keeper.body.update(dt, t);
+  vitality.update(strata.epoch);
+  if (mourningUntil && now > mourningUntil) {
+    mourningUntil = 0;
+    works.dimLanterns(1); // the flags come back up
+  }
+  director.update(dt, now, walking);
+  // publish the crew log on a slow cadence
+  if (feedQueue.length && now > feedFlushAt) {
+    feedFlushAt = now + 20_000;
+    const batch = feedQueue;
+    feedQueue = [];
+    void fetch("/api/journal", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ entries: batch }),
+    }).catch(() => undefined);
+  }
   mason.update(now);
   mason.body.update(dt, t);
   architect.body.update(dt, t);
@@ -732,6 +912,11 @@ declare global {
       mason: Mason;
       works: CrewWorks;
       journal: Journal;
+      keeper: Keeper;
+      vitality: Vitality;
+      tombs: Tombs;
+      director: Director;
+      voice: Voice;
       plaques: Plaques;
       sky: Sky;
       flora: Flora;
@@ -764,6 +949,11 @@ window.cathedral = {
   mason,
   works,
   journal,
+  keeper,
+  vitality,
+  tombs,
+  director,
+  voice,
   plaques,
   sky,
   flora,

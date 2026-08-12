@@ -39,6 +39,9 @@ export class DevPanel {
   crewLine?: () => string;
   // main wires this to the simulated-history bootstrap
   onHistory?: () => void;
+  // dev only: force the crew's vitality (never purchasable, never shipped
+  // as a visitor control)
+  onLife?: (mode: "none" | "starve" | "feed") => void;
 
   private root: HTMLElement;
   private body: HTMLElement;
@@ -113,6 +116,17 @@ export class DevPanel {
     this.stormBtn.addEventListener("click", () => this.feed.storm());
     const histBtn = el("button", "pn-btn pn-toggle", stormRow, "history");
     histBtn.addEventListener("click", () => this.onHistory?.());
+
+    // DEV ONLY: force an agent's vitality to test the death ritual. this is
+    // never a visitor affordance and is never tied to a transaction: the
+    // market alone decides who lives. see src/vitality.ts.
+    const lifeRow = el("div", "pn-row", this.body);
+    const starve = el("button", "pn-btn pn-toggle", lifeRow, "starve");
+    starve.addEventListener("click", () => this.onLife?.("starve"));
+    const feedBtn = el("button", "pn-btn pn-toggle", lifeRow, "feed");
+    feedBtn.addEventListener("click", () => this.onLife?.("feed"));
+    const norm = el("button", "pn-btn pn-toggle", lifeRow, "market");
+    norm.addEventListener("click", () => this.onLife?.("none"));
 
     // the world clock (fast mode compresses ticks 10x, and epochs,
     // collapse and subsidence compress with them; the constitution's
