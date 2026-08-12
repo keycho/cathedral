@@ -39,6 +39,9 @@ function hash2(x: number, y: number): number {
 
 export class Islands {
   readonly list: Island[] = [];
+  // fired the moment an island exists, so whatever hangs off it (a fall, a
+  // garden, a light) is built with the land rather than swept for later
+  onCalved?: (isle: Island) => void;
   private milestonesCalved = 0;
 
   constructor(
@@ -181,7 +184,9 @@ export class Islands {
         this.refreshGrowth(cx, ty, cz);
       }
     }
-    this.list.push({ cx, cz, baseY, r, kind });
+    const isle: Island = { cx, cz, baseY, r, kind };
+    this.list.push(isle);
+    this.onCalved?.(isle);
     // the sky shudders when land is born in it
     const wx = cx - GRID / 2 + 0.5;
     const wz = cz - GRID / 2 + 0.5;

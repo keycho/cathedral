@@ -109,6 +109,18 @@ const GradeShader = {
     vignette: { value: 0.35 },
     grain: { value: 0.035 },
     uTime: { value: 0 },
+    // the valley mist. world position is reconstructed from depth against
+    // a camera ray basis main hands us each frame, so mist can pool BY
+    // ALTITUDE: it fills the low ground and the water and leaves the
+    // ridges and the temples standing out of it.
+    mistColor: { value: new THREE.Color(0xd6dcd8) },
+    mistStrength: { value: 0 },
+    mistTop: { value: 12 }, // world y the pool thins out at
+    mistDepth: { value: 9 }, // how many blocks it takes to thin
+    camPos: { value: new THREE.Vector3() },
+    rayF: { value: new THREE.Vector3(0, 0, -1) }, // forward * far
+    rayR: { value: new THREE.Vector3(1, 0, 0) }, // right * far * tan * aspect
+    rayU: { value: new THREE.Vector3(0, 1, 0) }, // up * far * tan
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -126,6 +138,8 @@ const GradeShader = {
     uniform float lutMix, lutStrength, hazeStrength, hazeStart;
     uniform float cameraNear, cameraFar, vignette, grain, uTime;
     uniform vec3 hazeColor;
+    uniform vec3 mistColor, camPos, rayF, rayR, rayU;
+    uniform float mistStrength, mistTop, mistDepth;
     varying vec2 vUv;
 
     vec3 sampleLUT(sampler2D lut, vec3 c) {
@@ -161,6 +175,21 @@ const GradeShader = {
       float haze = smoothstep(hazeStart, 0.72, d) * hazeStrength;
       haze *= 1.0 - smoothstep(0.76, 0.86, d);
       col = mix(col, hazeColor, haze);
+
+      // the valley mist, at dawn. this is the one effect that had to know
+      // WHERE it is rather than only how far: mist that ignores altitude
+      // is just more haze. the world point behind this pixel is rebuilt
+      // from the depth and the camera's ray basis, and the pool thickens
+      // toward the valley floor, so a temple on a shoulder stands clear of
+      // the same mist the water below is drowned in.
+      if (mistStrength > 0.001 && d < 0.985) {
+        vec2 ndc = vUv * 2.0 - 1.0;
+        vec3 world = camPos + (rayF + rayR * ndc.x + rayU * ndc.y) * d;
+        float pool = 1.0 - smoothstep(mistTop - mistDepth, mistTop, world.y);
+        // and it needs air to gather in: nothing pools on your boots
+        float reach = smoothstep(0.02, 0.30, d);
+        col = mix(col, mistColor, clamp(pool * reach * mistStrength, 0.0, 0.92));
+      }
 
       // the grade
       vec3 graded = mix(sampleLUT(lutA, col), sampleLUT(lutB, col), lutMix);
@@ -307,6 +336,35 @@ export class Post {
     u.lutA.value = a;
     u.lutB.value = b;
     u.lutMix.value = m;
+
+    // the valley mist belongs to DAWN. it gathers through the small hours,
+    // stands thickest as the light comes back, and is burnt off by the time
+    // the sun is properly up. a thin memory of it holds through the night
+    // so the low ground never reads empty.
+    let mist = 0;
+    if (p >= 0.34 && p < 0.5) mist = 0.16 + 0.2 * ((p - 0.34) / 0.16); // the small hours
+    else if (p >= 0.5 && p < 0.58) mist = 0.36 + 0.42 * ((p - 0.5) / 0.08); // first light
+    else if (p >= 0.58 && p < 0.7) mist = 0.78 * (1 - (p - 0.58) / 0.12); // burning off
+    else if (p >= 0.26 && p < 0.34) mist = 0.16 * ((p - 0.26) / 0.08); // gathering at dusk
+    u.mistStrength.value = mist;
+  }
+
+  // the camera's ray basis, so the grade can rebuild a world position from
+  // its depth buffer. main calls this after the camera has been moved.
+  setCameraBasis(camera: THREE.PerspectiveCamera) {
+    const u = this.grade.uniforms;
+    const far = camera.far;
+    const tan = Math.tan((camera.fov * Math.PI) / 360);
+    const f = u.rayF.value as THREE.Vector3;
+    const r = u.rayR.value as THREE.Vector3;
+    const up = u.rayU.value as THREE.Vector3;
+    camera.getWorldDirection(f);
+    r.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    r.multiplyScalar(far * tan * camera.aspect);
+    up.multiplyScalar(far * tan);
+    f.multiplyScalar(far);
+    (u.camPos.value as THREE.Vector3).copy(camera.position);
   }
 
   setSize(w: number, h: number) {

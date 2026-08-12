@@ -131,6 +131,48 @@ has to be pushed further blue than it looks on a card: a neutral grey cliff
 lit by that sun came back khaki. the swatches are chosen against the
 identity light, not against white.
 
+## water reflects the sky without rendering the world twice
+
+a planar reflection is a second full scene render. that is the same cost
+that got the occlusion pass deleted, and it would have bought back the
+frames the whole performance pass spent. so the water does not reflect the
+world at all: it reflects the SKY, rebuilt analytically in the fragment
+shader from the four gradient keys the sky already publishes every frame,
+through a schlick fresnel with water's real normal reflectance and the
+sun's specular path added on top. one draw call. the reflection is correct
+for the hour of the day, and nothing in the world appears in it.
+
+what actually made it read as water was not the reflection. it was
+BREAKING the reflection:
+
+- the shading normal is tilted far harder than the geometry is displaced.
+  the first version leaned about six degrees, took one uniform band of sky
+  across the whole pool, and read as poured milk. measured: the fresnel
+  term was 0.2 flat everywhere and the band it sampled was the sky's
+  brightest key.
+- the wave is five trains at unrelated angles. a sum of sines all keyed to
+  the wind direction is corduroy, which is the failure mode.
+- the swell only ever rises. the surface sits four thousandths above the
+  top water cube, so a trough would z-fight it; clamped upward, the trough
+  rests on the block.
+
+the valley mist takes the opposite lesson: it is the one effect that needed
+to know WHERE it is rather than only how far. it reconstructs a world
+position from the existing depth buffer against a camera ray basis and
+pools by altitude, so a temple on a shoulder stands out of the mist the
+water below is drowned in. it costs nothing extra: the grade pass was
+already sampling depth.
+
+## the rim was a grey pavement, and the palette exposed it
+
+the terrain tapered its HEIGHT toward the world's edge but kept the
+material the ridge generator had already assigned, so a flat plain of bare
+rock ringed the world. it had always been there; under warm rust it read as
+a desert and nobody looked twice, and under cool cliff stone it read as
+poured concrete. the crest boost now fades with the same rim term that
+flattens the land, so the rock and the height go together. a palette change
+is a good way to find out what your geometry was getting away with.
+
 ## other standing calls
 
 - the world boots aged (50 epochs of simulated history and four finished

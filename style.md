@@ -129,6 +129,7 @@ SHARED BY BOTH REGISTERS, and nothing else is:
 | swatch | role |
 | ------ | ---- |
 | stoneGrey | stairs, retaining walls, kerbs, bridges, podia |
+| stoneDark | stone's own shading partner: paving, coursing, wet wall |
 | timberDark | structural posts, beams, bracket sets |
 | timberMid | rails, frames, scaffolding |
 | timberLight | decking, shutters, stalls |
@@ -166,6 +167,46 @@ box, it is not a part yet.
 
 grounds are roughly forty percent of every build. nothing in this world
 sits on bare ground.
+
+a canal is the one piece in the library that is a CUT before it is a
+build, so src/components/canal.ts returns three things instead of one: the
+cells to place, the columns to empty, and the columns the water surface
+should cover. the cut is expressed as COLUMNS with a floor, not as a box,
+so each one is emptied to its own real height and a knoll in the middle of
+a reach goes with it. a canal reads as a ditch until the town it runs
+through exists; the reach is in the library ready for that town.
+
+## water
+
+water is two things. the field keeps the CELLS, so a plaque still names
+them and the mason still refuses to build in them. src/water.ts draws the
+SURFACE over them, because a surface has to move, catch the sun and hold
+the sky, and a cube can do none of that.
+
+it reflects without a second render. a planar reflection means drawing the
+whole world again into a target, which is the cost that got the occlusion
+pass deleted; instead the sky publishes its four gradient bands every
+frame and the water rebuilds that gradient analytically from the reflected
+view ray. one draw call, and it reflects the real sky at the real hour.
+
+the law the surface exists to satisfy: the reflection must be BROKEN. a
+surface that leans a few degrees reflects one band of sky uniformly and
+reads as poured glass, so the shading normal is tilted far harder than the
+geometry is displaced, and the wave is five trains at unrelated angles
+rather than a swell in the wind's direction, which is corduroy. the swell
+only ever rises, because the surface sits a hair above the top water cube
+and a trough would fight it for the pixel.
+
+falls run off the sky islands and STOP BEING WATER in mid-air: the sheet
+turns to the colour of the air in its last third and the mist it becomes
+is the reason to stand underneath. one island in the sky may spill, never
+all of them.
+
+the valley mist is the one effect that knows WHERE it is rather than only
+how far. it rebuilds a world position from the depth buffer and pools by
+ALTITUDE, so it fills the low ground and the water and leaves the ridges
+and the temples standing clear of it. it gathers through the small hours,
+stands thickest at first light and is burnt off by the time the sun is up.
 
 ## the crew's vocabulary
 

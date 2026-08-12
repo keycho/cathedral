@@ -37,7 +37,7 @@ import { audio } from "./audio";
 import { CrewWorks, zoneOf as zoneOfCell, type AgentBody } from "./crew";
 import { Journal } from "./journal";
 import { Mason } from "./mason";
-import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE, SWATCH } from "./palette";
+import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE, STILLWATER, SWATCH } from "./palette";
 import { Candles } from "./candles";
 import { Glyphs } from "./glyphs";
 import { Plaques } from "./plaques";
@@ -49,11 +49,13 @@ import { Tombs } from "./tombs";
 import { Vitality } from "./vitality";
 import { Voice } from "./voice";
 import { firstTierWithGrounds } from "./components/compose";
+import { canalReach } from "./components/canal";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
 import { Sky } from "./sky";
 import { Strata } from "./strata";
 import { Flora } from "./flora";
+import { Water, Waterfall } from "./water";
 import { Wind } from "./wind";
 import { buildVoidFloor, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
 import { distributeBlocks, TickEngine } from "./ticks";
@@ -172,6 +174,28 @@ const wind = new Wind();
 // the living layer: grass, wildflowers, reeds, moss, all on the same wind
 const flora = new Flora(scene, field, wind);
 
+// water. the field keeps the water cells; this draws the SURFACE over them,
+// which is the part that has to move, catch the sun and hold the sky.
+const water = new Water(wind);
+scene.add(water.group);
+{
+  // every column whose top block is water, in one sweep. built from the
+  // field rather than from the basin table, so a canal cut later is picked
+  // up by the same pass without anyone remembering to register it.
+  const cells: { x: number; z: number; y: number }[] = [];
+  for (let x = 0; x < GRID; x++) {
+    for (let z = 0; z < GRID; z++) {
+      const h = field.topAt(x, z);
+      if (h > 0 && field.typeAt(x, h - 1, z) === STILLWATER) {
+        // the surface sits a hair above the top water cube and only ever
+        // swells upward from there
+        cells.push({ x, z, y: h + 0.004 });
+      }
+    }
+  }
+  water.addSurface(cells);
+}
+
 // strata: provenance + epoch tints. the founding stone is the world's own,
 // locked so no tint pass ever touches it.
 const strata = new Strata(field);
@@ -206,6 +230,42 @@ const monuments = new Monuments(field, strata, growth, kinetics);
 
 // the sky realm: islands calved from the mass at its milestones
 const islands = new Islands(field, strata, kinetics, (x, y, z) => growth.refreshAround(x, y, z));
+
+// an island's underside is the half of it the ground can see, so one of
+// them spills. the fall runs off the keel and stops being water in mid-air:
+// it goes to mist before it reaches anything, which is the whole reason to
+// stand underneath. capped low on purpose. a sky full of waterfalls is a
+// fountain display, and one is a landmark.
+const MAX_FALLS = 2;
+islands.onCalved = (isle) => {
+  if (water.fallCount >= MAX_FALLS || isle.r < 5 || isle.kind === "ruin") return;
+  const ang = Math.PI * 0.75;
+  const ex = Math.round(isle.cx + Math.cos(ang) * (isle.r - 1.2));
+  const ez = Math.round(isle.cz + Math.sin(ang) * (isle.r - 1.2));
+  // the water has to come FROM somewhere. a short pool is cut into the
+  // island's crown and the fall runs off its lip; a sheet that starts in
+  // mid-air under a garden reads as a pipe.
+  const pool: { x: number; z: number; y: number }[] = [];
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      if (dx * dx + dz * dz > 5) continue;
+      const px = ex + dx;
+      const pz = ez + dz;
+      const h = field.topAt(px, pz);
+      if (h <= isle.baseY) continue; // only on the crown, never off the edge
+      field.placeAt(px, h, pz, STILLWATER);
+      strata.lock(px, h, pz);
+      pool.push({ x: px, z: pz, y: h + 1.004 });
+    }
+  }
+  if (pool.length < 4) return;
+  water.addSurface(pool);
+  const wx = ex - GRID / 2 + 0.5;
+  const wz = ez - GRID / 2 + 0.5;
+  const lip = field.topAt(ex, ez);
+  const fall = new Waterfall(wx, lip, wz, lip - (12 + isle.r), 2.4, 1.15, wind).intoAir();
+  water.addFall(fall);
+};
 
 // the shrine of epochs: the world's own furniture beside the stone
 const shrine = new Shrine(field, strata, GENESIS_CELL);
@@ -606,6 +666,61 @@ const buildGatePiece = (cellX = GENESIS_CELL.x + 30, cellZ = GENESIS_CELL.z - 34
   return { placed, designed: cells.length, manifest: work.manifest, height: work.height, at: { x: cellX, z: cellZ, groundY } };
 };
 
+// THE CANAL REACH. also review-only, and also not wired into the cycle. a
+// canal is the one piece of architecture that is a CUT before it is a
+// build, so it applies three things: the void it empties, the stone it
+// lines that void with, and the water surface that covers the result.
+const buildCanalReach = (cellX = GENESIS_CELL.x - 44, cellZ = GENESIS_CELL.z + 6) => {
+  const work = canalReach(34, 4, 3);
+  // the canal follows the ground's own level. it takes the LOWEST column it
+  // crosses, because water does not climb: a reach cut at the mean height
+  // would leave one end of it standing in the air.
+  let groundY = 999;
+  for (let i = 0; i < work.footprint.d; i++) {
+    for (let x = -1; x <= work.footprint.w; x++) {
+      groundY = Math.min(groundY, field.topAt(cellX + x, cellZ + i));
+    }
+  }
+  // the cut first, then the lining, or the lining is what gets emptied.
+  // each column is emptied from its own floor to its own real top, so a
+  // knoll in the middle of the reach is taken out with it.
+  let cleared = 0;
+  for (const c of work.clear) {
+    const gx = cellX + c.dx;
+    const gz = cellZ + c.dz;
+    const from = groundY + c.fromDy;
+    for (let y = field.topAt(gx, gz) - 1; y >= from; y--) {
+      if (field.breakAt(gx, y, gz)) cleared++;
+    }
+  }
+  const cells = work.cells.map((c) => ({
+    x: cellX + c.dx,
+    y: groundY + c.dy,
+    z: cellZ + c.dz,
+    material: c.m,
+  }));
+  const placed = mason.placeInstant({
+    planId: "canal-reach-1",
+    title: "the first reach",
+    zone: "mason",
+    cells,
+  });
+  water.addSurface(work.water.map((w) => ({ x: cellX + w.dx, z: cellZ + w.dz, y: groundY + w.dy })));
+  journal.add(
+    "mason",
+    strata.epoch,
+    "cut a reach and lined it. water finds its own level, which is more than i can say for the ground.",
+    "scripted"
+  );
+  return {
+    placed,
+    designed: cells.length,
+    cleared,
+    manifest: work.manifest,
+    at: { x: cellX, z: cellZ, groundY },
+  };
+};
+
 // dev only: the market decides life and death, but a test needs a lever
 panel.onLife = (mode) => {
   for (const r of ["surveyor", "architect", "mason", "keeper"] as const) vitality.setOverride(r, mode);
@@ -775,6 +890,7 @@ function frame() {
   sky.update(dt, t, camera.position, wind.dirX, wind.dirZ, wind.gust);
   flora.update(t);
   wind.update(dt, t);
+  water.update(dt, t);
   for (const a of ashLayers) a.update(dt, t, camera.position);
   feed.update(now);
   ticks.update(now);
@@ -835,6 +951,16 @@ function frame() {
   hemi.intensity = sky.light.hemiIntensity;
   (scene.fog as THREE.Fog).color.copy(sky.light.fog);
   (scene.background as THREE.Color).copy(sky.light.fog);
+  // the water reflects the sky it is actually under, this hour
+  water.setSky(
+    sky.light.zenith,
+    sky.light.mid,
+    sky.light.horizon,
+    sky.light.fog,
+    sky.light.sunColor,
+    sky.light.sunDir,
+    sky.light.sunIntensity
+  );
 
   if (net.enabled) {
     net.sendPos(fp.pos.x, fp.pos.y, fp.pos.z, fp.yaw, now);
@@ -874,6 +1000,9 @@ function frame() {
     renderer.render(scene, camera);
   } else {
     post.setPhase(sky.phase01(t), sky.light.fog, t);
+    // the valley mist needs to know where the camera is looking to turn a
+    // depth buffer back into world altitude
+    post.setCameraBasis(camera);
     post.render();
   }
   perf.update(dt);
@@ -917,9 +1046,17 @@ declare global {
         height: number;
         at: { x: number; z: number; groundY: number };
       };
+      buildCanalReach: (x?: number, z?: number) => {
+        placed: number;
+        designed: number;
+        cleared: number;
+        manifest: { component: string; instances: number }[];
+        at: { x: number; z: number; groundY: number };
+      };
       plaques: Plaques;
       sky: Sky;
       flora: Flora;
+      water: Water;
       ribbon: Ribbon;
       islands: Islands;
       shrine: Shrine;
@@ -955,9 +1092,11 @@ window.cathedral = {
   director,
   voice,
   buildGatePiece,
+  buildCanalReach,
   plaques,
   sky,
   flora,
+  water,
   ribbon,
   islands,
   shrine,

@@ -97,6 +97,10 @@ export const SWATCH = {
   // stone and timber are how a world stays one world.
   // -------------------------------------------------------------------
   stoneGrey: 0x8d8b84, // grey stone: stairs, retaining walls, kerbs, bridges
+  // the shading partner for stone. paving speckled against TIMBER reads as
+  // a chequerboard, because timber is a different temperature; speckled
+  // against its own family it reads as coursing.
+  stoneDark: 0x6e6c66,
   timberDark: 0x3b2b1d, // structural posts, beams, brackets
   timberMid: 0x5a4230, // rails, frames, scaffolding
   timberLight: 0x7a5a3e, // decking, shutters, stalls
@@ -218,6 +222,7 @@ export const MATERIALS: Material[] = [
   { id: 45, key: "spill", name: "shopfront spill", color: SWATCH.spill },
   { id: 46, key: "verdigris", name: "patinated copper", color: SWATCH.verdigris },
   { id: 47, key: "mist", name: "mist", color: SWATCH.mist },
+  { id: 48, key: "stonedark", name: "shaded stone", color: SWATCH.stoneDark },
 ];
 
 export const MEADOW = 1;
@@ -270,6 +275,7 @@ export const NEONAMBER = 44;
 export const SPILL = 45;
 export const VERDIGRIS = 46;
 export const MIST = 47;
+export const STONEDARK = 48;
 
 // families: geology is grown by the market; agent materials are built by
 // the crew; ground is the old world; rise/fall belong to the price ribbon.
@@ -279,7 +285,7 @@ const AGENT = new Set([
   // the temple register
   TILECHARCOAL, TILERIDGE, PLASTER, VERMILION, FOLIAGE, FOLIAGESUN, BLOSSOM,
   // shared
-  STONE, TIMBERDARK, TIMBERMID, TIMBERLIGHT,
+  STONE, STONEDARK, TIMBERDARK, TIMBERMID, TIMBERLIGHT,
   // the town register
   CONCRETEPALE, CONCRETEMID, CONCRETEDARK, PANELCREAM, PANELBLUE, PANELGREEN,
   GLASSBLUE, INTERIOR, NEONEMBER, NEONCYAN, NEONAMBER, SPILL, VERDIGRIS,
@@ -318,6 +324,7 @@ export const AGENT_KEYS: Record<string, number> = {
   foliagesun: FOLIAGESUN,
   blossom: BLOSSOM,
   stone: STONE,
+  stonedark: STONEDARK,
   timberdark: TIMBERDARK,
   timbermid: TIMBERMID,
   timberlight: TIMBERLIGHT,

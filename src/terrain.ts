@@ -131,11 +131,17 @@ function computeColumn(x: number, z: number): Sample {
   const amp = 0.45 + 0.55 * sstep(16, 44, dGen);
   const base = 4 + fractal(x * 0.017 + 31, z * 0.017 + 57) * 9 * amp;
 
+  // how far into the world's edge this column sits, needed here and not
+  // only at the end: the rim flattens the land, and a crest that keeps its
+  // BARE ROCK after the rim has flattened it leaves a grey pavement ringing
+  // the world. the rock and the height have to fade together.
+  const edge = rim(x, z);
+
   // bare rock crests on the high ground, held off the build ring
   let ridgeBoost = 0;
   if (base > 7.2) {
     const r = ridge(x, z);
-    if (r > 0.55) ridgeBoost = (r - 0.55) * 11 * sstep(30, 48, dGen);
+    if (r > 0.55) ridgeBoost = (r - 0.55) * 11 * sstep(30, 48, dGen) * (1 - edge);
   }
 
   let h = base + ridgeBoost;
@@ -201,9 +207,8 @@ function computeColumn(x: number, z: number): Sample {
     if (valueNoise(x * 0.045 + 210, z * 0.045 + 77) > 0.72) top = SCARMOSS;
   }
 
-  // the rim: taper into the haze
-  const r = rim(x, z);
-  if (r > 0) h = h * (1 - r * 0.9) + 2 * r * 0.9;
+  // the rim: taper into the mist
+  if (edge > 0) h = h * (1 - edge * 0.9) + 2 * edge * 0.9;
 
   return { h: Math.max(1, Math.round(h)), top, water, ridgeBoost };
 }

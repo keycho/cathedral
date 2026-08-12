@@ -48,7 +48,10 @@ const KEYS: Key[] = [
   { t: 1.00, top: S.skyZenithGolden, mid: S.bounceWarm, hor: S.skyHorizonGolden, fog: S.haze, sun: S.sunGolden, sunI: 2.05, sunE: 0.30, hemiSky: S.bounceWarm, hemiGround: S.meadowDeep, hemiI: 0.62, stars: 0, cloud: S.petal, cloudA: 0.5, glow: 0.42 },
 ];
 
-// what main applies to its lights each frame
+// what main applies to its lights each frame. the three gradient bands are
+// published too: water reflects the sky, and reflecting the ACTUAL sky
+// means rebuilding its gradient in the water shader from the same keys
+// rather than guessing a blue.
 export interface SkyLight {
   sunDir: THREE.Vector3;
   sunColor: THREE.Color;
@@ -57,6 +60,9 @@ export interface SkyLight {
   hemiGround: THREE.Color;
   hemiIntensity: number;
   fog: THREE.Color;
+  zenith: THREE.Color;
+  mid: THREE.Color;
+  horizon: THREE.Color;
 }
 
 function splitHex(c: number): { r: number; g: number; b: number } {
@@ -112,6 +118,9 @@ export class Sky {
     hemiGround: new THREE.Color(),
     hemiIntensity: 0.85,
     fog: new THREE.Color(),
+    zenith: new THREE.Color(),
+    mid: new THREE.Color(),
+    horizon: new THREE.Color(),
   };
 
   private follow = new THREE.Group(); // dome + stars + sun glow, camera-centered
@@ -296,6 +305,9 @@ export class Sky {
     setColor(this.light.hemiGround, splitHex(k.hemiGround));
     this.light.hemiIntensity = k.hemiI;
     setColor(this.light.fog, splitHex(k.fog));
+    setColor(this.light.zenith, splitHex(k.top));
+    setColor(this.light.mid, splitHex(k.mid));
+    setColor(this.light.horizon, splitHex(k.hor));
     this.starMat.opacity = k.stars * 0.9;
     this.glowMat.opacity = k.glow;
     for (const m of this.cloudMats) {

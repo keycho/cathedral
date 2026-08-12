@@ -15,6 +15,7 @@ import {
   PLASTER,
   STILLWATER,
   STONE,
+  STONEDARK,
   TILECHARCOAL,
   TILERIDGE,
   TIMBERDARK,
@@ -37,7 +38,7 @@ export function podium(w: number, d: number, courses = 2): Part {
       for (let z = inset; z < d - inset; z++) {
         const edge = x === inset || z === inset || x === w - inset - 1 || z === d - inset - 1;
         // the face of a podium is coursed stone; its deck is paving
-        out.push(cell(x, c, z, edge ? STONE : speckle(STONE, TIMBERLIGHT, x, c, z, 0.12)));
+        out.push(cell(x, c, z, edge ? STONE : speckle(STONE, STONEDARK, x, c, z, 0.18)));
       }
     }
   }
