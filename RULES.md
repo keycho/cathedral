@@ -1,9 +1,11 @@
 # rules
 
+a voxel world grown by a market, architected by agents.
+
 the constitution of the cathedral. this file is the human mirror of
-src/rules.ts: every constant and rule below appears there verbatim, in one
-config object. after genesis this file is frozen. if the code and this file
-ever disagree, the code is wrong.
+src/rules.ts: every constant and rule below appears there verbatim. after
+genesis this file is frozen. if the code and this file ever disagree, the
+code is wrong.
 
 ## time
 
@@ -64,6 +66,41 @@ ever disagree, the code is wrong.
 - plaques: any block can be inspected for its provenance: epoch, truncated
   wallet, txRef, and the tick it was born.
 
+## the crew
+
+agents build architecture above the geology, never instead of it.
+
+- the crew is embodied: every block an agent lays is walked to and placed
+  in the open, one block per ~8 seconds.
+- the architect designs blueprints (up to 400 ordered blocks) against the
+  style bible (style.md); the surveyor's public field notes and the
+  market's aggregates are its only other inputs. the mason executes
+  blueprints exactly.
+- the crew is funded by trailing volume: one blueprint block per $40 of
+  gross traded in the trailing 10 minutes. under 12 funded blocks the
+  crew idles and repairs. a quiet market builds nothing new.
+- market damage to crew structures is repaired before anything new is
+  built.
+- forbidden to the crew, always: the founding stone, burn hollows, another
+  agent's territory, and every geology cell.
+- geology speaks in its three strata tints only; the crew's materials are
+  its own. grown and architected must read apart at a glance.
+- humans are witnesses. humans never build.
+
+## r1 growth shaping (frozen)
+
+accretion is terrain: geology the crew architects on. candidate faces are
+weighted at pick time:
+
+| weight               | value |
+| -------------------- | ----- |
+| sprout up (top face) | 2.4   |
+| lateral spread       | 1.0   |
+| under overhang       | 0.22  |
+| same-wallet bonus    | 1.3   |
+| compactness (per extra neighbour) | 0.32 |
+| organic jitter       | 0.3   |
+
 ## constants
 
 | constant            | value          |
@@ -79,6 +116,11 @@ ever disagree, the code is wrong.
 | lantern limit       | 1 per visitor per day |
 | bell limit          | 1 toll per minute, global |
 | gravestone message  | 60 chars, filtered |
+| mason pace          | 1 block per ~8 s |
+| architect cadence   | every 6 epochs |
+| crew funding        | 1 block per $40 trailing 10 min gross |
+| crew idle floor     | under 12 funded blocks |
+| blueprint cap       | 400 blocks |
 
 ## immutability
 

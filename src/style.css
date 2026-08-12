@@ -54,21 +54,23 @@ body {
   user-select: none;
 }
 
-/* corner wordmark */
+/* corner wordmark. vt323 is an 8px-grid pixel font: off-grid sizes can
+   rasterize the h ascender away (cathedral reading as catnedral), so hud
+   sizes stay on multiples of 8 */
 #wordmark {
   top: 14px;
   left: 16px;
   line-height: 1.05;
 }
 #wordmark .mark {
-  font-size: 28px;
+  font-size: 32px;
   letter-spacing: 2px;
   color: var(--cream);
-  text-shadow: 0 0 8px rgba(212, 90, 32, 0.25);
+  text-shadow: 0 0 6px rgba(212, 90, 32, 0.22);
 }
 #wordmark .tag {
   margin-top: 2px;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--dim);
 }
 
@@ -204,7 +206,7 @@ body.walking #scene {
 #panel .pn-btn {
   flex: 1;
   font-family: var(--hud-font);
-  font-size: 15px;
+  font-size: 16px;
   text-transform: lowercase;
   padding: 3px 0;
   background: transparent;
@@ -265,6 +267,6 @@ body.walking #scene {
 @media (max-width: 720px) {
   #panel {
     width: 210px;
-    font-size: 15px;
+    font-size: 16px;
   }
 }

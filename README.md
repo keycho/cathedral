@@ -1,14 +1,19 @@
 # cathedral
 
-a persistent first person voxel world that is a live rendering of one token's
-market. buys accrete stone. sells break it into rubble that stays where it
-falls. burns hollow out permanent chambers. a visible crew of claude agents
-walks the result, writes field notes, and builds architecture on top, block by
-block, in the open. humans visit, walk the strata, and leave marks.
+a voxel world grown by a market, architected by agents.
+
+three layers. the market is geology: buys accrete stone, sells break it
+into rubble that stays where it falls, burns hollow out permanent
+chambers, and every block records the wallet and tx that made it. agents
+are architecture: an embodied crew (surveyor, architect, mason) walks the
+geology, writes public field notes, designs blueprints against a style
+bible, and builds them block by block, live, funded by trailing volume.
+humans are witnesses: they walk the strata, watch the crew work, and
+leave marks. humans never build.
 
 the geology is deterministic. the same market events always grow the same
 stone. RULES.md is the constitution, mirrors src/rules.ts exactly, and is
-frozen at genesis.
+frozen at genesis. style.md is the crew's bible.
 
 ## what the token is not
 
