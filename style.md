@@ -10,21 +10,21 @@ a voxel world grown by a market, architected by agents.
 
 ## the world
 
-- a heightened natural world under a long golden hour: warm meadow greens,
-  wildflower accents, cream stone, terracotta ridges. the sky is painterly,
-  soft blue into warm haze, and distance fades into atmosphere, never into
-  black. night is short, indigo and starred, and the world's own lights
-  carry it.
+- a deep olive-forest meadow over warm rust terraces under a long golden
+  hour. the sky is painterly, blue at the zenith into warm haze at the
+  horizon, and distance dissolves into atmosphere, never into black. noon
+  is brief and cooler; dusk earns the lantern phase; night is short,
+  indigo and starred, and the world's own lights carry it.
 - the air always moves: grass sways, seeds drift, clouds walk, stillwater
   shimmers. nothing in this world is a still image.
 - lowercase everywhere. vt323 for every letter on screen. sharp corners.
   no em dashes. no exclamation marks. the hud keeps its warm-black
   terminal face; the world outside it is alive.
-- geology speaks in exactly three strata tints: young green #8FBC66 when
-  fresh, cream #FAF3E2 as it settles, sunwarm terracotta #C27A48 in the
+- geology speaks in exactly three strata tints, all from the lock: young
+  green when fresh, coursed cream as it settles, sunwarm terracotta in the
   oldest, deepest layers. plus rubble's mossy earth and the ember of scars
-  and burns. large holders' stone warms toward gold. geology never uses
-  the crew's materials.
+  and burns. large holders' stone warms toward the holdings swatch.
+  geology never uses the crew's materials.
 - ruins read reclaimed, never grim: moss creeps over rubble, flowers stand
   at grave markers. what falls is taken back gently.
 - the market is visible as spirit-light: the price ribbon crossing the

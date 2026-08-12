@@ -28,7 +28,7 @@ the frame:
 - stay within the block budget. order the blocks the way the mason should lay them: foundations first, crowns last.
 
 respond with ONLY a json object, no prose:
-{"title": "two to four words, lowercase", "memo": "one line, lowercase, why this and why here", "blocks": [{"x":0,"y":0,"z":0,"m":"dressed"}, ...]}`;
+{"title": "two to four words, lowercase", "memo": "one line, lowercase, why this and why here", "blocks": [{"x":0,"y":0,"z":0,"m":"cream"}, ...]}`;
 
 let lastCall = 0;
 

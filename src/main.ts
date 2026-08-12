@@ -393,6 +393,19 @@ const runHistory = async (epochs = 50) => {
     islands.maybeMilestone(strata.blockCount, GENESIS_CELL.x, GENESIS_CELL.z);
   }
   ribbon.rebuild(); // the aged world wakes up carrying its chart
+  // an aged world has grown a hill over the founding stone: pull the eye
+  // back so the first frame a visitor sees is the world, not the inside
+  // of the mass
+  let crown = genesisY;
+  for (let y = MAXY - 2; y > genesisY; y--) {
+    if (field.typeAt(GENESIS_CELL.x, y, GENESIS_CELL.z) !== 0) {
+      crown = y;
+      break;
+    }
+  }
+  rig.target.set(genesis.x, crown + 4, genesis.z);
+  rig.radius = 64;
+  rig.polar = 0.34;
   return strata.blockCount;
 };
 panel.onHistory = () => void runHistory(50);
@@ -658,6 +671,8 @@ declare global {
       islands: Islands;
       shrine: Shrine;
       kinetics: Kinetics;
+      renderer: THREE.WebGLRenderer;
+      post: Post;
       runHistory: (epochs?: number) => Promise<number>;
     };
   }
@@ -688,6 +703,8 @@ window.cathedral = {
   islands,
   shrine,
   kinetics,
+  renderer,
+  post,
   runHistory,
 };
 
