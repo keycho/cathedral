@@ -78,6 +78,11 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // the sun crawls through a 20 minute day and the world changes a block at
 // a time: re-rendering every shadow every frame is pure waste
 renderer.shadowMap.autoUpdate = false;
+// the composer calls render once per pass and three resets its counters on
+// every call, so the readout was reporting the last fullscreen quad rather
+// than the scene. we reset once per frame ourselves and read the whole
+// frame's total, which is comparable across every tier.
+renderer.info.autoReset = false;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(HAZE);
@@ -114,6 +119,8 @@ sun.shadow.normalBias = 0.35;
 sun.shadow.radius = quality.shadowRadius; // soft edges cost fill: the tier owns it
 scene.add(sun);
 scene.add(sun.target);
+// capture-rig handle: the shadow state has to be inspectable from outside
+(renderer as unknown as { __sunProbe: THREE.DirectionalLight }).__sunProbe = sun;
 
 // shadows are violet-grey, never black: a low ambient in the shadow tint
 // fills what the sun cannot reach, so every frame keeps shape in the dark
@@ -536,6 +543,8 @@ const post = new Post(renderer, scene, camera, quality.fx);
 // tier changes apply live: pixel ratio, shadow budget, effect set
 const applyTier = (t: Tier) => {
   const q = qualityFor(t);
+  // the tier carries a sensible resolution (high was measured at pr 2);
+  // the readout's pr buttons override it afterwards for measurement
   Object.assign(quality, q);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, q.pixelRatio));
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -567,10 +576,23 @@ const perf = new PerfHud(
     post.setSize(window.innerWidth, window.innerHeight);
   },
   (on: boolean) => {
-    // the whole shadow pass on or off: it draws the entire world a second
-    // time, so this is the single biggest switch in the world
+    // DEBUG ONLY, and deliberately not a castShadow flip: toggling a
+    // light's castShadow changes three's program cache key, so every
+    // material in the scene recompiles (measured: 52 programs to 61 on one
+    // flip, 64 after flipping back, the cache never shrinking). that churn
+    // is why the no-shadow path measured SLOWER than the shadowed one.
+    // shadows are mandatory at every tier now; this only freezes the map's
+    // refresh so a stale shadow can be inspected.
     shadowsOn = on;
-    sun.castShadow = on;
+    renderer.shadowMap.needsUpdate = true;
+  },
+  (pr: number) => {
+    // resolution is its own axis: measured on top of a chosen tier, never
+    // baked into one
+    quality.pixelRatio = pr;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, pr));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    post.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.needsUpdate = true;
   }
 );
@@ -674,6 +696,7 @@ function frame() {
     stPos.textContent = `${p.x.toFixed(0)} ${p.y.toFixed(0)} ${p.z.toFixed(0)}`;
   }
 
+  renderer.info.reset();
   if (post.bypass) {
     // nothing on top of the scene: draw straight to the screen, no
     // offscreen buffer, no copy

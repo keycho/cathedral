@@ -33,31 +33,45 @@ export interface Quality {
 }
 
 const TIERS: Record<Tier, Omit<Quality, "tier" | "fx">> = {
+  // resolution stays measurable on its own axis (the readout carries a pr
+  // control), but the tier still picks a sane default: high was measured
+  // at 60fps locked with the full stack at pr 2.
   low: { pixelRatio: 1, shadowMapSize: 1024, shadowRadius: 2, driftLayers: 1, stars: 500, floraShadows: false, shadowFrustum: 40, shadowEvery: 4 },
   medium: { pixelRatio: 1.25, shadowMapSize: 2048, shadowRadius: 3, driftLayers: 2, stars: 900, floraShadows: false, shadowFrustum: 55, shadowEvery: 2 },
   high: { pixelRatio: 2, shadowMapSize: 4096, shadowRadius: 4.5, driftLayers: 3, stars: 1500, floraShadows: true, shadowFrustum: 70, shadowEvery: 1 },
 };
 
 const FX: Record<Tier, Effects> = {
-  low: { gtao: false, bloom: false, grade: false, haze: false },
+  low: { gtao: false, bloom: false, grade: true, haze: true },
   medium: { gtao: false, bloom: true, grade: true, haze: true },
   high: { gtao: true, bloom: true, grade: true, haze: true },
 };
 
 const STORE_KEY = "cathedral.quality";
 
-// url wins, then whatever was last chosen in the hud, then low.
+// what the machine can be expected to hold. the full stack was measured at
+// 60fps locked on a normal laptop gpu, so a desktop starts at high and only
+// phones and thin machines start lower.
+export function detectTier(): Tier {
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if (mobile) return "low";
+  const cores = navigator.hardwareConcurrency ?? 4;
+  if (cores <= 4) return "medium";
+  return "high";
+}
+
+// url wins, then whatever was last chosen in the hud, then the machine.
 export function initialQuality(): Quality {
   const params = new URLSearchParams(location.search);
   const urlTier = params.get("tier") as Tier | null;
-  let tier: Tier = "low";
+  let tier: Tier = detectTier();
   if (urlTier === "low" || urlTier === "medium" || urlTier === "high") tier = urlTier;
   else {
     try {
       const saved = localStorage.getItem(STORE_KEY) as Tier | null;
       if (saved === "low" || saved === "medium" || saved === "high") tier = saved;
     } catch {
-      // storage blocked: low stands
+      // storage blocked: the detected tier stands
     }
   }
   const q: Quality = { tier, fx: { ...FX[tier] }, ...TIERS[tier] };

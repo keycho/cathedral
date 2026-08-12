@@ -19,6 +19,7 @@ export class PerfHud {
   private tierRow: HTMLElement;
   private fxRow: HTMLElement;
   private shadows = true;
+  private pr: number;
   private frames = 0;
   private acc = 0;
   private worst = 0;
@@ -30,8 +31,10 @@ export class PerfHud {
     private blocks: () => number,
     private onTier: (t: Tier) => void,
     private onEffects: (fx: Effects) => void,
-    private onShadows: (on: boolean) => void
+    private onShadows: (on: boolean) => void,
+    private onPixelRatio: (pr: number) => void
   ) {
+    this.pr = quality.pixelRatio;
     this.root = document.getElementById("fps") as HTMLElement;
     this.root.innerHTML = "";
     this.root.classList.remove("hidden"); // performance is the priority: show it
@@ -51,7 +54,21 @@ export class PerfHud {
         const q = qualityFor(t);
         rememberTier(t);
         this.quality = q;
+        this.pr = q.pixelRatio; // the tier brings its own resolution
         this.onTier(t);
+        this.paintButtons();
+      });
+      this.tierRow.appendChild(b);
+    }
+
+    // resolution is its own axis, never baked into a tier
+    for (const pr of [1, 1.5, 2]) {
+      const b = document.createElement("button");
+      b.className = "pf-btn";
+      b.textContent = "pr" + pr;
+      b.addEventListener("click", () => {
+        this.pr = pr;
+        this.onPixelRatio(pr);
         this.paintButtons();
       });
       this.tierRow.appendChild(b);
@@ -98,7 +115,9 @@ export class PerfHud {
     const tiers = this.tierRow.children;
     for (let i = 0; i < tiers.length; i++) {
       const b = tiers[i] as HTMLElement;
-      b.classList.toggle("on", b.textContent === this.quality.tier);
+      const t = b.textContent ?? "";
+      if (t.startsWith("pr")) b.classList.toggle("on", t === "pr" + this.pr);
+      else b.classList.toggle("on", t === this.quality.tier);
     }
     const fx = this.post.effects;
     const items = this.fxRow.children;
