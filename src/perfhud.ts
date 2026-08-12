@@ -18,6 +18,7 @@ export class PerfHud {
   private line2: HTMLElement;
   private tierRow: HTMLElement;
   private fxRow: HTMLElement;
+  private shadows = true;
   private frames = 0;
   private acc = 0;
   private worst = 0;
@@ -28,7 +29,8 @@ export class PerfHud {
     private quality: Quality,
     private blocks: () => number,
     private onTier: (t: Tier) => void,
-    private onEffects: (fx: Effects) => void
+    private onEffects: (fx: Effects) => void,
+    private onShadows: (on: boolean) => void
   ) {
     this.root = document.getElementById("fps") as HTMLElement;
     this.root.innerHTML = "";
@@ -54,6 +56,17 @@ export class PerfHud {
       });
       this.tierRow.appendChild(b);
     }
+
+    // the shadow pass draws the world a second time: its own switch
+    const shadowBtn = document.createElement("button");
+    shadowBtn.className = "pf-btn on";
+    shadowBtn.textContent = "shadows";
+    shadowBtn.addEventListener("click", () => {
+      this.shadows = !this.shadows;
+      shadowBtn.classList.toggle("on", this.shadows);
+      this.onShadows(this.shadows);
+    });
+    this.fxRow.appendChild(shadowBtn);
 
     for (const k of FX_KEYS) {
       const b = document.createElement("button");
@@ -89,9 +102,10 @@ export class PerfHud {
     }
     const fx = this.post.effects;
     const items = this.fxRow.children;
-    for (let i = 0; i < items.length; i++) {
+    // the first button in the row is the shadow switch; the rest are fx
+    for (let i = 1; i < items.length; i++) {
       const b = items[i] as HTMLElement;
-      b.classList.toggle("on", !!fx[FX_KEYS[i]]);
+      b.classList.toggle("on", !!fx[FX_KEYS[i - 1]]);
     }
   }
 

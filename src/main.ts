@@ -75,6 +75,9 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.92;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// the sun crawls through a 20 minute day and the world changes a block at
+// a time: re-rendering every shadow every frame is pure waste
+renderer.shadowMap.autoUpdate = false;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(HAZE);
@@ -96,7 +99,10 @@ sun.castShadow = true;
 sun.shadow.mapSize.set(quality.shadowMapSize, quality.shadowMapSize);
 sun.shadow.camera.near = 1;
 sun.shadow.camera.far = 400;
-const SH = 70; // local shadow frustum, re-centered on the camera each frame
+// the shadow camera only needs to cover what the eye can see: a tighter
+// frustum culls whole chunks out of the shadow pass, which is the pass
+// that draws the entire meadow a second time
+let SH = quality.shadowFrustum; // re-centered on the camera each frame
 sun.shadow.camera.left = -SH;
 sun.shadow.camera.right = SH;
 sun.shadow.camera.top = SH;
@@ -535,6 +541,12 @@ const applyTier = (t: Tier) => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   sun.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
   sun.shadow.radius = q.shadowRadius;
+  SH = q.shadowFrustum;
+  sun.shadow.camera.left = -SH;
+  sun.shadow.camera.right = SH;
+  sun.shadow.camera.top = SH;
+  sun.shadow.camera.bottom = -SH;
+  sun.shadow.camera.updateProjectionMatrix();
   if (sun.shadow.map) {
     sun.shadow.map.dispose();
     sun.shadow.map = null;
@@ -553,6 +565,13 @@ const perf = new PerfHud(
     quality.fx = fx;
     post.setEffects(fx);
     post.setSize(window.innerWidth, window.innerHeight);
+  },
+  (on: boolean) => {
+    // the whole shadow pass on or off: it draws the entire world a second
+    // time, so this is the single biggest switch in the world
+    shadowsOn = on;
+    sun.castShadow = on;
+    renderer.shadowMap.needsUpdate = true;
   }
 );
 
@@ -562,6 +581,9 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   post.setSize(window.innerWidth, window.innerHeight);
 });
+
+let frameNo = 0;
+let shadowsOn = true;
 
 const clock = new THREE.Clock();
 const camDir = new THREE.Vector3();
@@ -631,6 +653,10 @@ function frame() {
   (core.material as THREE.MeshStandardMaterial).emissiveIntensity =
     0.75 + Math.sin(t * 0.9) * 0.22;
   glow.intensity = 4.4 + Math.sin(t * 0.9) * 1.2;
+
+  // the shadow map refreshes on the tier's cadence, not every frame
+  frameNo++;
+  renderer.shadowMap.needsUpdate = shadowsOn && frameNo % quality.shadowEvery === 0;
 
   // keep the sun's shadow window centered on the view
   sun.target.position.set(camera.position.x, 0, camera.position.z);

@@ -28,12 +28,14 @@ export interface Quality {
   driftLayers: number; // particle layers (1..3)
   stars: number;
   floraShadows: boolean;
+  shadowFrustum: number; // half-width of the sun's shadow camera, in blocks
+  shadowEvery: number; // refresh the shadow map every n frames (the sun crawls)
 }
 
 const TIERS: Record<Tier, Omit<Quality, "tier" | "fx">> = {
-  low: { pixelRatio: 1, shadowMapSize: 1024, shadowRadius: 2, driftLayers: 1, stars: 500, floraShadows: false },
-  medium: { pixelRatio: 1.25, shadowMapSize: 2048, shadowRadius: 3, driftLayers: 2, stars: 900, floraShadows: false },
-  high: { pixelRatio: 2, shadowMapSize: 4096, shadowRadius: 4.5, driftLayers: 3, stars: 1500, floraShadows: true },
+  low: { pixelRatio: 1, shadowMapSize: 1024, shadowRadius: 2, driftLayers: 1, stars: 500, floraShadows: false, shadowFrustum: 40, shadowEvery: 4 },
+  medium: { pixelRatio: 1.25, shadowMapSize: 2048, shadowRadius: 3, driftLayers: 2, stars: 900, floraShadows: false, shadowFrustum: 55, shadowEvery: 2 },
+  high: { pixelRatio: 2, shadowMapSize: 4096, shadowRadius: 4.5, driftLayers: 3, stars: 1500, floraShadows: true, shadowFrustum: 70, shadowEvery: 1 },
 };
 
 const FX: Record<Tier, Effects> = {
