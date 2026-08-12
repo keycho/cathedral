@@ -226,6 +226,15 @@ body.walking #scene {
   color: var(--orange);
   border-color: rgba(212, 90, 32, 0.55);
 }
+#panel .pn-btn.pn-storm {
+  color: var(--orange);
+  border-color: var(--orange);
+  letter-spacing: 2px;
+}
+#panel .pn-btn.pn-storm.on {
+  color: var(--void);
+  background: var(--orange);
+}
 #panel .pn-btn.pn-toggle {
   flex: none;
   margin-left: 8px;

@@ -23,9 +23,11 @@ import { FirstPerson } from "./firstperson";
 import { GROW, Growth } from "./growth";
 import { Hollows } from "./hollows";
 import { Kinetics } from "./kinetics";
+import { Monuments } from "./monuments";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
-import { blockColor, GENESIS as GENESIS_ID, MASS } from "./palette";
+import { audio } from "./audio";
+import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE } from "./palette";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
 import { Strata } from "./strata";
@@ -141,6 +143,28 @@ const erosion = new Erosion(field, strata, scars, hollows, kinetics, (x, y, z) =
   growth.refreshAround(x, y, z)
 );
 
+// the market's marks (r4 monuments, r5 seeds)
+const monuments = new Monuments(field, strata, growth, kinetics);
+
+// a burn's roof gives: ceiling stones tumble into the cavity and settle as
+// rubble on its floor
+hollows.onRoofFall = (x, y, z) => {
+  kinetics.drop(
+    x,
+    z,
+    blockColor(RUBBLE),
+    (cx, cz) => {
+      const ry = field.surfaceBelow(cx - GRID / 2 + 0.5, cz - GRID / 2 + 0.5, y);
+      if (field.placeAt(cx, ry, cz, RUBBLE)) {
+        hollows.fillHollowCell(cx, ry, cz);
+        strata.register(cx, ry, cz, -1, "burn");
+        growth.refreshAround(cx, ry, cz);
+      }
+    },
+    { from: 0.4, vy: 0.5 }
+  );
+};
+
 // the market never entombs a visitor, and hollow never re-accretes
 const insideWalker = (x: number, y: number, z: number): boolean => {
   const wx = x - GRID / 2 + 0.5;
@@ -168,14 +192,21 @@ let ambientTarget = 0.15;
 feed.on((ev) => {
   switch (ev.kind) {
     case "buy":
+      ticks.ingest(ev);
+      // r4: a whale tx raises its monolith immediately
+      if (ev.amountUsd > RULES.whaleUsd) monuments.raise(ev.wallet, ev.tx);
+      break;
     case "sell":
       ticks.ingest(ev);
       break;
-    case "burn":
-      hollows.burn(ev.amountTokens, (x, y, z) => growth.refreshAround(x, y, z));
+    case "burn": {
+      const carved = hollows.burn(ev.amountTokens, (x, y, z) => growth.refreshAround(x, y, z));
+      if (carved > 0) audio.rumble(Math.min(1, carved / 150));
       break;
+    }
     case "newHolder":
-      break; // r5 seed planting lands with the monuments commit
+      monuments.plant(ev.wallet, ev.tx); // r5
+      break;
   }
 });
 

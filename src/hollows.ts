@@ -34,6 +34,10 @@ function hash1(i: number): number {
 }
 
 export class Hollows {
+  // main wires this: a ceiling block breaking loose during a burn (it
+  // tumbles into the cavity and settles as rubble on its floor)
+  onRoofFall?: (x: number, y: number, z: number) => void;
+
   private hollow = new Set<number>();
   private lining = new Set<number>();
   private lights: { light: THREE.PointLight; phase: number }[] = [];
@@ -147,6 +151,26 @@ export class Hollows {
       }
     }
 
+    // the roof gives: a share of ceiling lining collapses inward, tumbling
+    // to the cavity floor as rubble, so every burn reads as a cave-in
+    if (this.onRoofFall) {
+      const ceiling: number[] = [];
+      for (const i of removed) {
+        const [x, y, z] = this.unpack(i);
+        const above = this.idx(x, y + 1, z);
+        if (this.lining.has(above) && this.field.isSolid(x, y + 1, z)) ceiling.push(above);
+      }
+      for (const i of ceiling) {
+        if (Math.random() > 0.3) continue;
+        const [x, y, z] = this.unpack(i);
+        if (i === this.sacred) continue;
+        this.lining.delete(i);
+        this.field.breakAt(x, y, z);
+        this.strata.forget(x, y, z);
+        this.onRoofFall(x, y, z);
+      }
+    }
+
     // a warm breathing light inside (pooled; oldest goes dark first)
     const light = new THREE.PointLight(0xe06426, 2.4, r * 3.4 + 4, 1.9);
     this.field.worldCenter(cx, cy, cz, this.tmp);
@@ -205,6 +229,11 @@ export class Hollows {
   // does not stay locked as air
   onLiningBroken(x: number, y: number, z: number) {
     this.lining.delete(this.idx(x, y, z));
+  }
+
+  // rubble landing on a cavity floor makes that cell solid ground again
+  fillHollowCell(x: number, y: number, z: number) {
+    this.hollow.delete(this.idx(x, y, z));
   }
 
   update(t: number) {

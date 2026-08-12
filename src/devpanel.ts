@@ -41,6 +41,7 @@ export class DevPanel {
   private biasOut: HTMLElement;
   private clockOut: HTMLElement;
   private fastBtn: HTMLElement;
+  private stormBtn: HTMLElement;
   private statsOut: HTMLElement;
   private logList: HTMLElement;
   private lastUpdate = 0;
@@ -99,6 +100,10 @@ export class DevPanel {
       const b = el("button", "pn-btn pn-" + kind, btns, kind);
       b.addEventListener("click", () => this.feed.manual(kind));
     }
+    // the storm test: 30s of compressed violent market
+    const stormRow = el("div", "pn-btns", this.body);
+    this.stormBtn = el("button", "pn-btn pn-storm", stormRow, "storm");
+    this.stormBtn.addEventListener("click", () => this.feed.storm());
 
     // the world clock (fast mode compresses ticks 10x, and epochs,
     // collapse and subsidence compress with them; the constitution's
@@ -150,6 +155,10 @@ export class DevPanel {
       this.ticks.tick +
       " · " +
       fmtClock(this.ticks.msToNextEpoch(now));
+
+    const stormMs = this.feed.stormRemaining(performance.now());
+    this.stormBtn.textContent = stormMs > 0 ? "storm " + Math.ceil(stormMs / 1000) : "storm";
+    this.stormBtn.classList.toggle("on", stormMs > 0);
 
     // holders = wallets that OWN standing blocks (the pubkey pool is not
     // a holder count; a fresh world has zero holders)

@@ -49,6 +49,12 @@ export class Feed {
   private warmup = 3; // the first few gaps are compressed: alive on load
   private listeners: ((ev: FeedEvent) => void)[] = [];
 
+  // the storm: 30s of compressed violent market. bias swings hard both
+  // ways, with scripted whale buys, dump sells and a burn on the way
+  private stormUntil = 0;
+  private stormFired = new Set<string>();
+  private stormSaved: { rate: number; bias: number } | null = null;
+
   // rolling gross volume (r6 drives ambient from this)
   private volume: { t: number; usd: number }[] = [];
   // recent events for the panel log
@@ -145,8 +151,47 @@ export class Feed {
     this.nextAt = 0;
   }
 
+  // start the storm test: 30 seconds of violence, then everything restored
+  storm() {
+    const now = performance.now();
+    if (now < this.stormUntil) return;
+    this.stormSaved = { rate: this.ratePerHour, bias: this.buyBias };
+    this.stormUntil = now + 30_000;
+    this.stormFired.clear();
+    this.setRate(4800);
+  }
+  stormRemaining(now: number): number {
+    return Math.max(0, this.stormUntil - now);
+  }
+
+  private stormScript(now: number) {
+    const t = 30_000 - (this.stormUntil - now);
+    // the wind changes: hard buying and hard dumping in alternating gusts
+    this.buyBias = Math.sin((t / 30_000) * Math.PI * 3.2) > 0 ? 0.9 : 0.1;
+    const cue = (at: number, key: string, fire: () => void) => {
+      if (t >= at && !this.stormFired.has(key)) {
+        this.stormFired.add(key);
+        fire();
+      }
+    };
+    cue(6_000, "whale1", () => this.manual("whale"));
+    cue(12_000, "dump1", () =>
+      this.emit({ kind: "sell", amountUsd: 1500 + Math.round(this.rng() * 900), wallet: this.pickWallet(), tx: this.txRef() })
+    );
+    cue(17_000, "burn", () => this.manual("burn"));
+    cue(23_000, "dump2", () =>
+      this.emit({ kind: "sell", amountUsd: 1200 + Math.round(this.rng() * 900), wallet: this.pickWallet(), tx: this.txRef() })
+    );
+    if (t >= 30_000 && this.stormSaved) {
+      this.buyBias = this.stormSaved.bias;
+      this.setRate(this.stormSaved.rate);
+      this.stormSaved = null;
+    }
+  }
+
   update(now: number) {
     if (!this.running) return;
+    if (this.stormUntil > 0 && (now < this.stormUntil || this.stormSaved)) this.stormScript(now);
     if (this.nextAt === 0) this.schedule(now);
     let fired = 0;
     while (now >= this.nextAt && fired < 24) {
