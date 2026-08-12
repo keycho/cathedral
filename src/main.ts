@@ -90,6 +90,14 @@ const fill = new THREE.DirectionalLight(0x8fae6a, 0.15);
 fill.position.set(120, 60, 90);
 scene.add(fill);
 
+// the viewer's fill: a soft warm-neutral light cast from the camera, so
+// whatever face of the structure you are looking at always reads its
+// strata tint. one low sun means one dark side; the structure is the
+// product and can never be a black smudge from the orbit cam.
+const viewFill = new THREE.DirectionalLight(0xd8c8ac, 0.55);
+scene.add(viewFill);
+scene.add(viewFill.target);
+
 // ---------------------------------------------------------------------------
 // the world: ash plain + founding stone
 // ---------------------------------------------------------------------------
@@ -260,6 +268,7 @@ window.addEventListener("resize", () => {
 });
 
 const clock = new THREE.Clock();
+const camDir = new THREE.Vector3();
 let fpsAcc = 0;
 let fpsFrames = 0;
 let lastAmbient = 0;
@@ -303,6 +312,11 @@ function frame() {
   // keep the sun's shadow window centered on the view
   sun.target.position.set(camera.position.x, 0, camera.position.z);
   sun.position.copy(sun.target.position).addScaledVector(sunDir, SUN_DIST);
+
+  // the viewer fill rides the camera
+  camera.getWorldDirection(camDir);
+  viewFill.position.copy(camera.position);
+  viewFill.target.position.copy(camera.position).add(camDir);
 
   if (stMode) stMode.textContent = walking ? "walk" : "orbit";
   if (stBlocks) stBlocks.textContent = `blocks ${field.placedCount} · epoch ${strata.epoch}`;
