@@ -343,3 +343,33 @@ body.walking #scene {
     display: none;
   }
 }
+
+/* perf readout + the bisect harness (toggle with p). performance is the
+   product: these numbers are visible by default, and every effect can be
+   switched off from here on the machine that has to render it. */
+#fps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+#fps .pf-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+#fps .pf-btn {
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  color: var(--dim);
+  background: rgba(11, 11, 10, 0.8);
+  border: 1px solid rgba(250, 243, 226, 0.18);
+  cursor: pointer;
+}
+#fps .pf-btn.on {
+  color: var(--cream);
+  border-color: rgba(250, 243, 226, 0.55);
+}

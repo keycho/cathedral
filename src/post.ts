@@ -17,7 +17,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
-export type Tier = "high" | "medium" | "low";
+import type { Effects } from "./quality";
 
 const LUT_SIZE = 16; // tiled 2d lut: 256x16, bilinear across slices
 
@@ -182,15 +182,17 @@ export class Post {
   private bloom: UnrealBloomPass | null = null;
   private depth: THREE.DepthTexture;
   private luts: { day: THREE.DataTexture; golden: THREE.DataTexture; night: THREE.DataTexture };
-  private tier: Tier;
+  private fx: Effects;
+  private scene: THREE.Scene;
 
   constructor(
     private renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
     private camera: THREE.PerspectiveCamera,
-    tier: Tier
+    fx: Effects
   ) {
-    this.tier = tier;
+    this.fx = { ...fx };
+    this.scene = scene;
     const size = renderer.getSize(new THREE.Vector2());
     const pr = renderer.getPixelRatio();
     const w = Math.floor(size.x * pr);
@@ -207,27 +209,6 @@ export class Post {
     // both ping-pong buffers share the one depth texture, so the grade can
     // always read the scene's depth no matter which buffer it lands in
     this.composer.renderTarget2.depthTexture = this.depth;
-    this.composer.addPass(new RenderPass(scene, camera));
-
-    if (tier === "high") {
-      // ambient occlusion: contact shadows in the block crevices. this is
-      // the single biggest jump for a voxel world - geometry stops looking
-      // pasted on and starts looking solid.
-      this.gtao = new GTAOPass(scene, camera, w, h);
-      this.gtao.blendIntensity = 0.85;
-      this.gtao.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0 });
-      this.composer.addPass(this.gtao);
-    }
-
-    if (tier !== "low") {
-      // bloom on the emissives only: the threshold is set above anything
-      // the lit world reaches, so only lanterns, glasslight, the ribbon,
-      // the candles and the founding stone halo
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.55, 0.75, 0.96);
-      this.composer.addPass(this.bloom);
-    }
-
-    this.composer.addPass(new OutputPass());
 
     this.luts = { day: buildLUT(GRADE_DAY), golden: buildLUT(GRADE_GOLDEN), night: buildLUT(GRADE_NIGHT) };
     this.grade = new ShaderPass(GradeShader);
@@ -238,8 +219,62 @@ export class Post {
     this.grade.uniforms.lutB.value = this.luts.golden;
     this.grade.uniforms.cameraNear.value = camera.near;
     this.grade.uniforms.cameraFar.value = camera.far;
-    if (tier === "low") this.grade.uniforms.grain.value = 0.02;
-    this.composer.addPass(this.grade);
+
+    this.build();
+  }
+
+  // (re)assemble the chain for the current effect set. a pass that is off
+  // is never constructed, so a machine that cannot afford the occlusion
+  // never pays for its render targets either.
+  private build() {
+    const size = this.renderer.getSize(new THREE.Vector2());
+    const pr = this.renderer.getPixelRatio();
+    const w = Math.floor(size.x * pr);
+    const h = Math.floor(size.y * pr);
+
+    this.composer.passes.length = 0;
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+
+    if (this.fx.gtao) {
+      // ambient occlusion: contact shadows in the block crevices. the
+      // biggest look win and, on most machines, the biggest bill.
+      if (!this.gtao) {
+        this.gtao = new GTAOPass(this.scene, this.camera, w, h);
+        this.gtao.blendIntensity = 0.85;
+        this.gtao.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.0 });
+      }
+      this.composer.addPass(this.gtao);
+    }
+
+    if (this.fx.bloom) {
+      // bloom on the emissives only: the threshold sits above anything the
+      // lit world reaches, so only lanterns, glasslight, the ribbon, the
+      // candles and the founding stone halo
+      if (!this.bloom) this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.55, 0.75, 0.96);
+      this.composer.addPass(this.bloom);
+    }
+
+    this.composer.addPass(new OutputPass());
+
+    if (this.fx.grade) {
+      this.grade.uniforms.hazeStrength.value = this.fx.haze ? 0.44 : 0;
+      this.composer.addPass(this.grade);
+    }
+  }
+
+  setEffects(fx: Effects) {
+    this.fx = { ...fx };
+    this.build();
+  }
+
+  get effects(): Effects {
+    return { ...this.fx };
+  }
+
+  // nothing on top of the scene render: main draws straight to the screen
+  // and skips the composer's buffers entirely
+  get bypass(): boolean {
+    return !this.fx.gtao && !this.fx.bloom && !this.fx.grade;
   }
 
   // the sky hands the grade its phase and its air colour every frame
@@ -294,21 +329,8 @@ export class Post {
     this.grade.uniforms.cameraFar.value = this.camera.far;
   }
 
-  get quality(): Tier {
-    return this.tier;
-  }
-
   render() {
     this.composer.render();
   }
 }
 
-// pick a tier from what the machine says about itself. a phone loses the
-// occlusion and the bloom before it loses the world.
-export function pickTier(): Tier {
-  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  if (mobile) return "low";
-  const cores = navigator.hardwareConcurrency ?? 4;
-  if (cores <= 4) return "medium";
-  return "high";
-}

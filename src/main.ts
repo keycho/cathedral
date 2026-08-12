@@ -29,7 +29,9 @@ import { Monuments } from "./monuments";
 import { Shrine } from "./shrine";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
-import { pickTier, Post } from "./post";
+import { Post } from "./post";
+import { PerfHud } from "./perfhud";
+import { initialQuality, qualityFor, type Effects, type Quality, type Tier } from "./quality";
 import { Architect } from "./architect";
 import { audio } from "./audio";
 import { CrewWorks } from "./crew";
@@ -60,7 +62,11 @@ const renderer = new THREE.WebGLRenderer({
   antialias: true,
   powerPreference: "high-performance",
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// the render budget is the product. LOW is the default until a real gpu
+// says otherwise: the composer pays for every pixel more than once, so the
+// pixel ratio is the first thing the tier owns.
+const quality: Quality = initialQuality();
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -87,7 +93,7 @@ scene.add(camera);
 // ---------------------------------------------------------------------------
 const sun = new THREE.DirectionalLight(SUN_COLOR, SUN_INTENSITY);
 sun.castShadow = true;
-sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.mapSize.set(quality.shadowMapSize, quality.shadowMapSize);
 sun.shadow.camera.near = 1;
 sun.shadow.camera.far = 400;
 const SH = 70; // local shadow frustum, re-centered on the camera each frame
@@ -99,7 +105,7 @@ sun.shadow.camera.bottom = -SH;
 // shadow (a large normal bias silently erases exactly that)
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.35;
-sun.shadow.radius = 4.5; // long shadows with soft edges, never a hard stamp
+sun.shadow.radius = quality.shadowRadius; // soft edges cost fill: the tier owns it
 scene.add(sun);
 scene.add(sun.target);
 
@@ -430,10 +436,9 @@ scene.add(glow);
 // the air is layered: seeds tumbling close by, motes catching the light in
 // the middle distance, faint specks drifting far out over the mass. all
 // three ride the same wind at their own speeds.
-const ashNear = new AshDrift(scene, wind, 1.0, 0.1, 0.5, SWATCH.petal);
-const ashMid = new AshDrift(scene, wind, 0.55, 0.055, 0.34, SWATCH.bloomCream);
-const ashFar = new AshDrift(scene, wind, 0.3, 0.03, 0.2, SWATCH.haze);
-const ashLayers = [ashNear, ashMid, ashFar];
+const ashLayers: AshDrift[] = [new AshDrift(scene, wind, 1.0, 0.1, 0.5, SWATCH.petal)];
+if (quality.driftLayers > 1) ashLayers.push(new AshDrift(scene, wind, 0.55, 0.055, 0.34, SWATCH.bloomCream));
+if (quality.driftLayers > 2) ashLayers.push(new AshDrift(scene, wind, 0.3, 0.03, 0.2, SWATCH.haze));
 
 // ---------------------------------------------------------------------------
 // seeing: orbit rig (default) + first-person walker (click to enter)
@@ -514,24 +519,41 @@ if (DEV_EDIT) {
 const stMode = document.getElementById("st-mode");
 const stBlocks = document.getElementById("st-blocks");
 const stPos = document.getElementById("st-pos");
-const fpsEl = document.getElementById("fps");
-const fpsNum = document.getElementById("fps-num");
-
-window.addEventListener("keydown", (e) => {
-  if (e.code === "KeyP") fpsEl?.classList.toggle("hidden");
-});
 
 // ---------------------------------------------------------------------------
 // loop
 // ---------------------------------------------------------------------------
-// the post stack: occlusion, bloom on the emissives, tone map, grade.
-// the tier decides what a weaker machine gives up first.
-const TIER_OVERRIDE = new URLSearchParams(location.search).get("tier");
-const post = new Post(
+// the post stack: nothing is on at low. every effect can be switched
+// independently from the hud so its cost can be measured on real hardware.
+const post = new Post(renderer, scene, camera, quality.fx);
+
+// tier changes apply live: pixel ratio, shadow budget, effect set
+const applyTier = (t: Tier) => {
+  const q = qualityFor(t);
+  Object.assign(quality, q);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, q.pixelRatio));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  sun.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
+  sun.shadow.radius = q.shadowRadius;
+  if (sun.shadow.map) {
+    sun.shadow.map.dispose();
+    sun.shadow.map = null;
+  }
+  post.setEffects(q.fx);
+  post.setSize(window.innerWidth, window.innerHeight);
+};
+
+const perf = new PerfHud(
   renderer,
-  scene,
-  camera,
-  (TIER_OVERRIDE as "high" | "medium" | "low" | null) ?? pickTier()
+  post,
+  quality,
+  () => field.placedCount,
+  applyTier,
+  (fx: Effects) => {
+    quality.fx = fx;
+    post.setEffects(fx);
+    post.setSize(window.innerWidth, window.innerHeight);
+  }
 );
 
 window.addEventListener("resize", () => {
@@ -543,8 +565,6 @@ window.addEventListener("resize", () => {
 
 const clock = new THREE.Clock();
 const camDir = new THREE.Vector3();
-let fpsAcc = 0;
-let fpsFrames = 0;
 let lastAmbient = 0;
 let ambientLevel = 0.15;
 
@@ -628,16 +648,15 @@ function frame() {
     stPos.textContent = `${p.x.toFixed(0)} ${p.y.toFixed(0)} ${p.z.toFixed(0)}`;
   }
 
-  fpsAcc += dt;
-  fpsFrames++;
-  if (fpsAcc >= 0.5 && fpsNum) {
-    fpsNum.textContent = String(Math.round(fpsFrames / fpsAcc));
-    fpsAcc = 0;
-    fpsFrames = 0;
+  if (post.bypass) {
+    // nothing on top of the scene: draw straight to the screen, no
+    // offscreen buffer, no copy
+    renderer.render(scene, camera);
+  } else {
+    post.setPhase(sky.phase01(t), sky.light.fog, t);
+    post.render();
   }
-
-  post.setPhase(sky.phase01(t), sky.light.fog, t);
-  post.render();
+  perf.update(dt);
 }
 frame();
 
