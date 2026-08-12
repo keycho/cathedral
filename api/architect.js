@@ -33,6 +33,13 @@ the frame:
 respond with ONLY a json object, no prose:
 {"title": "two to four words, lowercase", "memo": "one line, lowercase, why this and why here", "blocks": [{"x":0,"y":0,"z":0,"m":"cream"}, ...]}`;
 
+// a six hundred block design is a lot of json to emit. the default
+// function duration kills the request mid-generation and the client falls
+// back to the scripted brain without ever learning why, which is exactly
+// how every architect call since the key was set turned out to be a
+// fallback. give it room.
+export const maxDuration = 300;
+
 let lastCall = 0;
 
 export default async function handler(req, res) {

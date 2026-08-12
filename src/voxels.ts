@@ -153,12 +153,29 @@ export class VoxelField {
           "#include <common>",
           "#include <common>\n varying float vFaceShade;\n varying vec2 vVoxUv;"
         )
+        // spirit-light, properly. the instance colour above 1.0 used to be
+        // multiplied into the ALBEDO, which meant a lantern was a very
+        // bright surface: it needed the scene to light it, so it faded with
+        // the night it exists for and blew out at noon. the excess is now
+        // split off as real emission and the albedo is clamped, so a light
+        // holds its own colour at any hour and the sun cannot inflate it.
         .replace(
           "#include <color_fragment>",
-          `#include <color_fragment>
+          `#if defined( USE_COLOR_ALPHA )
+             diffuseColor *= vec4(min(vColor.rgb, vec3(1.0)), vColor.a);
+           #elif defined( USE_COLOR ) || defined( USE_INSTANCING_COLOR ) || defined( USE_BATCHING_COLOR )
+             diffuseColor.rgb *= min(vColor, vec3(1.0));
+           #endif
            vec2 vEdge = abs(vVoxUv - 0.5) * 2.0;
            float vAO = 1.0 - smoothstep(0.86, 1.0, max(vEdge.x, vEdge.y)) * 0.1;
            diffuseColor.rgb *= vFaceShade * vAO;`
+        )
+        .replace(
+          "#include <emissivemap_fragment>",
+          `#include <emissivemap_fragment>
+           #if defined( USE_COLOR ) || defined( USE_INSTANCING_COLOR ) || defined( USE_BATCHING_COLOR )
+             totalEmissiveRadiance += max(vec3(0.0), vColor - 1.0) * 0.9;
+           #endif`
         );
     };
 

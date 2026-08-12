@@ -37,7 +37,7 @@ import { audio } from "./audio";
 import { CrewWorks, zoneOf as zoneOfCell, type AgentBody } from "./crew";
 import { Journal } from "./journal";
 import { Mason } from "./mason";
-import { blockColor, GENESIS as GENESIS_ID, MASS, RUBBLE, STILLWATER, SWATCH } from "./palette";
+import { blockColor, GENESIS as GENESIS_ID, MASS, MATERIALS, RUBBLE, STILLWATER, SWATCH } from "./palette";
 import { Candles } from "./candles";
 import { Glyphs } from "./glyphs";
 import { Plaques } from "./plaques";
@@ -1053,6 +1053,7 @@ declare global {
         manifest: { component: string; instances: number }[];
         at: { x: number; z: number; groundY: number };
       };
+      materials: typeof MATERIALS;
       plaques: Plaques;
       sky: Sky;
       flora: Flora;
@@ -1093,6 +1094,7 @@ window.cathedral = {
   voice,
   buildGatePiece,
   buildCanalReach,
+  materials: MATERIALS,
   plaques,
   sky,
   flora,

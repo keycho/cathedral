@@ -113,17 +113,33 @@ export const SWATCH = {
   concretePale: 0x8a8781,
   concreteMid: 0x6f6c68,
   concreteDark: 0x565450,
-  panelCream: 0xcfc2a4, // muted painted panels
+  panelCream: 0xcfc2a4, // the older muted panels, kept for what is built in them
   panelBlue: 0x8fa3ad,
   panelGreen: 0x7e9184,
-  glassBlue: 0x59707e, // blue-grey glazing
+  // the town's paints are SATURATED and individual. a street is interesting
+  // because every owner painted their own frontage; what unifies it is the
+  // LIGHT falling across all of them, not a restrained common palette.
+  paintOx: 0x8e3b32, // oxblood
+  paintMustard: 0xc4913a,
+  paintTeal: 0x2f6b6a,
+  paintCobalt: 0x33507e,
+  paintPlum: 0x5b3a52,
+  glassBlue: 0x59707e, // blue-grey glazing, dark and unlit
+  shutterSteel: 0x6f7478, // rolling shutters, ducting, ladders
+  asphalt: 0x2b2d30, // the carriageway. dark, so the signage lands on it.
   interiorWarm: 0xf0c882, // warm light behind a window, emissive
-  // the town GLOWS after dark, and warm: the contrast between the quiet
+  // the town GLOWS after dark, and the glow is the SUBJECT: buildings read
+  // dark and the signage is what you see. the contrast between the quiet
   // dark heights and the electric flats is the world's signature night.
-  // reds and ambers lead, cyan answers them. never magenta cyberpunk.
+  // warm leads and cyan answers, but the full set is here because a real
+  // street is not colour-managed.
   neonEmber: 0xff5a3c,
   neonAmber: 0xffab4a,
   neonCyan: 0x63c4c0,
+  neonPink: 0xff3d8a,
+  neonRed: 0xff2f2a,
+  neonGreen: 0x4de07e,
+  signWhite: 0xf5f3ea, // an illuminated white lightbox or banner ground
   spill: 0xffc487, // the warm pool a shopfront throws onto the street
 
   // the sky realm's underside: mist pooling under an island so it reads as
