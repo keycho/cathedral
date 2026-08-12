@@ -11,7 +11,7 @@
 // the same constant.
 
 import { GRID, MAXY } from "./config";
-import { GENESIS, MASS } from "./palette";
+import { isGeology, MASS } from "./palette";
 import { GROW } from "./rules";
 import type { Strata } from "./strata";
 import type { VoxelField } from "./voxels";
@@ -64,9 +64,10 @@ export class Growth {
     return [x, y, z];
   }
 
-  // structure = anything grown or built (never the ground itself)
+  // accretion anchors to GEOLOGY only: the market grows its own stone and
+  // never swallows the crew's architecture
   private isStruct(x: number, y: number, z: number): boolean {
-    return this.field.typeAt(x, y, z) >= GENESIS;
+    return isGeology(this.field.typeAt(x, y, z));
   }
 
   private isCandidate(x: number, y: number, z: number): boolean {

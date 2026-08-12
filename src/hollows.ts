@@ -9,7 +9,7 @@
 
 import * as THREE from "three";
 import { GRID, MAXY } from "./config";
-import { GENESIS } from "./palette";
+import { isGeology } from "./palette";
 import { RULES } from "./rules";
 import type { Strata } from "./strata";
 import type { VoxelField } from "./voxels";
@@ -87,9 +87,10 @@ export class Hollows {
       if (c === undefined) break;
       if (c === this.sacred || this.hollow.has(c)) continue;
       const [x, y, z] = this.unpack(c);
+      if (!isGeology(this.field.typeAt(x, y, z))) continue; // crew cells never burn
       let enclosed = 0;
       for (const [dx, dy, dz] of DIRS) {
-        if (this.field.typeAt(x + dx, y + dy, z + dz) >= GENESIS) enclosed++;
+        if (isGeology(this.field.typeAt(x + dx, y + dy, z + dz))) enclosed++;
       }
       if (enclosed > best) {
         best = enclosed;
@@ -113,7 +114,7 @@ export class Hollows {
           const dy = y - cy;
           const dz = z - cz;
           if (dx * dx + dy * dy + dz * dz > re * re) continue;
-          if (this.field.typeAt(x, y, z) < GENESIS) continue; // only mass burns
+          if (!isGeology(this.field.typeAt(x, y, z))) continue; // only mass burns
           this.field.breakAt(x, y, z);
           this.strata.forget(x, y, z);
           this.hollow.add(i);
