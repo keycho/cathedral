@@ -6,10 +6,11 @@
 
 import type { Feed, FeedEvent } from "./feed";
 import type { Growth } from "./growth";
-import { EPOCH_MS } from "./rules";
+import { RULES } from "./rules";
 import type { Strata } from "./strata";
+import type { TickEngine } from "./ticks";
 
-const FAST_EPOCH_MS = 30_000;
+const FAST_TICK_MS = 3_000; // dev compression: 10x time
 const UPDATE_MS = 250;
 
 function el(tag: string, cls: string, parent: HTMLElement, text = ""): HTMLElement {
@@ -49,7 +50,8 @@ export class DevPanel {
   constructor(
     private feed: Feed,
     private strata: Strata,
-    private growth: Growth
+    private growth: Growth,
+    private ticks: TickEngine
   ) {
     this.root = document.getElementById("panel") as HTMLElement;
     const head = el("div", "pn-head", this.root);
@@ -98,15 +100,16 @@ export class DevPanel {
       b.addEventListener("click", () => this.feed.manual(kind));
     }
 
-    // the epoch clock (fast mode compresses an epoch to 30s for judging
-    // strata tints; the real cadence is the constitution's)
+    // the world clock (fast mode compresses ticks 10x, and epochs,
+    // collapse and subsidence compress with them; the constitution's
+    // cadence is the default)
     const clockRow = el("div", "pn-row", this.body);
     el("span", "pn-label", clockRow, "epoch");
     this.clockOut = el("span", "pn-value", clockRow);
     this.fastBtn = el("button", "pn-btn pn-toggle", clockRow, "fast");
     this.fastBtn.addEventListener("click", () => {
       this.fast = !this.fast;
-      this.strata.setEpochMs(this.fast ? FAST_EPOCH_MS : EPOCH_MS);
+      this.ticks.setTickMs(this.fast ? FAST_TICK_MS : RULES.tickMs);
       this.fastBtn.classList.toggle("on", this.fast);
     });
 
@@ -142,7 +145,11 @@ export class DevPanel {
     this.lastUpdate = now;
 
     this.clockOut.textContent =
-      this.strata.epoch + " · " + fmtClock(this.strata.msToNextEpoch(now));
+      this.strata.epoch +
+      " · tick " +
+      this.ticks.tick +
+      " · " +
+      fmtClock(this.ticks.msToNextEpoch(now));
 
     // holders = wallets that OWN standing blocks (the pubkey pool is not
     // a holder count; a fresh world has zero holders)

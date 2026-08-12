@@ -5,12 +5,10 @@
 // is buried). tints are applied through the field's per-instance colours
 // and re-walked in small batches whenever the epoch advances.
 //
-// the epoch clock lives here for now, advancing on wall time; phase 1d
-// moves advancement onto the tick counter (20 ticks per epoch) without
-// changing anything below it.
+// the epoch is advanced from outside by the tick engine (20 ticks per
+// epoch); strata only counts and tints.
 
 import { GRID, MAXY } from "./config";
-import { EPOCH_MS } from "./rules";
 import type { VoxelField } from "./voxels";
 
 // tint ramp: epochs of age at which a block is fully cream / fully orange
@@ -54,8 +52,6 @@ export class Strata {
   private cells: number[] = []; // registered cells, for random sampling
   private cellPos = new Map<number, number>(); // idx -> position in cells
   private byWallet = new Map<number, number>(); // wallet -> block count
-  private lastAdvance = performance.now();
-  private epochMs = EPOCH_MS;
   private retint: number[] = [];
   private retintAt = 0;
 
@@ -145,19 +141,9 @@ export class Strata {
     return (r << 16) | (g << 8) | b;
   }
 
-  // ---- the epoch clock -----------------------------------------------------
+  // ---- the epoch -----------------------------------------------------------
 
-  setEpochMs(ms: number) {
-    this.epochMs = ms;
-    this.lastAdvance = performance.now();
-  }
-  get epochLenMs(): number {
-    return this.epochMs;
-  }
-  msToNextEpoch(now: number): number {
-    return Math.max(0, this.epochMs - (now - this.lastAdvance));
-  }
-
+  // called by the tick engine every 20 ticks
   advanceEpoch() {
     this.epoch++;
     // re-walk every stratum toward its new age colour, in batches
@@ -165,11 +151,7 @@ export class Strata {
     this.retintAt = 0;
   }
 
-  update(now: number) {
-    if (now - this.lastAdvance >= this.epochMs) {
-      this.lastAdvance = now;
-      this.advanceEpoch();
-    }
+  update(_now: number) {
     // drain the re-tint queue gently (1500 cells/frame; 50k blocks ~ 0.5s)
     const n = Math.min(this.retint.length - this.retintAt, 1500);
     for (let k = 0; k < n; k++) {

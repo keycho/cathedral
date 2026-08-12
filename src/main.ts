@@ -28,6 +28,7 @@ import { RULES } from "./rules";
 import { Scars } from "./scars";
 import { Strata } from "./strata";
 import { buildVoidFloor, GENESIS_CELL, placeGenesis, plainSampler } from "./terrain";
+import { distributeBlocks, TickEngine } from "./ticks";
 import { VoxelField } from "./voxels";
 
 // ---------------------------------------------------------------------------
@@ -147,28 +148,45 @@ const insideWalker = (x: number, y: number, z: number): boolean => {
 growth.forbidden = (x, y, z) => hollows.isHollow(x, y, z) || insideWalker(x, y, z);
 
 // ---------------------------------------------------------------------------
-// the synthetic market drives the geology. DIRECT drive for now: each buy
-// accretes floor(usd / usdPerBlock) immediately and each burn carves at
-// once, so r1's growth pattern can be judged on its own. phase 1d replaces
-// this routing with the 30s tick aggregator (and gives sells their
-// collapse); the constants are already the constitution's.
+// the market drives the geology through the constitution's clock: raw
+// events aggregate into 30s ticks; r1 accretion and r2 collapse apply on
+// tick close; r2b subsidence fires after 12 negative ticks; epochs advance
+// every 20 ticks. r3 burns carve as they land and r4/r5 are
+// event-immediate by law.
 // ---------------------------------------------------------------------------
 const feed = new Feed();
+const ticks = new TickEngine();
+let ambientTarget = 0.15;
+
 feed.on((ev) => {
   switch (ev.kind) {
     case "buy":
-      growth.enqueue(Math.floor(ev.amountUsd / RULES.usdPerBlock), ev.wallet, ev.tx);
-      break;
     case "sell":
-      break; // collapse lands with the tick engine (1d)
+      ticks.ingest(ev);
+      break;
     case "burn":
       hollows.burn(ev.amountTokens, (x, y, z) => growth.refreshAround(x, y, z));
       break;
     case "newHolder":
-      break; // seed blocks land with r5 (1d)
+      break; // r5 seed planting lands with the monuments commit
   }
 });
-const panel = new DevPanel(feed, strata, growth);
+
+ticks.onTick = (s) => {
+  // r1: positive net flow accretes, attributed proportionally to buyers
+  if (s.netFlowUsd > 0) {
+    const n = Math.floor(s.netFlowUsd / RULES.usdPerBlock);
+    for (const [wallet, count] of distributeBlocks(n, s.buys)) {
+      growth.enqueue(count, wallet, "tick-" + s.n);
+    }
+  }
+  // r2 collapse wires in with the erosion commit
+  // r6: ambient breathes with the tick's gross volume
+  ambientTarget = Math.max(0.12, 1 - Math.exp(-s.grossVolumeUsd / 1200));
+};
+ticks.onEpoch = () => strata.advanceEpoch();
+
+const panel = new DevPanel(feed, strata, growth, ticks);
 
 // the founding stone breathes: a faint warm core + a small light that make
 // the one block in the world read as quietly alive
@@ -280,6 +298,7 @@ const camDir = new THREE.Vector3();
 let fpsAcc = 0;
 let fpsFrames = 0;
 let lastAmbient = 0;
+let ambientLevel = 0.15;
 
 function frame() {
   requestAnimationFrame(frame);
@@ -292,6 +311,7 @@ function frame() {
   probe?.update();
   ash.update(dt, t, camera.position);
   feed.update(now);
+  ticks.update(now);
   strata.update(now);
   growth.drain();
   kinetics.update(dt);
@@ -299,13 +319,14 @@ function frame() {
   scars.update(now);
   panel.update(now);
 
-  // r6 preview: ash density + light warmth breathe with trailing volume
-  // (the tick engine owns the authoritative mapping in 1d)
+  // r6: the tick's gross volume is authoritative; the rolling minute lets
+  // a surge read before its tick closes. eased so light never snaps.
   if (now - lastAmbient > 500) {
     lastAmbient = now;
-    const level = 1 - Math.exp(-feed.grossPerMin(now) / 2500);
-    ash.setLevel(level);
-    sun.intensity = SUN_INTENSITY * (1 + 0.28 * level);
+    const rolling = 1 - Math.exp(-feed.grossPerMin(now) / 2500);
+    ambientLevel += (Math.max(ambientTarget, rolling) - ambientLevel) * 0.25;
+    ash.setLevel(ambientLevel);
+    sun.intensity = SUN_INTENSITY * (1 + 0.28 * ambientLevel);
   }
 
   if (net.enabled) {
