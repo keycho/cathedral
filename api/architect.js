@@ -177,18 +177,26 @@ export default async function handler(req, res) {
   lastCall = now;
 
   try {
-    const { zone, palette, register, catalogue, plan, budget, patch, heights, blocked, notes, aggregates, epoch } = req.body ?? {};
+    const { zone, palette, register, catalogue, scale, plan, budget, patch, heights, blocked, notes, aggregates, epoch } = req.body ?? {};
     // THE CATALOGUE TRAVELS WITH THE REQUEST. it is generated from the same
     // registry that expands the parts, so the vocabulary the architect is
     // told about is the vocabulary that exists — there is no second copy
     // here to fall out of date the first time a component changes.
-    const system = catalogue
+    // THE SYSTEM PROMPT IS THE SAME TWELVE THOUSAND TOKENS EVERY CALL, so
+    // it is sent as a cached block. it was not before, because the
+    // allowance was written into the catalogue text — which made the
+    // "stable" prefix change on every single request. measured across
+    // fifteen consecutive designs: cache_read_input_tokens 0, every one.
+    // the number moved to the user turn where it belongs and this prefix
+    // now varies only by register.
+    const systemText = catalogue
       ? `${BIBLE}
 
 this site is in the ${register ?? "temple"} register. these are the parts you have, and the only ones — a name that is not on this list builds nothing:
 
 ${catalogue}`
       : BIBLE;
+    const system = [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } }];
     const user = [
       // THE SETTLEMENT FIRST. where this site sits in the town is the thing
       // that decides what to build on it, so it is read before the palette
@@ -199,6 +207,7 @@ ${catalogue}`
       // raise by three ceilings: the payload said 2400 and the architect
       // was told 600, so it designed 600 and the raise bought nothing.
       `epoch ${epoch}. block budget: ${budget ?? 0}.`,
+      ...(scale ? [scale] : []),
       `site patch: ${patch}x${patch}.`,
       `heights[z][x]: ${JSON.stringify(heights)}`,
       `blocked[z][x]: ${JSON.stringify(blocked)}`,

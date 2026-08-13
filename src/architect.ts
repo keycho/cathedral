@@ -31,7 +31,7 @@ import {
   TIMBER,
   TEAL,
 } from "./palette";
-import { catalogueText, expandCall, readCall } from "./components/catalogue";
+import { catalogueText, scaleText, expandCall, readCall } from "./components/catalogue";
 import type { PlannedSite, UrbanPlan } from "./plan";
 import { Build } from "./components/kit";
 import { RULES } from "./rules";
@@ -774,7 +774,11 @@ export class Architect {
       // THE SETTLEMENT, in words. the architect sites into a town it can
       // see rather than onto a patch of grass it cannot place.
       plan: this.lastPlanned ? this.plan.brief(this.lastPlanned) : "",
-      catalogue: catalogueText(register, budget),
+      catalogue: catalogueText(register),
+      // the allowance goes with the request, not with the vocabulary: the
+      // catalogue is the same text every call and can be cached, the number
+      // is not
+      scale: scaleText(register, budget),
       budget,
       patch: PATCH,
       heights: site.heights,

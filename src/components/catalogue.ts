@@ -306,7 +306,7 @@ function costOf(e: Entry): { def: number; min: number; max: number } {
   };
 }
 
-export function catalogueText(register: "temple" | "town", budget = 0): string {
+export function catalogueText(register: "temple" | "town"): string {
   const lines: string[] = [];
   for (const [name, e] of Object.entries(CATALOGUE)) {
     if (e.register !== register && e.register !== "any") continue;
@@ -339,6 +339,18 @@ export function catalogueText(register: "temple" | "town", budget = 0): string {
     const size = s ? `, ${s.w}x${s.d} and ${s.h} tall${s.y0 !== 0 ? ` starting at y${s.y0 >= 0 ? "+" : ""}${s.y0}` : ""}` : "";
     lines.push(`${name}(${sig}) [${price}${size}] — ${e.note}`);
   }
+  return lines.join("\n");
+}
+
+// THE ALLOWANCE TRAVELS WITH THE REQUEST, NOT WITH THE CATALOGUE. it was
+// written into the catalogue text, which is the system prompt — so the
+// system prompt changed on every single call and not one token of a 12k
+// prefix was ever cacheable. measured across fifteen consecutive designs:
+// cache_read_input_tokens 0, every time. the vocabulary is the stable part
+// and the number is the varying part; they go in different places.
+export function scaleText(register: "temple" | "town", budget: number): string {
+  if (budget <= 0) return "";
+  const lines: string[] = [];
   // THE ALLOWANCE IS A TARGET, NOT A FENCE. the budget was raised from
   // ~900 to 2400/3000 and the first three works after the raise came back
   // at 624, 788 and 579 cells with nothing dropped — the ceiling moved and
@@ -346,7 +358,7 @@ export function catalogueText(register: "temple" | "town", budget = 0): string {
   // quarter of its allowance is a small building. it reads the quoted costs
   // exactly and guesses at everything the catalogue leaves unsaid, which is
   // the pattern behind every fault this interface has had.
-  if (budget > 0) {
+  {
     const floor = Math.round(budget * 0.6);
     lines.push("");
     lines.push(`SCALE. your allowance for this work is ${budget} blocks. spend it.`);
@@ -365,3 +377,4 @@ export function catalogueText(register: "temple" | "town", budget = 0): string {
   }
   return lines.join("\n");
 }
+
