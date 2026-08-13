@@ -32,6 +32,7 @@ import {
   TEAL,
 } from "./palette";
 import { catalogueText, expandCall, readCall } from "./components/catalogue";
+import type { PlannedSite, UrbanPlan } from "./plan";
 import { Build } from "./components/kit";
 import { RULES } from "./rules";
 import type { Islands } from "./islands";
@@ -88,6 +89,7 @@ export class Architect {
     private mason: Mason,
     private isHollow: (x: number, y: number, z: number) => boolean,
     private genesisCell: { x: number; z: number },
+    private plan: UrbanPlan,
     home: { x: number; z: number }
   ) {
     this.body = new AgentBody("architect", field, home.x, home.z, scene);
@@ -203,7 +205,20 @@ export class Architect {
           if (!isGeology(under) && !isAgentMaterial(under)) openCells++;
         }
       }
-      const score = openCells - (maxH - minH) * 2 - r * 0.4;
+      // SITING IS AN ARGUMENT ABOUT THE SETTLEMENT, not a search for the
+      // flattest empty field. the old score rewarded openness and nearness
+      // and nothing else, which is exactly how a world ends up as pavilions
+      // scattered on grass: every site was chosen for having nothing near
+      // it. two terms carry the plan now.
+      //
+      // ADJOINING is close to mandatory — a patch that touches no made
+      // ground at all is not a site, it is a field — and DENSITY is
+      // rewarded rather than punished, so the settlement infills around
+      // what stands instead of sprawling outward looking for room.
+      const adjoins = this.plan.touchesFabric(ax, az, PATCH, PATCH);
+      const density = this.plan.densityAt(ax + PATCH / 2, az + PATCH / 2, 26);
+      const score =
+        openCells - (maxH - minH) * 2 - r * 0.4 + (adjoins ? 60 : 0) + Math.min(density, 5) * 8;
       if (!best || score > best.score) best = { x: ax, z: az, score };
       // a fully qualified site is open AND wholly inside its territory,
       // so validation never trims the blueprint at a wedge border
@@ -219,7 +234,32 @@ export class Architect {
     best = bestOpen ?? best;
     if (!best) return null;
 
-    const groundY = this.field.topAt(best.x + PATCH / 2, best.z + PATCH / 2);
+    // THE GROUND IS MADE BEFORE THE DESIGN IS DRAWN. a building cannot
+    // decide to stand on built ground — by the time it is being designed the
+    // ground is whatever the hillside happens to be — so the platform is cut
+    // and paved here, and the heights grid the architect reads is the
+    // heights of the PLATFORM. that is what "nothing stands on wild ground"
+    // has to mean in practice: not a rule the architect is asked to keep,
+    // but a site it is handed already made.
+    //
+    // the middle two thirds are levelled and surfaced; the rim gets its dark
+    // skirt course, which is the visible line between made ground and
+    // meadow. the outer band is left wild so the work has somewhere to put
+    // its grounds and the edge is a place rather than a border.
+    const quarter = this.plan.quarterOf(best.x + PATCH / 2, best.z + PATCH / 2);
+    const pad = 6;
+    const { groundY } = this.plan.platform(best.x + pad, best.z + pad, PATCH - pad * 2, PATCH - pad * 2, quarter);
+    this.lastPlanned = {
+      anchorX: best.x,
+      anchorZ: best.z,
+      quarter,
+      reason: this.plan.touchesFabric(best.x, best.z, PATCH, PATCH)
+        ? "it adjoins ground the settlement has already made"
+        : "it opens a new edge of the settlement",
+      joinX: pad,
+      joinZ: pad,
+    };
+
     const heights: number[][] = [];
     const blocked: number[][] = [];
     for (let dz = 0; dz < PATCH; dz++) {
@@ -315,7 +355,29 @@ export class Architect {
     const title = (raw.title ?? "untitled work").toLowerCase().slice(0, 48);
     const memo = (raw.memo ?? "").toLowerCase().slice(0, 160);
     this.journal.add("architect", epoch, `${title}. ${memo}`.trim(), source);
-    return { planId: "plan-" + (this.planCount + 1), title, zone: site.zone, cells };
+    const planId = "plan-" + (this.planCount + 1);
+
+    // THE PLAN REMEMBERS. a parcel goes on the record the moment a design is
+    // accepted, so the next cycle sites against what this one built rather
+    // than against an empty field. this is the whole difference between a
+    // settlement and a scatter: the plan is the only thing in the world that
+    // outlives a single blueprint.
+    let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+    for (const c of cells) {
+      minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x);
+      minZ = Math.min(minZ, c.z); maxZ = Math.max(maxZ, c.z);
+    }
+    this.plan.record({
+      x: minX,
+      z: minZ,
+      w: maxX - minX + 1,
+      d: maxZ - minZ + 1,
+      quarter: this.plan.quarterOf(site.anchorX + PATCH / 2, site.anchorZ + PATCH / 2),
+      planId,
+      title,
+      epoch,
+    });
+    return { planId, title, zone: site.zone, cells };
   }
 
   // the last composition read, so a review can see WHAT was named rather
@@ -323,6 +385,9 @@ export class Architect {
   lastManifest: { component: string; instances: number }[] = [];
   lastUnknown: string[] = [];
   lastDropped = 0; // parts that would not fit the budget
+
+  // the site the plan last handed out, so the payload can explain WHY here
+  lastPlanned: PlannedSite | null = null;
 
   // the great work's standing allowance, carried across cycles
   greatWorkPot = 0;
@@ -634,6 +699,9 @@ export class Architect {
       zone: site.zone,
       palette: ZONE_PALETTES[site.zone],
       register,
+      // THE SETTLEMENT, in words. the architect sites into a town it can
+      // see rather than onto a patch of grass it cannot place.
+      plan: this.lastPlanned ? this.plan.brief(this.lastPlanned) : "",
       catalogue: catalogueText(register),
       budget: Math.min(funded, this.capFor(site)),
       patch: PATCH,

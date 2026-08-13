@@ -173,7 +173,7 @@ export default async function handler(req, res) {
   lastCall = now;
 
   try {
-    const { zone, palette, register, catalogue, budget, patch, heights, blocked, notes, aggregates, epoch } = req.body ?? {};
+    const { zone, palette, register, catalogue, plan, budget, patch, heights, blocked, notes, aggregates, epoch } = req.body ?? {};
     // THE CATALOGUE TRAVELS WITH THE REQUEST. it is generated from the same
     // registry that expands the parts, so the vocabulary the architect is
     // told about is the vocabulary that exists — there is no second copy
@@ -186,6 +186,10 @@ this site is in the ${register ?? "temple"} register. these are the parts you ha
 ${catalogue}`
       : BIBLE;
     const user = [
+      // THE SETTLEMENT FIRST. where this site sits in the town is the thing
+      // that decides what to build on it, so it is read before the palette
+      // and before the terrain rather than as a footnote after them.
+      ...(plan ? [plan, ``] : []),
       `territory: the ${zone}'s third. palette identity: ${palette}.`,
       `epoch ${epoch}. block budget: ${Math.min(600, budget ?? 0)}.`,
       `site patch: ${patch}x${patch}.`,

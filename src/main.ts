@@ -76,6 +76,7 @@ import { Scars } from "./scars";
 import { Sky } from "./sky";
 import { Strata } from "./strata";
 import { Flora } from "./flora";
+import { UrbanPlan } from "./plan";
 import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
 import { buildVoidFloor, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
@@ -433,6 +434,14 @@ const mason = new Mason(
   { x: GENESIS_CELL.x + 5, z: GENESIS_CELL.z + 13 },
   voice
 );
+// THE URBAN PLAN. established once from the land — plaza at the founding
+// stone, precinct on the high ground, quarter on the low — and then read
+// and extended by every cycle. it is what turns a set of correct buildings
+// into a settlement; without it each work is sited on the emptiest field it
+// can find, which is precisely how they end up scattered.
+const plan = new UrbanPlan(field, GENESIS_CELL, genesisY);
+plan.found();
+
 const architect = new Architect(
   scene,
   field,
@@ -442,6 +451,7 @@ const architect = new Architect(
   mason,
   (x, y, z) => hollows.isHollow(x, y, z),
   GENESIS_CELL,
+  plan,
   { x: GENESIS_CELL.x + 14, z: GENESIS_CELL.z + 2 }
 );
 architect.islands = islands; // the signature project watches the sky
@@ -1291,6 +1301,7 @@ declare global {
       post: Post;
       runHistory: (epochs?: number) => Promise<number>;
       captureMode: (on: boolean) => void;
+      plan: UrbanPlan;
     };
   }
 }
@@ -1316,6 +1327,7 @@ const captureMode = (on: boolean) => {
 
 window.cathedral = {
   captureMode,
+  plan,
   field,
   rig,
   fp,
