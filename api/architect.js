@@ -177,7 +177,7 @@ export default async function handler(req, res) {
   lastCall = now;
 
   try {
-    const { zone, palette, register, catalogue, scale, plan, budget, patch, heights, blocked, notes, aggregates, epoch } = req.body ?? {};
+    const { zone, palette, register, catalogue, scale, plan, named, budget, patch, heights, blocked, notes, aggregates, epoch } = req.body ?? {};
     // THE CATALOGUE TRAVELS WITH THE REQUEST. it is generated from the same
     // registry that expands the parts, so the vocabulary the architect is
     // told about is the vocabulary that exists — there is no second copy
@@ -208,6 +208,15 @@ ${catalogue}`
       // was told 600, so it designed 600 and the raise bought nothing.
       `epoch ${epoch}. block budget: ${budget ?? 0}.`,
       ...(scale ? [scale] : []),
+      // the settlement's existing names. a repeat is not a style, it is a
+      // collision: three works called "the lantern row" in one run.
+      ...(Array.isArray(named) && named.length
+        ? [
+            ``,
+            `works already standing here, by name: ${named.map((n) => `"${n}"`).join(", ")}.`,
+            `name this one something none of those could be confused with — a different noun, not the same noun with a different adjective.`,
+          ]
+        : []),
       `site patch: ${patch}x${patch}.`,
       `heights[z][x]: ${JSON.stringify(heights)}`,
       `blocked[z][x]: ${JSON.stringify(blocked)}`,

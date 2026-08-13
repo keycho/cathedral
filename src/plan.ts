@@ -24,10 +24,20 @@
 // than as a building fading into grass.
 
 import { GRID } from "./config";
-import { CONCRETEMID, CONCRETEPALE, EARTH, MEADOW, SCARMOSS, STONE, STONEDARK, isGeology, isGround, isMeadow } from "./palette";
+import { CONCRETEDARK, CONCRETEMID, CONCRETEPALE, EARTH, MEADOW, SCARMOSS, STONE, STONEDARK, isGeology, isGround, isMeadow } from "./palette";
 import type { VoxelField } from "./voxels";
 
 export type Quarter = "plaza" | "precinct" | "quarter";
+
+export interface Street {
+  name: string;
+  ax: number; // centreline, cells
+  az: number;
+  bx: number;
+  bz: number;
+  width: number; // carriageway, kerb to kerb
+  axis: "x" | "z"; // the run of the street, for facing
+}
 
 export interface Parcel {
   x: number; // footprint corner, cells
@@ -68,6 +78,14 @@ export class UrbanPlan {
   // actually means.
   private network = new Set<number>();
   private routes: { ax: number; az: number; bx: number; bz: number; name: string }[] = [];
+  // STREETS ARE PLAN OBJECTS, NOT A SIDE EFFECT OF PAVING. town works were
+  // each given their own levelled pad and each faced whichever way it liked,
+  // so a quarter came out as detached shops on separate platforms — the one
+  // thing a town is not. a street exists BEFORE the buildings on it: it has
+  // a centreline, a width, two frontage lines, and a name, and a work in the
+  // quarter is sited against a frontage rather than on open ground.
+  readonly streets: Street[] = [];
+  private streetsLaid = false;
 
   constructor(private field: VoxelField, genesis: { x: number; z: number }, flatsY: number) {
     this.plazaX = genesis.x;
@@ -115,6 +133,68 @@ export class UrbanPlan {
     // districts are built into, not up front: an empty walled field reads
     // worse than open meadow.
     return laid;
+  }
+
+  // THE QUARTER'S STREETS, laid the first time anything is built there. not
+  // at founding: an empty gridded field reads worse than open meadow, and
+  // the quarter's position is only known once the land has been walked.
+  //
+  // two of them, crossing, so the quarter has a corner — a single street is
+  // a row and a crossing is a place. they are laid as real carriageway with
+  // a kerb line either side, which is what the frontages are measured from.
+  layStreets(): number {
+    if (this.streetsLaid) return 0;
+    this.streetsLaid = true;
+    const q = this.quarter;
+    const half = Math.round(q.r * 0.8);
+    this.streets.push(
+      { name: "the long street", ax: q.x - half, az: q.z, bx: q.x + half, bz: q.z, width: 5, axis: "x" },
+      { name: "the cross lane", ax: q.x, az: q.z - half, bx: q.x, bz: q.z + half, width: 4, axis: "z" }
+    );
+    let laid = 0;
+    for (const st of this.streets) {
+      const steps = Math.max(Math.abs(st.bx - st.ax), Math.abs(st.bz - st.az));
+      const w = st.width >> 1;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / Math.max(1, steps);
+        const cx = Math.round(st.ax + (st.bx - st.ax) * t);
+        const cz = Math.round(st.az + (st.bz - st.az) * t);
+        if (st.axis === "x") {
+          laid += this.pave(cx, cz - w, 1, st.width, CONCRETEDARK);
+          for (const side of [-w - 1, w + 1]) this.pave(cx, cz + side, 1, 1, CONCRETEPALE);
+        } else {
+          laid += this.pave(cx - w, cz, st.width, 1, CONCRETEDARK);
+          for (const side of [-w - 1, w + 1]) this.pave(cx + side, cz, 1, 1, CONCRETEPALE);
+        }
+      }
+    }
+    return laid;
+  }
+
+  // which frontage a site belongs to, and which way a building on it faces.
+  // this is what makes a row a row: every work on the long street is told
+  // the same line to build its shopfronts along.
+  frontageFor(x0: number, z0: number, w: number, d: number): { street: Street; side: 1 | -1; line: number } | null {
+    const cx = x0 + w / 2;
+    const cz = z0 + d / 2;
+    let best: { street: Street; side: 1 | -1; line: number; d: number } | null = null;
+    for (const st of this.streets) {
+      const half = st.width / 2 + 1;
+      if (st.axis === "x") {
+        if (cx < Math.min(st.ax, st.bx) - 6 || cx > Math.max(st.ax, st.bx) + 6) continue;
+        const side: 1 | -1 = cz >= st.az ? 1 : -1;
+        const line = Math.round(st.az + side * half);
+        const dist = Math.abs(cz - line);
+        if (!best || dist < best.d) best = { street: st, side, line, d: dist };
+      } else {
+        if (cz < Math.min(st.az, st.bz) - 6 || cz > Math.max(st.az, st.bz) + 6) continue;
+        const side: 1 | -1 = cx >= st.ax ? 1 : -1;
+        const line = Math.round(st.ax + side * half);
+        const dist = Math.abs(cx - line);
+        if (!best || dist < best.d) best = { street: st, side, line, d: dist };
+      }
+    }
+    return best && best.d <= 18 ? { street: best.street, side: best.side, line: best.line } : null;
   }
 
   // a path of built ground between two points, bresenham-ish and three wide
@@ -377,8 +457,44 @@ export class UrbanPlan {
     return dPre <= dQtr ? "precinct" : "quarter";
   }
 
+  // WHAT THE SETTLEMENT IS ALREADY CALLED. three works came back "the
+  // lantern row" and three more "the terraced light hall" in a single run,
+  // because nothing in the payload ever told the architect what it had
+  // already named — and a model given the same brief on a similar site
+  // reaches for the same words, which is not a fault, it is the absence of
+  // a fact.
+  titles(limit = 24): string[] {
+    return this.parcels.slice(-limit).map((p) => p.title).filter(Boolean);
+  }
+
   record(p: Parcel) {
     this.parcels.push(p);
+  }
+
+  // THE STREET, IN THE PATCH'S OWN COORDINATES. "there is a street nearby"
+  // is not actionable; "your frontage is the line z=7, build along it facing
+  // -z" is. every work on the long street gets the same line, which is the
+  // whole difference between a row and four detached shops.
+  private frontageLines(site: PlannedSite, patch: number): string[] {
+    // THE QUARTER ONLY. the streets are the town's, and the frontage brief
+    // is written in the town's vocabulary — a precinct hall told to put its
+    // shopfronts on a line is being handed the wrong register's instruction
+    // by the layer whose whole job is keeping them apart.
+    if (site.quarter !== "quarter") return [];
+    const f = this.frontageFor(site.anchorX, site.anchorZ, patch, patch);
+    if (!f) return [];
+    const st = f.street;
+    const local = st.axis === "x" ? f.line - site.anchorZ : f.line - site.anchorX;
+    if (local < 0 || local >= patch) return [];
+    const facing = st.axis === "x" ? (f.side > 0 ? "-z" : "+z") : f.side > 0 ? "-x" : "+x";
+    return [
+      ``,
+      `THE STREET: your site fronts ${st.name}, which runs along ${st.axis} and is ${st.width} wide.`,
+      st.axis === "x"
+        ? `- YOUR FRONTAGE IS THE LINE z = ${local} in your patch. put the shopfronts, awnings and signage on it, facing ${facing}. what is behind them is back-of-house.`
+        : `- YOUR FRONTAGE IS THE LINE x = ${local} in your patch. put the shopfronts, awnings and signage on it, facing ${facing}. what is behind them is back-of-house.`,
+      `- build the frontage CONTINUOUS along that line: party walls between buildings, no gaps. the neighbours are doing the same, so the row reads as one street.`,
+    ];
   }
 
   // ---- what the architect is told ------------------------------------------
@@ -386,7 +502,7 @@ export class UrbanPlan {
   // the plan in words. the architect gets this every cycle alongside its
   // site, so it is siting INTO a settlement it can see rather than onto a
   // patch of grass it cannot place.
-  brief(site: PlannedSite): string {
+  brief(site: PlannedSite, patch = 30): string {
     const rel = (x: number, z: number) => {
       const dx = x - this.plazaX;
       const dz = z - this.plazaZ;
@@ -415,6 +531,7 @@ export class UrbanPlan {
       `- the ground under your site is ALREADY BUILT: it has been cut level and paved for you, and its rim is walled. do not lay another slab over the whole footprint; build ON it.`,
       `- your work must REACH THE EXISTING FABRIC. there is made ground at local (${site.joinX}, ${site.joinZ}) in your patch — run your approach, stair or path to it. a design that touches nothing is an object in a field.`,
       `- face what is already there. a building that turns its back on the street it stands beside is worse than one badly proportioned.`,
+      ...this.frontageLines(site, patch),
     ].join("\n");
   }
 }

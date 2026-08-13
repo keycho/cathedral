@@ -277,8 +277,11 @@ export class Architect {
       // what stands instead of sprawling outward looking for room.
       const adjoins = this.plan.touchesFabric(ax, az, PATCH, PATCH);
       const density = this.plan.densityAt(ax + PATCH / 2, az + PATCH / 2, 26);
+      // a town site that fronts a street is worth more than a flatter one
+      // that does not: the row is the point
+      const fronts = this.plan.frontageFor(ax, az, PATCH, PATCH) ? 45 : 0;
       const score =
-        openCells - (maxH - minH) * 2 - r * 0.5 + (adjoins ? 60 : 0) + Math.min(density, 5) * 8 - builtCells * 1.6;
+        openCells - (maxH - minH) * 2 - r * 0.5 + (adjoins ? 60 : 0) + Math.min(density, 5) * 8 - builtCells * 1.6 + fronts;
       if (!best || score > best.score) best = { x: ax, z: az, score };
       // a fully qualified site is open AND wholly inside its territory,
       // so validation never trims the blueprint at a wedge border
@@ -313,6 +316,9 @@ export class Architect {
     // still met grass on every side — the law read as "a building with a
     // patio" rather than "a building on built ground". three leaves room
     // for grounds and still makes the ground the work stands on.
+    // the quarter's streets go in before the first work there, so the site
+    // is chosen against a frontage rather than against open ground
+    if (quarter === "quarter") this.plan.layStreets();
     const pad = PLATFORM_PAD;
     const { groundY } = this.plan.platform(best.x + pad, best.z + pad, PATCH - pad * 2, PATCH - pad * 2, quarter);
     this.lastPlanned = {
@@ -797,12 +803,15 @@ export class Architect {
       register,
       // THE SETTLEMENT, in words. the architect sites into a town it can
       // see rather than onto a patch of grass it cannot place.
-      plan: this.lastPlanned ? this.plan.brief(this.lastPlanned) : "",
+      plan: this.lastPlanned ? this.plan.brief(this.lastPlanned, PATCH) : "",
       catalogue: catalogueText(register),
       // the allowance goes with the request, not with the vocabulary: the
       // catalogue is the same text every call and can be cached, the number
       // is not
       scale: scaleText(register, budget),
+      // the names already standing, so a new work is named against the
+      // settlement rather than against the brief alone
+      named: this.plan.titles(),
       budget,
       patch: PATCH,
       heights: site.heights,
