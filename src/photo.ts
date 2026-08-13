@@ -84,14 +84,28 @@ export class Photo {
   // frame a subject given in CELL coordinates; the rig works in world space
   // centred on the grid, and every caller so far has got that conversion
   // wrong at least once
-  frame(preset: keyof typeof FRAMINGS | Framing, cellX: number, cellZ: number) {
+  frame(preset: keyof typeof FRAMINGS | Framing, cellX: number, cellZ: number, azimuth?: number) {
     const f = typeof preset === "string" ? FRAMINGS[preset] : preset;
     if (!f) return null;
     const groundY = this.field.topAt(cellX, cellZ);
     this.rig.target.set(cellX - 128 + 0.5, groundY + f.lift, cellZ - 128 + 0.5);
     this.rig.radius = f.radius;
+    this.rig.azimuth = azimuth ?? f.azimuth;
+    // THE CAMERA HAS TO BE SOMEWHERE THERE IS AIR. the street preset came
+    // back as a solid black plate: at a seventeen block radius and almost no
+    // polar the rig puts the eye level with its target and seventeen blocks
+    // out, which in a town is inside a building. a preset is a wish about
+    // where to stand, not a guarantee that anything is standing there.
+    //
+    // the polar opens until the eye clears, so a shot that would have been
+    // taken from inside a wall is taken from just above the roofline instead
+    // of not at all. the azimuth is left alone: turning would point the
+    // camera at something other than its subject, and rising will not.
     this.rig.polar = f.polar;
-    this.rig.azimuth = f.azimuth;
+    for (let step = 0; step < 26; step++) {
+      if (this.clear(f.radius, this.rig.polar)) break;
+      this.rig.polar += 0.05;
+    }
     if (this.camera.fov !== f.fov) {
       this.camera.fov = f.fov;
       // a long lens needs its near plane back or the close side of a street
@@ -101,6 +115,25 @@ export class Photo {
     }
     this.post.dof(f.dof);
     return f;
+  }
+
+  // is there air where this radius and polar would put the eye — and a
+  // clear metre around it, so the near plane is not buried in a wall
+  private clear(radius: number, polar: number): boolean {
+    const ch = Math.cos(polar) * radius;
+    const px = this.rig.target.x + Math.cos(this.rig.azimuth) * ch;
+    const py = this.rig.target.y + Math.sin(polar) * radius;
+    const pz = this.rig.target.z + Math.sin(this.rig.azimuth) * ch;
+    const cx = Math.round(px + 128 - 0.5);
+    const cz = Math.round(pz + 128 - 0.5);
+    if (cx < 2 || cx > 253 || cz < 2 || cz > 253) return true;
+    if (py <= this.field.topAt(cx, cz) + 1.2) return false;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        if (this.field.isSolid(cx + dx, Math.round(py), cz + dz)) return false;
+      }
+    }
+    return true;
   }
 
   enter() {
