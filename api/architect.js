@@ -91,10 +91,13 @@ export default async function handler(req, res) {
         // thinking_tokens 8000. raising the ceiling only bought it more
         // room to think.
         //
-        // thinking is worth having here, because massing a building before
-        // writing coordinates is exactly the kind of work it helps with. it
-        // just needs a budget of its own, with the rest left for the plan.
-        thinking: { type: "enabled", budget_tokens: 4000 },
+        // thinking is worth having here — massing a building before writing
+        // coordinates is exactly what it helps with — it just has to leave
+        // room for the plan. on this model there is no budget_tokens (it is
+        // rejected outright); depth is set by effort, and medium is the
+        // setting that thinks about the massing and then stops.
+        thinking: { type: "adaptive" },
+        output_config: { effort: "medium" },
         max_tokens: 12000,
         system: BIBLE,
         // NO assistant prefill: this model rejects a conversation that ends
