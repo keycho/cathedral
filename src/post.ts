@@ -123,6 +123,16 @@ const GradeShader = {
     mistStrength: { value: 0 },
     mistTop: { value: 12 }, // world y the pool thins out at
     mistDepth: { value: 9 }, // how many blocks it takes to thin
+    // DEPTH OF FIELD. this is what makes a reference diorama read as a
+    // diorama rather than as a game screenshot: a sharp band of midground
+    // with the near and the far let go. it runs INSIDE the grade rather than
+    // as its own pass — the grade already carries the depth texture, and a
+    // separate pass would mean another full-screen target for a dozen taps.
+    dofStrength: { value: 0 }, // 0 = off; the whole effect scales on this
+    dofFocus: { value: 0.06 }, // linear depth the sharp band sits at
+    dofRange: { value: 0.05 }, // how far either side stays sharp
+    dofMaxPx: { value: 3.2 }, // blur radius in pixels at full circle
+    texel: { value: new THREE.Vector2(1 / 1600, 1 / 900) },
     camPos: { value: new THREE.Vector3() },
     rayF: { value: new THREE.Vector3(0, 0, -1) }, // forward * far
     rayR: { value: new THREE.Vector3(1, 0, 0) }, // right * far * tan * aspect
@@ -146,6 +156,8 @@ const GradeShader = {
     uniform vec3 hazeColor;
     uniform vec3 mistColor, camPos, rayF, rayR, rayU;
     uniform float mistStrength, mistTop, mistDepth;
+    uniform float dofStrength, dofFocus, dofRange, dofMaxPx;
+    uniform vec2 texel;
     varying vec2 vUv;
 
     vec3 sampleLUT(sampler2D lut, vec3 c) {
@@ -168,9 +180,45 @@ const GradeShader = {
       return viewZToOrthographicDepth(z, cameraNear, cameraFar);
     }
 
+    // the circle of confusion: zero across the focal band, opening toward
+    // the camera and toward the horizon. the near side opens FASTER, which
+    // is what a real lens does and what keeps a foreground branch soft
+    // without dissolving the hill behind the subject.
+    float coc(float d) {
+      float far = smoothstep(dofFocus + dofRange, dofFocus + dofRange + 0.34, d);
+      float near = 1.0 - smoothstep(max(dofFocus - dofRange - 0.055, 0.0), dofFocus - dofRange, d);
+      return clamp(max(far, near * 1.35), 0.0, 1.0);
+    }
+
     void main() {
       vec4 src = texture2D(tDiffuse, vUv);
       vec3 col = src.rgb;
+
+      // the defocus, before anything is graded: blurring a graded image
+      // smears the grade's own contrast into the bokeh
+      if (dofStrength > 0.001) {
+        float c = coc(linearDepth(vUv)) * dofStrength;
+        if (c > 0.01) {
+          // a golden-angle spiral: twelve taps land evenly on the disc with
+          // no ring artefact and no sample table
+          vec3 sum = col;
+          float wsum = 1.0;
+          float r = c * dofMaxPx;
+          for (int i = 0; i < 12; i++) {
+            float fi = float(i);
+            float a = fi * 2.3999632;
+            float rad = sqrt((fi + 0.5) / 12.0) * r;
+            vec2 off = vec2(cos(a), sin(a)) * rad * texel;
+            // a sample from well in FRONT of the focal plane must not bleed
+            // onto a sharp subject, or the building grows a halo
+            float dn = linearDepth(vUv + off);
+            float w = coc(dn) * dofStrength >= c * 0.35 ? 1.0 : 0.25;
+            sum += texture2D(tDiffuse, vUv + off).rgb * w;
+            wsum += w;
+          }
+          col = mix(col, sum / wsum, clamp(c, 0.0, 1.0));
+        }
+      }
 
       // depth haze: distance dissolves into mountain mist, so layered hills
       // read like a painted backdrop instead of a wall of detail
@@ -289,6 +337,33 @@ export class Post {
     }
   }
 
+  // FOCUS ON A POINT IN THE WORLD, not on a depth number. every caller
+  // knows what it is looking at — the rig knows its target, photo mode
+  // knows its subject — and none of them know what that is in linear
+  // depth, so the conversion lives here.
+  focusOn(worldPoint: THREE.Vector3, opts: { strength?: number; range?: number; maxPx?: number } = {}) {
+    const d = this.camera.position.distanceTo(worldPoint);
+    const lin = Math.max(0, Math.min(1, (d - this.camera.near) / (this.camera.far - this.camera.near)));
+    this.grade.uniforms.dofFocus.value = lin;
+    if (opts.strength !== undefined) this.grade.uniforms.dofStrength.value = opts.strength;
+    if (opts.range !== undefined) this.grade.uniforms.dofRange.value = opts.range;
+    if (opts.maxPx !== undefined) this.grade.uniforms.dofMaxPx.value = opts.maxPx;
+  }
+
+  // the two presets. subtle is what the world runs on — enough to separate
+  // a foreground tree from the hall behind it and no more; diorama is the
+  // photo-mode setting, where the miniature read is the whole point.
+  dof(mode: "off" | "subtle" | "diorama") {
+    const u = this.grade.uniforms;
+    if (mode === "off") u.dofStrength.value = 0;
+    else if (mode === "subtle") { u.dofStrength.value = 0.55; u.dofRange.value = 0.075; u.dofMaxPx.value = 2.6; }
+    else { u.dofStrength.value = 1.0; u.dofRange.value = 0.03; u.dofMaxPx.value = 5.4; }
+  }
+
+  get dofMode(): number {
+    return this.grade.uniforms.dofStrength.value as number;
+  }
+
   apply(cfg: Config) {
     this.fx = { bloom: cfg.bloom, grade: cfg.grade, haze: cfg.haze };
     this.build();
@@ -375,6 +450,7 @@ export class Post {
 
   setSize(w: number, h: number) {
     const pr = this.renderer.getPixelRatio();
+    this.grade.uniforms.texel.value.set(1 / Math.max(1, w * pr), 1 / Math.max(1, h * pr));
     this.composer.setSize(w, h);
     this.depth.image.width = Math.floor(w * pr);
     this.depth.image.height = Math.floor(h * pr);

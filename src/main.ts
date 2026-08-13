@@ -30,6 +30,7 @@ import { Shrine } from "./shrine";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
 import { Post } from "./post";
+import { FRAMINGS, Photo } from "./photo";
 import { PerfHud } from "./perfhud";
 import { AutoQuality, configAt, startStep, type Config } from "./quality";
 import { Architect } from "./architect";
@@ -113,6 +114,15 @@ renderer.shadowMap.autoUpdate = false;
 // than the scene. we reset once per frame ourselves and read the whole
 // frame's total, which is comparable across every tier.
 renderer.info.autoReset = false;
+
+// scratch vector for the focal point, so the render loop allocates nothing
+const dofAim = new THREE.Vector3();
+// PHOTO MODE IS BUILT LATE and used early. it needs captureMode, which needs
+// the crew, which does not exist until most of this file has run — but the
+// render loop calls into it from its very first frame. a const declared
+// between the two is a dead zone the loop walks into and the whole world
+// fails to boot with "cannot access before initialization".
+let photo: Photo | undefined;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(HAZE);
@@ -1241,8 +1251,24 @@ function frame() {
     // the valley mist needs to know where the camera is looking to turn a
     // depth buffer back into world altitude
     post.setCameraBasis(camera);
+    // and the focus follows whatever the camera is actually looking at, so
+    // the sharp band is always ON the subject rather than at a fixed range
+    // the subject wanders in and out of
+    // on foot the subject is whatever is in front of you, so the focal
+    // point rides a fixed distance down the view vector; on the rig it is
+    // the thing the rig is orbiting, which is by definition the subject
+    if (post.dofMode > 0) {
+      if (fp.locked) {
+        camera.getWorldDirection(dofAim).multiplyScalar(15).add(camera.position);
+        post.focusOn(dofAim);
+      } else {
+        post.focusOn(rig.target);
+      }
+    }
     post.render();
   }
+  // the one moment the drawing buffer is guaranteed to hold a picture
+  photo?.afterRender(renderer);
   perf.update(dt);
   auto.update(dt, now);
 }
@@ -1319,6 +1345,8 @@ declare global {
       plan: UrbanPlan;
       woods: { planted: number; blocks: number; bySpecies: Record<string, number> };
       settle: (n?: number) => { made: number; parcels: number };
+      photo: Photo;
+      framings: typeof FRAMINGS;
     };
   }
 }
@@ -1342,6 +1370,8 @@ const captureMode = (on: boolean) => {
   for (const a of [surveyor.body, architect.body, mason.body, keeper.body]) a.avatar.showLabel(!on);
 };
 
+photo = new Photo(camera, rig, post, field, captureMode);
+
 // age the settlement: N works sited by the plan, laid whole. the capture
 // lever for looking at a TOWN rather than at one building.
 const settle = (n = 12) => {
@@ -1357,6 +1387,10 @@ const settle = (n = 12) => {
 
 window.cathedral = {
   captureMode,
+  get photo() {
+    return photo!;
+  },
+  framings: FRAMINGS,
   plan,
   woods,
   settle,
