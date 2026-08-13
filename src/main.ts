@@ -1290,10 +1290,27 @@ declare global {
       renderer: THREE.WebGLRenderer;
       post: Post;
       runHistory: (epochs?: number) => Promise<number>;
+      captureMode: (on: boolean) => void;
     };
   }
 }
+// CAPTURE MODE. a plate of this world kept coming back with a floating
+// "+$40" across a shopfront, because the market's own labels are part of
+// the world and a screenshot cannot tell the difference. one switch takes
+// down every layer that is the world TALKING rather than the world being
+// itself: the hud chrome, and the market glyphs already in the air.
+const captureMode = (on: boolean) => {
+  const CHROME = ["wordmark", "status", "hint", "crosshair", "fps", "panel", "journal", "plaque"];
+  for (const id of CHROME) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = on ? "none" : "";
+  }
+  glyphs.enabled = !on;
+  if (on) glyphs.clear();
+};
+
 window.cathedral = {
+  captureMode,
   field,
   rig,
   fp,

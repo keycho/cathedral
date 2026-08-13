@@ -23,6 +23,11 @@ interface Slot {
 export class Glyphs {
   private slots: Slot[] = [];
   private cursor = 0;
+  // a capture plate is a photograph of the WORLD, and a floating "+$40" is
+  // the market talking over it. off, the sprites stop spawning and the ones
+  // already in the air are cleared, so a screenshot taken a frame later is
+  // clean rather than clean-in-a-few-seconds.
+  enabled = true;
 
   constructor(scene: THREE.Scene) {
     for (let i = 0; i < POOL; i++) {
@@ -47,6 +52,7 @@ export class Glyphs {
 
   // cell coordinates in, floating text out
   spawn(cx: number, cy: number, cz: number, text: string, rise: boolean) {
+    if (!this.enabled) return;
     const s = this.slots[this.cursor];
     this.cursor = (this.cursor + 1) % POOL;
     const g = s.canvas.getContext("2d") as CanvasRenderingContext2D;
@@ -64,6 +70,15 @@ export class Glyphs {
     s.sprite.position.set(cx - GRID / 2 + 0.5, s.baseY, cz - GRID / 2 + 0.5);
     s.sprite.visible = true;
     s.age = 0;
+  }
+
+  // take every sprite out of the air at once
+  clear() {
+    for (const s of this.slots) {
+      s.age = LIFE_S;
+      s.mat.opacity = 0;
+      s.sprite.visible = false;
+    }
   }
 
   update(dt: number) {

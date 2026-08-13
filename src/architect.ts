@@ -31,6 +31,8 @@ import {
   TIMBER,
   TEAL,
 } from "./palette";
+import { catalogueText, expandCall, readCall } from "./components/catalogue";
+import { Build } from "./components/kit";
 import { RULES } from "./rules";
 import type { Islands } from "./islands";
 import type { Strata } from "./strata";
@@ -235,28 +237,18 @@ export class Architect {
         method: "POST",
         headers: { "content-type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({
-          zone: site.zone,
-          palette: ZONE_PALETTES[site.zone],
-          budget: Math.min(funded, RULES.crewBudgetMax),
-          patch: PATCH,
-          heights: site.heights,
-          blocked: site.blocked,
-          notes: this.journal.notesBy("surveyor", 5),
-          aggregates: this.ticks.history.slice(-10).map((s) => ({
-            tick: s.n,
-            net: Math.round(s.netFlowUsd),
-            gross: Math.round(s.grossVolumeUsd),
-            wallets: s.uniqueWallets,
-          })),
-          epoch,
-        }),
+        // the SAME payload the review harness posts. these were two copies
+        // of one object and the copies had already drifted; the catalogue
+        // would have drifted next, and a live architect asking for parts it
+        // was never told about is a silent way to lose every design.
+        body: JSON.stringify(this.payloadFor(site, funded, epoch)),
       });
       clearTimeout(timer);
       if (!res.ok) return null;
       const raw = (await res.json()) as {
         title?: string;
         memo?: string;
+        parts?: unknown[];
         blocks?: { x: number; y: number; z: number; m: string }[];
       };
       return this.validate(raw, site, funded, epoch, "claude");
@@ -266,23 +258,31 @@ export class Architect {
   }
 
   private validate(
-    raw: { title?: string; memo?: string; blocks?: { x: number; y: number; z: number; m: string }[] },
+    raw: { title?: string; memo?: string; parts?: unknown[]; blocks?: { x: number; y: number; z: number; m: string }[] },
     site: Site,
     funded: number,
     epoch: number,
     source: "claude" | "founding" | "scripted" = "scripted"
   ): Blueprint | null {
-    if (!raw || !Array.isArray(raw.blocks) || !raw.blocks.length) return null;
+    // A DESIGN IS A COMPOSITION FIRST. the architect names components and
+    // where they go; the parts expand here, through the same Build the
+    // mason's own compositions use, so a design gets the kit's dedupe and
+    // its foundations-first ordering for free. raw cells are still read
+    // when they are all that is offered — the founding blueprint on disk is
+    // written that way — but nothing the architect sends should be.
+    const ceiling = Math.min(funded, RULES.crewBudgetMax);
+    const local = this.composeParts(raw, ceiling);
+    if (!local.length) return null;
+
     const cells: BlueprintCell[] = [];
     const seen = new Set<number>();
-    for (const b of raw.blocks) {
-      if (cells.length >= Math.min(funded, RULES.crewBudgetMax)) break;
-      if (!b || typeof b.x !== "number" || typeof b.y !== "number" || typeof b.z !== "number") continue;
-      const lx = Math.round(b.x);
-      const lz = Math.round(b.z);
-      const ly = Math.round(b.y);
+    for (const b of local) {
+      if (cells.length >= ceiling) break;
+      const lx = b.dx;
+      const lz = b.dz;
+      const ly = b.dy;
       if (lx < 0 || lx >= PATCH || lz < 0 || lz >= PATCH) continue;
-      const material = AGENT_KEYS[String(b.m ?? "dressed").toLowerCase()];
+      const material = b.m;
       if (material === undefined) continue;
       const x = site.anchorX + lx;
       const z = site.anchorZ + lz;
@@ -302,6 +302,63 @@ export class Architect {
     const memo = (raw.memo ?? "").toLowerCase().slice(0, 160);
     this.journal.add("architect", epoch, `${title}. ${memo}`.trim(), source);
     return { planId: "plan-" + (this.planCount + 1), title, zone: site.zone, cells };
+  }
+
+  // the last composition read, so a review can see WHAT was named rather
+  // than only how many stones came of it
+  lastManifest: { component: string; instances: number }[] = [];
+  lastUnknown: string[] = [];
+  lastDropped = 0; // parts that would not fit the budget
+
+  // turn a design into site-local cells. a composition goes through the
+  // kit; a bare cell list is taken as written.
+  private composeParts(
+    raw: {
+      parts?: unknown[];
+      blocks?: { x: number; y: number; z: number; m: string }[];
+    },
+    budget: number
+  ): { dx: number; dy: number; dz: number; m: number }[] {
+    this.lastManifest = [];
+    this.lastUnknown = [];
+    this.lastDropped = 0;
+    if (Array.isArray(raw?.parts) && raw.parts.length) {
+      const b = new Build();
+      // THE BUDGET CUTS WHOLE PARTS, NOT LAYERS. cutting the cell list at
+      // the budget looked reasonable and was not: the kit hands back cells
+      // sorted foundations-first, so a design whose grounds alone spent the
+      // whole allowance came out as one flat plane of paving with no
+      // building on it — 600 stones, five blocks tall, a car park. parts go
+      // down in the order they were composed until the next one will not
+      // fit, which leaves a smaller building rather than a bigger floor.
+      for (const entry of raw.parts) {
+        const call = readCall(entry);
+        if (!call) continue;
+        const part = expandCall(call);
+        if (!part) {
+          // a name that is not in the catalogue is the one thing worth
+          // reporting: it means the design asked for something imaginary
+          if (this.lastUnknown.length < 12) this.lastUnknown.push(call.c);
+          continue;
+        }
+        if (b.count + part.length > budget) {
+          this.lastDropped++;
+          continue;
+        }
+        b.add(call.c, part);
+      }
+      this.lastManifest = b.manifest;
+      return b.ordered;
+    }
+    if (!Array.isArray(raw?.blocks)) return [];
+    const out: { dx: number; dy: number; dz: number; m: number }[] = [];
+    for (const c of raw.blocks) {
+      if (!c || typeof c.x !== "number" || typeof c.y !== "number" || typeof c.z !== "number") continue;
+      const m = AGENT_KEYS[String(c.m ?? "dressed").toLowerCase()];
+      if (m === undefined) continue;
+      out.push({ dx: Math.round(c.x), dy: Math.round(c.y), dz: Math.round(c.z), m });
+    }
+    return out;
   }
 
   // ---- the ascent ----------------------------------------------------------
@@ -491,31 +548,59 @@ export class Architect {
     const site = this.pickSite(zone);
     if (!site) return null;
     const funded = Math.max(RULES.crewBudgetIdleBelow, this.budget());
+    return { site, payload: this.payloadFor(site, funded, epoch) };
+  }
+
+  // the height the flats give way to the heights: the median of the world's
+  // own surface, sampled once and kept.
+  //
+  // this was the founding stone's column plus five, which is how every site
+  // in the world came back as town register — the genesis cell has a
+  // monument standing on it, so topAt there reports the top of the monument
+  // (24) and no site on the hillside (7 to 14) could clear it. measure the
+  // GROUND, and measure it everywhere, not at the one cell guaranteed to
+  // have a building on it.
+  private flatsY?: number;
+  private flatsLine(): number {
+    if (this.flatsY !== undefined) return this.flatsY;
+    const h: number[] = [];
+    for (let x = 8; x < GRID - 8; x += 4) for (let z = 8; z < GRID - 8; z += 4) h.push(this.field.topAt(x, z));
+    h.sort((a, b) => a - b);
+    this.flatsY = h.length ? h[Math.floor(h.length / 2)] : 8;
+    return this.flatsY;
+  }
+
+  // everything the brain is told about a site, in ONE place.
+  private payloadFor(site: Site, funded: number, epoch: number) {
+    // WHICH REGISTER THIS SITE IS IN, decided by altitude, because that is
+    // the line the two registers were drawn along: the town is the flats,
+    // the temple is everything that climbs away from them. the architect is
+    // handed one vocabulary, not both, so it cannot mix them in one work.
+    const register: "temple" | "town" = site.groundY <= this.flatsLine() ? "town" : "temple";
     return {
-      site,
-      payload: {
-        zone: site.zone,
-        palette: ZONE_PALETTES[site.zone],
-        budget: Math.min(funded, RULES.crewBudgetMax),
-        patch: PATCH,
-        heights: site.heights,
-        blocked: site.blocked,
-        notes: this.journal.notesBy("surveyor", 5),
-        aggregates: this.ticks.history.slice(-10).map((s) => ({
-          tick: s.n,
-          net: Math.round(s.netFlowUsd),
-          gross: Math.round(s.grossVolumeUsd),
-          wallets: s.uniqueWallets,
-        })),
-        epoch,
-      },
+      zone: site.zone,
+      palette: ZONE_PALETTES[site.zone],
+      register,
+      catalogue: catalogueText(register),
+      budget: Math.min(funded, RULES.crewBudgetMax),
+      patch: PATCH,
+      heights: site.heights,
+      blocked: site.blocked,
+      notes: this.journal.notesBy("surveyor", 5),
+      aggregates: this.ticks.history.slice(-10).map((s) => ({
+        tick: s.n,
+        net: Math.round(s.netFlowUsd),
+        gross: Math.round(s.grossVolumeUsd),
+        wallets: s.uniqueWallets,
+      })),
+      epoch,
     };
   }
 
   // a design from that brain, validated against exactly the same law the
   // live path applies, then handed to the mason
   acceptBlueprint(
-    raw: { title?: string; memo?: string; blocks?: { x: number; y: number; z: number; m: string }[] },
+    raw: { title?: string; memo?: string; parts?: unknown[]; blocks?: { x: number; y: number; z: number; m: string }[] },
     site: Site,
     epoch: number,
     source: "claude" | "founding" | "scripted" = "claude"

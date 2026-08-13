@@ -26,12 +26,56 @@ the style bible:
 
 the frame:
 - coordinates are local to a square site patch: x and z from 0 to patch-1, y relative to the site's ground (y 0 sits on the ground at the anchor; the heights grid tells you the actual surface offset per column, so terraces should follow it).
-- heights[z][x] is the surface offset of each column. place a block at y = heights[z][x] to sit on the surface there.
+- heights[z][x] is the surface offset of each column. a part placed at y = heights[z][x] sits on the surface there.
 - blocked[z][x] = 1 means that column is forbidden (geology or another territory): never place there.
-- stay within the block budget. order the blocks the way the mason should lay them: foundations first, crowns last.
+- stay within the block budget. order the parts the way the mason should lay them: foundations first, crowns last.
 
-respond with ONLY a json object, no prose. blocks are COMPACT ARRAYS, [x, y, z, "material"], not objects, because a six hundred block design written as objects is most of a response budget spent on punctuation:
-{"title": "two to four words, lowercase", "memo": "one line, lowercase, why this and why here", "blocks": [[0,0,0,"stone"], [0,1,0,"timberdark"], ...]}`;
+YOU DO NOT PLACE BLOCKS. you compose PARTS.
+
+a part is a real piece of architecture — a swept roof, a bracket set, a
+lattice window, a signboard, a whole pagoda storey — that already knows how
+to build itself out of courses and posts and layers. you say which part,
+where it goes, which way it faces, and what size it is. this is the whole
+difference between designing a building and colouring in a grid: a roof you
+draw cell by cell is a stack of boxes, and sweptRoof(15,4) is a roof.
+
+each part is a COMPACT ARRAY: ["name", x, y, z, rot, ...parameters]
+- x, y, z are where the part's own origin lands in the site frame
+- rot is quarter turns about the vertical: 0, 1, 2 or 3. facade parts
+  (shopfront, awning, signboard, banner, lightbox, facadeBay, window) are
+  drawn standing in the x-y plane, so rot 1 turns one to face along +x —
+  use it whenever a facade should look out over a street or a court.
+- parameters follow the catalogue's order. leave any trailing ones off and
+  the sensible default is used. a number out of range is clamped, so aim for
+  the middle of a range rather than its edge.
+- every catalogue entry carries what it COSTS at its default size. the
+  budget is spent PART BY PART in the order you write them, and a part that
+  will not fit is skipped — so put the building before its grounds, and
+  never open with a full-site courtyard unless you can afford one. a
+  templeGrounds at full size is most of a budget on its own; a smaller court
+  and a taller building is nearly always the better trade.
+
+compose the way a building is built. a hall is a podium, then columns on it,
+then wall panels between the columns, then bracket sets on the columns, then
+a swept roof across them, then a finial. a pagoda is pagodaTier stacked with
+each span smaller and each y one storey higher. a street is paving, then
+kerb, then a frontage of shopfronts with awnings over them and signage
+cantilevered off armatures above that.
+
+three worked examples of the form (short ones; yours should be far richer):
+
+a temple hall — note the BUILDING goes down before its grounds, and the
+court is sized to what is left rather than to the site —
+{"title":"the still hall","memo":"a hall on a stone podium facing its own court, so the approach arrives through the gate and under the eaves","parts":[["podium",8,0,8,0,13,11,2],["templeColumn",9,2,9,0,6],["templeColumn",19,2,9,0,6],["templeColumn",9,2,17,0,6],["templeColumn",19,2,17,0,6],["wallPanel",10,2,9,0,9,5],["door",13,2,9,0,3,4],["latticeWindow",10,4,17,0,4,3],["bracketSet",9,8,9,0,2],["bracketSet",19,8,9,0,2],["sweptRoof",8,8,8,0,13,4],["finial",13,12,13,0,4],["stair",11,0,5,0,5,3],["stoneLantern",8,0,4,0],["stoneLantern",20,0,4,0],["gardenBed",2,0,10,0,5,8],["ornamentalTree",3,0,22,0,7,3,1],["wallWithCap",2,0,2,0,26,3,"x"]]}
+
+a pagoda, stacked. each tier narrower and one storey up —
+{"title":"the ribbon pagoda","memo":"five storeys narrowing over the plaza so the ribbon crosses behind it","parts":[["podium",8,0,8,0,15,15,2],["pagodaTier",8,2,8,0,15,6],["pagodaTier",10,8,10,0,11,6],["pagodaTier",12,14,12,0,7,5],["finial",14,19,14,0,5],["stair",13,0,5,0,4,2],["stoneLantern",9,0,5,0],["stoneLantern",19,0,5,0],["basin",4,0,20,0,2],["ornamentalTree",23,0,21,0,7,3,1]]}
+
+a town frontage —
+{"title":"the wire corner","memo":"one shop row under its own signage, with the alley shrine at the end","parts":[["pavement",11,0,0,0,3,26,4],["kerb",14,0,0,0,26,4],["streetPaving",15,0,0,0,8,26,4],["floorSlab",0,0,0,0,11,26,"concretedark"],["shopfront",10,0,2,1,5,4,"panelblue",11],["shopfront",10,0,9,1,5,4,"paintox",12],["awning",11,4,2,1,12,3,"vermilion","plaster"],["floorSlab",0,5,0,0,11,26,"concretemid"],["facadeBay",10,6,2,1,4,4,"panelcream",1,3],["facadeBay",10,6,8,1,4,4,"panelcream",0,4],["armature",10,14,3,0,4,2],["verticalBanner",13,4,3,1,3,15,21,"neonpink"],["signBoard",13,9,10,1,9,3,5,"neoncyan"],["lightbox",10,11,14,1,8,2,6,"neonamber"],["acUnit",11,7,6,0,3],["pipeRun",11,0,12,0,14,4],["ladder",1,0,20,0,14],["rooftopUnit",3,15,4,0,4,4,9],["pole",21,0,5,0,13,2],["wireRun",21,13,5,0,18,2],["blossomTree",12,0,18,0,6,3,4],["torii",11,0,23,0,3,4],["alleyShrine",4,0,23,0,5]]}
+
+respond with ONLY a json object, no prose:
+{"title": "two to four words, lowercase", "memo": "one line, lowercase, why this and why here", "parts": [ ... ]}`;
 
 // a six hundred block design is a lot of json to emit. the default
 // function duration kills the request mid-generation and the client falls
@@ -109,7 +153,18 @@ export default async function handler(req, res) {
   lastCall = now;
 
   try {
-    const { zone, palette, budget, patch, heights, blocked, notes, aggregates, epoch } = req.body ?? {};
+    const { zone, palette, register, catalogue, budget, patch, heights, blocked, notes, aggregates, epoch } = req.body ?? {};
+    // THE CATALOGUE TRAVELS WITH THE REQUEST. it is generated from the same
+    // registry that expands the parts, so the vocabulary the architect is
+    // told about is the vocabulary that exists — there is no second copy
+    // here to fall out of date the first time a component changes.
+    const system = catalogue
+      ? `${BIBLE}
+
+this site is in the ${register ?? "temple"} register. these are the parts you have, and the only ones — a name that is not on this list builds nothing:
+
+${catalogue}`
+      : BIBLE;
     const user = [
       `territory: the ${zone}'s third. palette identity: ${palette}.`,
       `epoch ${epoch}. block budget: ${Math.min(600, budget ?? 0)}.`,
@@ -132,7 +187,7 @@ export default async function handler(req, res) {
       ceiling: Math.min(24000, tune.ceiling ?? CEILING),
     };
 
-    let out = await ask(key, BIBLE, user, shape);
+    let out = await ask(key, system, user, shape);
     let recovered = false;
     // the architect runs unattended in a live world, so it has to survive
     // its own deliberation: if nothing came back but a thought, ask again
@@ -146,7 +201,7 @@ export default async function handler(req, res) {
     // simply considered itself finished without writing the plan down. an
     // empty answer is an empty answer however calmly it ends.
     if (!out.httpError && !out.text.trim()) {
-      out = await ask(key, BIBLE, user, { ...shape, think: false });
+      out = await ask(key, system, user, { ...shape, think: false });
       recovered = true;
     }
     if (out.httpError) {
@@ -167,7 +222,8 @@ export default async function handler(req, res) {
       if (cut <= body.indexOf("[")) return null;
       try {
         const test = JSON.parse(body.slice(0, cut + 1) + "]}");
-        return Array.isArray(test?.blocks) && test.blocks.length ? test : null;
+        const list = Array.isArray(test?.parts) ? test.parts : test?.blocks;
+        return Array.isArray(list) && list.length ? test : null;
       } catch {
         return null; // the cut landed somewhere unrepairable
       }
@@ -186,7 +242,7 @@ export default async function handler(req, res) {
       const rescued = salvage(text.slice(start));
       if (rescued) {
         parsed = rescued;
-        salvaged = rescued.blocks.length;
+        salvaged = (rescued.parts ?? rescued.blocks ?? []).length;
       }
     }
     if (!parsed) {
