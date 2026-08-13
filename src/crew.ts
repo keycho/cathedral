@@ -98,6 +98,13 @@ export class Avatar {
     this.group.add(this.body, this.head, this.label);
   }
 
+  // a capture plate is a photograph of the world, and a name tag floating
+  // over a mason's head is the interface talking over it. the crew stay in
+  // frame — they belong there — but they stop introducing themselves.
+  showLabel(on: boolean) {
+    this.label.visible = on;
+  }
+
   // a successor inherits the role and the colour, never the name
   setName(n: string) {
     this.label.setName?.(n);

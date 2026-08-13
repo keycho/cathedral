@@ -48,7 +48,20 @@ export const RULES = {
   crewBudgetUsdPerBlock: 40, // one blueprint block per $40 of trailing gross
   crewBudgetWindowMs: 10 * 60_000, // the trailing window that funds the crew
   crewBudgetIdleBelow: 12, // under this many funded blocks the crew idles + repairs
-  crewBudgetMax: 600, // a single ORDINARY blueprint never exceeds this
+  crewBudgetMax: 600, // a single ORDINARY temple blueprint never exceeds this
+
+  // A STREET IS A BIGGER OBJECT THAN A HALL, and the same allowance for
+  // both is why town designs arrived half-built: one composition wrote 48
+  // parts and lost 24 of them, another wrote 32 and lost 23. that is not
+  // over-reach, it is arithmetic — a hall is a podium, four columns, a
+  // roof and a finial, while a street is a row of shopfronts AND the road
+  // AND the kerb AND everything left lying on it, and the town's parts are
+  // small (an ac unit is 6 blocks, a bicycle 5). a street that loses half
+  // its clutter is not a street.
+  //
+  // 900 at five seconds a stone is seventy-five minutes: still inside the
+  // hour-and-a-bit an ordinary work is supposed to take.
+  crewBudgetTownMax: 900,
 
   // THE GREAT WORK IS NOT AN ORDINARY BLUEPRINT. a tier of it is around a
   // thousand blocks, which no single cycle's trailing volume will ever

@@ -108,7 +108,9 @@ export class Architect {
     const ticksInWindow = Math.max(1, Math.round(RULES.crewBudgetWindowMs / this.ticks.tickLenMs));
     let gross = 0;
     for (const s of this.ticks.history.slice(-ticksInWindow)) gross += s.grossVolumeUsd;
-    return Math.min(RULES.crewBudgetMax, Math.floor(gross / RULES.crewBudgetUsdPerBlock));
+    // capped at the LARGER of the two register ceilings here; which one
+    // actually applies depends on the site, and is decided in capFor
+    return Math.min(RULES.crewBudgetTownMax, Math.floor(gross / RULES.crewBudgetUsdPerBlock));
   }
 
   private async cycle(epoch: number) {
@@ -282,7 +284,7 @@ export class Architect {
     // its foundations-first ordering for free. raw cells are still read
     // when they are all that is offered — the founding blueprint on disk is
     // written that way — but nothing the architect sends should be.
-    const ceiling = Math.min(funded, RULES.crewBudgetMax);
+    const ceiling = Math.min(funded, this.capFor(site));
     const local = this.composeParts(raw, ceiling);
     if (!local.length) return null;
 
@@ -585,6 +587,15 @@ export class Architect {
   // (24) and no site on the hillside (7 to 14) could clear it. measure the
   // GROUND, and measure it everywhere, not at the one cell guaranteed to
   // have a building on it.
+  private registerOf(site: Site): "temple" | "town" {
+    return site.groundY <= this.flatsLine() ? "town" : "temple";
+  }
+  // a street gets a bigger allowance than a hall, because it is a bigger
+  // object made of smaller parts
+  private capFor(site: Site): number {
+    return this.registerOf(site) === "town" ? RULES.crewBudgetTownMax : RULES.crewBudgetMax;
+  }
+
   private flatsY?: number;
   private flatsLine(): number {
     if (this.flatsY !== undefined) return this.flatsY;
@@ -601,13 +612,13 @@ export class Architect {
     // the line the two registers were drawn along: the town is the flats,
     // the temple is everything that climbs away from them. the architect is
     // handed one vocabulary, not both, so it cannot mix them in one work.
-    const register: "temple" | "town" = site.groundY <= this.flatsLine() ? "town" : "temple";
+    const register = this.registerOf(site);
     return {
       zone: site.zone,
       palette: ZONE_PALETTES[site.zone],
       register,
       catalogue: catalogueText(register),
-      budget: Math.min(funded, RULES.crewBudgetMax),
+      budget: Math.min(funded, this.capFor(site)),
       patch: PATCH,
       heights: site.heights,
       blocked: site.blocked,

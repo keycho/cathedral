@@ -48,12 +48,22 @@ each part is a COMPACT ARRAY: ["name", x, y, z, rot, ...parameters]
 - parameters follow the catalogue's order. leave any trailing ones off and
   the sensible default is used. a number out of range is clamped, so aim for
   the middle of a range rather than its edge.
-- every catalogue entry carries what it COSTS at its default size. the
-  budget is spent PART BY PART in the order you write them, and a part that
-  will not fit is skipped — so put the building before its grounds, and
-  never open with a full-site courtyard unless you can afford one. a
-  templeGrounds at full size is most of a budget on its own; a smaller court
-  and a taller building is nearly always the better trade.
+- every catalogue entry carries what it COSTS and HOW BIG IT IS: its
+  footprint, its height, and where its own cells start relative to the y you
+  place it at. USE THE HEIGHTS. stacking is the one thing you cannot derive
+  from anything else, and a roof placed by guesswork lands above the columns
+  it is supposed to sit on. the next thing up goes at y + that part's
+  height, not at a y that looks about right.
+- the budget is spent PART BY PART in the order you write them, and a part
+  that will not fit is skipped — so put the building before its grounds, and
+  size the court to what is left.
+- TOWN PARTS ARE SMALL AND NUMEROUS. an ac unit is six blocks, a bicycle
+  five, a lightbox twelve. a street is a row of shopfronts and the road and
+  the kerb and everything left lying on it, so a town design runs to forty
+  or fifty parts where a hall runs to twenty — lay the road, the frontage
+  and the signage FIRST and let the loose clutter be what falls off the end
+  if the budget runs short. a street that loses its shopfronts is not a
+  street; one that loses three bicycles is fine.
 
 compose the way a building is built. a hall is a podium, then columns on it,
 then wall panels between the columns, then bracket sets on the columns, then
@@ -68,10 +78,12 @@ a temple hall — note the BUILDING goes down before its grounds, and the
 court is sized to what is left rather than to the site —
 {"title":"the still hall","memo":"a hall on a stone podium facing its own court, so the approach arrives through the gate and under the eaves","parts":[["podium",8,0,8,0,13,11,2],["templeColumn",9,2,9,0,6],["templeColumn",19,2,9,0,6],["templeColumn",9,2,17,0,6],["templeColumn",19,2,17,0,6],["wallPanel",10,2,9,0,9,5],["door",13,2,9,0,3,4],["latticeWindow",10,4,17,0,4,3],["bracketSet",9,8,9,0,2],["bracketSet",19,8,9,0,2],["sweptRoof",8,8,8,0,13,4],["finial",13,12,13,0,4],["stair",11,0,5,0,5,3],["stoneLantern",8,0,4,0],["stoneLantern",20,0,4,0],["gardenBed",2,0,10,0,5,8],["ornamentalTree",3,0,22,0,7,3,1],["wallWithCap",2,0,2,0,26,3,"x"]]}
 
-a tiered hall as the whole work, with what is left spent on its grounds.
-pagodaTier is the most expensive part in the catalogue and it carries its
-own podium and roof, so it is ONE part and the design is built around it —
-{"title":"the ribbon hall","memo":"one tiered hall over the plaza so the ribbon crosses behind it, and a court to see it from","parts":[["pagodaTier",6,0,6,0,7,5],["stoneLantern",4,0,4,0],["stoneLantern",22,0,4,0],["gardenBed",2,0,20,0,6,5],["ornamentalTree",23,0,21,0,7,3,1],["basin",3,0,14,0,2]]}
+a TWO STOREY hall from the stackable tier pieces. read the arithmetic: the
+podium is 2 courses so the body sits at y+2; the body is storey 5 so its
+roof sits at y+2+5+3; the second body sits on that roof at a smaller span,
+and the finial crowns the last roof. every one of those numbers comes off
+the catalogue rather than out of the air —
+{"title":"the ribbon hall","memo":"two storeys narrowing over the plaza so the ribbon crosses behind them","parts":[["tierPodium",6,0,6,0,11,2],["tierBody",8,2,8,0,11,5],["tierRoof",7,10,7,0,11],["tierBody",10,14,10,0,7,4],["tierRoof",9,21,9,0,7],["finial",13,26,13,0,4],["stoneLantern",4,0,4,0],["stoneLantern",22,0,4,0],["gardenBed",2,0,20,0,6,5],["ornamentalTree",23,0,21,0,7,3,1]]}
 
 a town frontage —
 {"title":"the wire corner","memo":"one shop row under its own signage, with the alley shrine at the end","parts":[["pavement",11,0,0,0,3,26,4],["kerb",14,0,0,0,26,4],["streetPaving",15,0,0,0,8,26,4],["floorSlab",0,0,0,0,11,26,"concretedark"],["shopfront",10,0,2,1,5,4,"panelblue",11],["shopfront",10,0,9,1,5,4,"paintox",12],["awning",11,4,2,1,12,3,"vermilion","plaster"],["floorSlab",0,5,0,0,11,26,"concretemid"],["facadeBay",10,6,2,1,4,4,"panelcream",1,3],["facadeBay",10,6,8,1,4,4,"panelcream",0,4],["armature",10,14,3,0,4,2],["verticalBanner",13,4,3,1,3,15,21,"neonpink"],["signBoard",13,9,10,1,9,3,5,"neoncyan"],["lightbox",10,11,14,1,8,2,6,"neonamber"],["acUnit",11,7,6,0,3],["pipeRun",11,0,12,0,14,4],["ladder",1,0,20,0,14],["rooftopUnit",3,15,4,0,4,4,9],["pole",21,0,5,0,13,2],["wireRun",21,13,5,0,18,2],["blossomTree",12,0,18,0,6,3,4],["torii",11,0,23,0,3,4],["alleyShrine",4,0,23,0,5]]}

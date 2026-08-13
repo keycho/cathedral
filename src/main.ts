@@ -1307,6 +1307,11 @@ const captureMode = (on: boolean) => {
   }
   glyphs.enabled = !on;
   if (on) glyphs.clear();
+  // the crew's name tags are sprites in the scene, not chrome in the dom,
+  // so the css above cannot reach them: a plate came back with the word
+  // "surveyor" floating over a hall. the crew stay in frame, they just stop
+  // introducing themselves.
+  for (const a of [surveyor.body, architect.body, mason.body, keeper.body]) a.avatar.showLabel(!on);
 };
 
 window.cathedral = {
