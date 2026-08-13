@@ -452,9 +452,10 @@ plan.found();
 // gets carved out of.
 // the grove count is readable from the url so a before/after measurement is
 // a page load rather than a rebuild: ?trees=0 boots the same world bare.
-const woods = plantWoods(field, plan, {
-  groves: Number(new URLSearchParams(location.search).get("trees") ?? 26),
-});
+const groveCount = Number(new URLSearchParams(location.search).get("trees") ?? 26);
+// ?trees=0 has to mean NO trees, avenues included, or the "before" half of a
+// before/after measurement still has cedars down every road in it
+const woods = plantWoods(field, plan, { groves: groveCount, avenue: groveCount > 0 });
 
 const architect = new Architect(
   scene,
