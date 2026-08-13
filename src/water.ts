@@ -288,6 +288,192 @@ export class Water {
 }
 
 // ---------------------------------------------------------------------------
+// WET PAVING. the same physics as the pool, pointed at a different problem:
+// a street after rain reflects the SIGNAGE, and the sky trick cannot do
+// that because the signs are not in the sky. so the surface is handed the
+// emitters directly and reflects each one's mirror image below the road.
+// the smear is long and vertical because the view is grazing, which is the
+// entire look. still one draw call, still no second render.
+// ---------------------------------------------------------------------------
+
+const MAX_EMITTERS = 12;
+
+const WET_VERT = /* glsl */ `
+  #include <fog_pars_vertex>
+  attribute float shore;
+  varying vec3 vWorld;
+  varying float vWet;
+  void main() {
+    vWet = shore; // here the attribute carries wetness, not shoreline
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vWorld = wp.xyz;
+    vec4 mv = viewMatrix * wp;
+    vFogDepth = -mv.z;
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const WET_FRAG = /* glsl */ `
+  precision highp float;
+  #include <common>
+  #include <fog_pars_fragment>
+  uniform vec3 zenith, midSky, horizon, hazeBand;
+  uniform vec4 emPos[${MAX_EMITTERS}];   // xyz + reach
+  uniform vec3 emCol[${MAX_EMITTERS}];
+  uniform int emCount;
+  uniform float wetness, sharp, gain, time;
+  varying vec3 vWorld;
+  varying float vWet;
+
+  float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+  vec3 skyAt(vec3 dir) {
+    float up = clamp(dir.y, 0.0, 1.0);
+    vec3 c = mix(horizon, midSky, smoothstep(0.0, 0.34, up));
+    c = mix(c, zenith, smoothstep(0.3, 0.85, up));
+    return mix(hazeBand, c, smoothstep(-0.12, 0.06, dir.y));
+  }
+
+  void main() {
+    // a road is not a mirror. the normal is perturbed by a coarse puddle
+    // field so the reflection breaks into patches, which is what separates
+    // wet tarmac from polished glass.
+    vec2 p = vWorld.xz;
+    float n1 = h21(floor(p * 0.7));
+    float n2 = h21(floor(p * 1.9) + 31.0);
+    float puddle = smoothstep(0.42, 0.95, n1 * 0.65 + n2 * 0.35) * vWet;
+    vec3 n = normalize(vec3((n2 - 0.5) * 0.12 * (1.0 - puddle), 1.0, (n1 - 0.5) * 0.12 * (1.0 - puddle)));
+
+    vec3 view = normalize(cameraPosition - vWorld);
+    vec3 refl = reflect(-view, n);
+    float cosT = clamp(dot(n, view), 0.0, 1.0);
+    float f = (0.02 + 0.98 * pow(1.0 - cosT, 5.0)) * mix(0.25, 1.0, puddle);
+
+    vec3 col = skyAt(refl) * f * 0.4;
+    // and the signs, each one mirrored under the road
+    for (int i = 0; i < ${MAX_EMITTERS}; i++) {
+      if (i >= emCount) break;
+      vec3 e = emPos[i].xyz;
+      float reach = emPos[i].w;
+      vec3 mir = vec3(e.x, 2.0 * vWorld.y - e.y, e.z);
+      vec3 toM = normalize(mir - vWorld);
+      float s = pow(max(dot(refl, toM), 0.0), sharp);
+      float d = length(e.xz - p);
+      float falloff = 1.0 - smoothstep(0.0, reach * 2.6, d);
+      // the smear flickers a little, because a sign is a tube and a road
+      // is not still
+      float flick = 0.9 + 0.1 * sin(time * 2.1 + float(i) * 2.3);
+      col += emCol[i] * s * falloff * gain * mix(0.3, 1.0, puddle) * flick;
+    }
+    gl_FragColor = vec4(col * wetness, clamp(f * 0.5 + puddle * 0.45, 0.0, 0.92));
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    #include <fog_fragment>
+  }
+`;
+
+export interface WetEmitter {
+  x: number;
+  y: number;
+  z: number;
+  reach: number;
+  color: THREE.Color;
+}
+
+export class WetPaving {
+  readonly group = new THREE.Group();
+  readonly mat: THREE.ShaderMaterial;
+
+  constructor() {
+    const pos: THREE.Vector4[] = [];
+    const cols: THREE.Color[] = [];
+    for (let i = 0; i < MAX_EMITTERS; i++) {
+      pos.push(new THREE.Vector4());
+      cols.push(new THREE.Color());
+    }
+    this.mat = new THREE.ShaderMaterial({
+      vertexShader: WET_VERT,
+      fragmentShader: WET_FRAG,
+      uniforms: THREE.UniformsUtils.merge([
+        THREE.UniformsLib.fog,
+        {
+          zenith: { value: new THREE.Color(0x131b31) },
+          midSky: { value: new THREE.Color(0x1a2440) },
+          horizon: { value: new THREE.Color(0x27324e) },
+          hazeBand: { value: new THREE.Color(SWATCH.haze) },
+          emPos: { value: pos },
+          emCol: { value: cols },
+          emCount: { value: 0 },
+          wetness: { value: 1 },
+          sharp: { value: 90 },
+          gain: { value: 0.9 },
+          time: { value: 0 },
+        },
+      ]),
+      transparent: true,
+      depthWrite: false,
+      fog: true,
+    });
+    this.mat.uniforms.emPos.value = pos;
+    this.mat.uniforms.emCol.value = cols;
+  }
+
+  // the columns to lay film over. wet 0..1 per column: a pavement under an
+  // awning stays dry and the middle of the road does not.
+  addSurface(cells: { x: number; z: number; y: number; wet: number }[]) {
+    if (!cells.length) return;
+    const pos: number[] = [];
+    const wet: number[] = [];
+    const idx: number[] = [];
+    let v = 0;
+    for (const c of cells) {
+      const wx = c.x - GRID / 2;
+      const wz = c.z - GRID / 2;
+      const y = c.y;
+      pos.push(wx, y, wz, wx + 1, y, wz, wx + 1, y, wz + 1, wx, y, wz + 1);
+      for (let k = 0; k < 4; k++) wet.push(c.wet);
+      idx.push(v, v + 2, v + 1, v, v + 3, v + 2);
+      v += 4;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("shore", new THREE.Float32BufferAttribute(wet, 1));
+    geo.setIndex(idx);
+    geo.computeBoundingSphere();
+    const mesh = new THREE.Mesh(geo, this.mat);
+    mesh.renderOrder = 2;
+    this.group.add(mesh);
+  }
+
+  // the brightest emitters only: a road can hold a dozen reflections before
+  // it stops being a road and starts being a disco floor
+  setEmitters(list: WetEmitter[]) {
+    const use = list.slice(0, MAX_EMITTERS);
+    const pos = this.mat.uniforms.emPos.value as THREE.Vector4[];
+    const cols = this.mat.uniforms.emCol.value as THREE.Color[];
+    for (let i = 0; i < use.length; i++) {
+      pos[i].set(use[i].x, use[i].y, use[i].z, use[i].reach);
+      cols[i].copy(use[i].color);
+    }
+    this.mat.uniforms.emCount.value = use.length;
+  }
+
+  // the road reflects the night sky it is under, and dries out by day
+  setSky(zenith: THREE.Color, mid: THREE.Color, horizon: THREE.Color, fog: THREE.Color, dayness: number, t: number) {
+    const u = this.mat.uniforms;
+    (u.zenith.value as THREE.Color).copy(zenith);
+    (u.midSky.value as THREE.Color).copy(mid);
+    (u.horizon.value as THREE.Color).copy(horizon);
+    (u.hazeBand.value as THREE.Color).copy(fog);
+    u.time.value = t;
+    // by day the film is still there but the signs cannot compete with the
+    // sun, so the whole effect eases off rather than switching
+    u.gain.value = 0.25 + (1 - dayness) * 0.85;
+    u.wetness.value = 0.45 + (1 - dayness) * 0.55;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // a waterfall. a scrolling ribbon from a lip to wherever it stops being
 // water: on an island it stops being water in mid-air, and the mist it
 // becomes is the point of the whole thing.

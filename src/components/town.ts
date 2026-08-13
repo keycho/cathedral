@@ -74,6 +74,8 @@ export interface Emitter {
 export interface TownPiece {
   cells: { dx: number; dy: number; dz: number; m: number }[];
   emitters: Emitter[];
+  // the columns a wet film lies on, and how wet each one is
+  wet: { dx: number; dz: number; wet: number }[];
   manifest: { component: string; instances: number }[];
   footprint: { w: number; d: number };
   height: number;
@@ -115,33 +117,28 @@ function glyph(w: number, h: number, seed: number): boolean[][] {
 }
 
 // a VERTICAL BANNER: the tall sign that stacks down a building's corner.
-// a lit ground with dark abstract characters cut out of it, which is how
-// these actually read at night: the panel glows and the strokes are holes.
+// a DARK panel with lit strokes on it, not a lit panel with dark strokes.
+// at one block per mark, a glowing ground is a white rectangle and the
+// writing disappears into it; the colour has to come from the strokes.
 export function verticalBanner(w: number, h: number, seed: number, neon = NEONPINK): Part {
   const out: Part = [];
   const chars = Math.max(1, Math.floor(h / (w + 1)));
   const ch = Math.floor(h / chars);
   for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      out.push(cell(x, h - 1 - y, 0, SIGNWHITE));
-    }
+    for (let x = 0; x < w; x++) out.push(cell(x, h - 1 - y, 0, CONCRETEDARK));
   }
   for (let c = 0; c < chars; c++) {
     const g = glyph(w, ch - 1, seed * 31 + c);
     for (let y = 0; y < ch - 1; y++) {
       for (let x = 0; x < w; x++) {
-        if (g[y][x]) {
-          const gy = h - 1 - (c * ch + y);
-          out.push(cell(x, gy, 0, neon));
-        }
+        if (g[y][x]) out.push(cell(x, h - 1 - (c * ch + y), 0, neon));
       }
     }
   }
-  // the frame: a dark edge so the panel has an edge and is not a floating
-  // rectangle of light
+  // the frame: a lit edge, which is the one place a white tube belongs
   for (let y = -1; y <= h; y++) {
-    out.push(cell(-1, y, 0, SHUTTER));
-    out.push(cell(w, y, 0, SHUTTER));
+    out.push(cell(-1, y, 0, SIGNWHITE));
+    out.push(cell(w, y, 0, SIGNWHITE));
   }
   return out;
 }
@@ -149,7 +146,7 @@ export function verticalBanner(w: number, h: number, seed: number, neon = NEONPI
 // a HORIZONTAL SIGNBOARD, the kind that cantilevers over a pavement
 export function signBoard(w: number, h: number, seed: number, neon = NEONAMBER): Part {
   const out: Part = [];
-  for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) out.push(cell(x, y, 0, SIGNWHITE));
+  for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) out.push(cell(x, y, 0, CONCRETEDARK));
   const chars = Math.max(1, Math.floor(w / (h + 1)));
   const cw = Math.floor(w / chars);
   for (let c = 0; c < chars; c++) {
@@ -159,7 +156,7 @@ export function signBoard(w: number, h: number, seed: number, neon = NEONAMBER):
     }
   }
   for (let x = -1; x <= w; x++) {
-    out.push(cell(x, -1, 0, SHUTTER));
+    out.push(cell(x, -1, 0, SIGNWHITE));
     out.push(cell(x, h, 0, SHUTTER));
   }
   return out;
@@ -169,7 +166,10 @@ export function signBoard(w: number, h: number, seed: number, neon = NEONAMBER):
 export function lightbox(w: number, h: number, seed: number, neon = NEONCYAN): Part {
   const out: Part = [];
   for (let x = 0; x < w; x++)
-    for (let y = 0; y < h; y++) out.push(cell(x, y, 0, hash(x, y, seed) < 0.34 ? neon : SIGNWHITE));
+    for (let y = 0; y < h; y++) {
+      const r = hash(x, y, seed);
+      out.push(cell(x, y, 0, r < 0.42 ? neon : r < 0.55 ? SIGNWHITE : CONCRETEDARK));
+    }
   return out;
 }
 
@@ -259,6 +259,7 @@ export function shopfront(w: number, h: number, paint: number, seed: number): Pa
       if (y === 0) out.push(cell(x, y, 0, STONEDARK)); // the threshold course
       else if (y === h - 1) out.push(cell(x, y, 0, SHUTTER)); // the shutter box
       else if (isDoor && y < 3) out.push(cell(x, y, 0, SPILL)); // the doorway, throwing light
+      else if (x % 3 === 0) out.push(cell(x, y, 0, TIMBERDARK)); // the mullion
       else out.push(cell(x, y, 0, INTERIOR)); // lit glazing
     }
     // the stallboard the goods sit on

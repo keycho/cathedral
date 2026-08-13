@@ -39,7 +39,7 @@ const HEADROOM = 1024; // spare instance slots per chunk; grows on demand
 // per-instance emissive the shared chunk material allows. the market's
 // elements carry their own light against the natural world.
 const HOT: Record<number, number> = {
-  [LANTERN]: 2.4,
+  [LANTERN]: 1.9,
   [GENESIS]: 1.6,
   [MONUMENT]: 1.35,
   [GLASSLIGHT]: 1.45,
@@ -51,15 +51,20 @@ const HOT: Record<number, number> = {
   // heights, and the glow is the subject: the buildings read dark and the
   // signage is what a visitor actually sees. these sit well above the
   // temple's lantern because a sign is a light, not a lit surface.
-  [INTERIOR]: 2.3,
-  [NEONEMBER]: 3.2,
-  [NEONAMBER]: 3.2,
-  [NEONCYAN]: 3.0,
-  [NEONPINK]: 3.4,
-  [NEONRED]: 3.2,
-  [NEONGREEN]: 3.0,
-  [SIGNWHITE]: 2.8,
-  [SPILL]: 2.4,
+  // these are TUNED AGAINST THE EMISSION SPLIT, not against the old albedo
+  // scaling: the excess over 1.0 is now radiance, and at three and a half
+  // every sign clipped to white and the glyphs stopped being glyphs. the
+  // brightness a street reads as comes from the SPILL landing on things,
+  // not from cranking the sign.
+  [INTERIOR]: 1.75,
+  [NEONEMBER]: 2.1,
+  [NEONAMBER]: 2.1,
+  [NEONCYAN]: 2.0,
+  [NEONPINK]: 2.15,
+  [NEONRED]: 2.1,
+  [NEONGREEN]: 2.0,
+  [SIGNWHITE]: 1.8,
+  [SPILL]: 1.9,
 };
 
 // tiny deterministic hash for per-instance colour jitter
@@ -455,6 +460,20 @@ export class VoxelField {
     if (slot === undefined) return;
     this.col.setHex(hex);
     if (mult !== 1) this.col.multiplyScalar(mult);
+    chunk.mesh.setColorAt(slot, this.col);
+    if (chunk.mesh.instanceColor) chunk.mesh.instanceColor.needsUpdate = true;
+    chunk.dirty = true;
+  }
+
+  // set a block's rendered colour from LINEAR components. this is what a
+  // light bake produces, and it must not go through a hex: a hex clamps at
+  // 1.0 and the part above 1.0 is exactly the part that glows.
+  tintLinearAt(x: number, y: number, z: number, r: number, g: number, b: number) {
+    const chunk = this.chunks[this.chunkOf(x, z)];
+    const vi = this.idx(x, y, z);
+    const slot = chunk.slotOfVoxel.get(vi);
+    if (slot === undefined) return;
+    this.col.setRGB(r, g, b);
     chunk.mesh.setColorAt(slot, this.col);
     if (chunk.mesh.instanceColor) chunk.mesh.instanceColor.needsUpdate = true;
     chunk.dirty = true;

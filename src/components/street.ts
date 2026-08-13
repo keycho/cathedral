@@ -391,6 +391,15 @@ export function streetBlock(): TownPiece {
   b.add("blossom tree", blossomTree(6, 3.6, seed + 6), PAVE + 1, 1, 29);
   b.add("blossom tree", blossomTree(4, 2.6, seed + 7), FAR_KERB + 2, 1, 12);
 
+  // the columns the wet film lies on. the road is wettest, the pavements
+  // hold puddles at the kerb, and the ground under an awning stays dry.
+  const wet: { dx: number; dz: number; wet: number }[] = [];
+  for (let z = 0; z < LEN; z++) {
+    for (let x = PAVE; x < KERB; x++) wet.push({ dx: x, dz: z, wet: x === KERB - 1 ? 0.7 : 0.34 });
+    for (let x = KERB; x <= FAR_KERB; x++) wet.push({ dx: x, dz: z, wet: 1 });
+    for (let x = FAR_KERB + 1; x < FAR_KERB + 4; x++) wet.push({ dx: x, dz: z, wet: 0.4 });
+  }
+
   // the ordered cells, and the tallest thing standing
   const cells = b.ordered;
   let height = 0;
@@ -401,6 +410,7 @@ export function streetBlock(): TownPiece {
   return {
     cells,
     emitters: b.lights,
+    wet,
     manifest: b.manifest,
     footprint: { w: FAR_KERB + 6, d: LEN },
     height,

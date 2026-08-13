@@ -83,12 +83,19 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        // the budget is a CEILING ON TIME, not a target. at 32k the model
-        // spent four minutes filling it and the request died before a
-        // single byte came back; in the compact block format a 600 block
-        // design is about 2k tokens, so 8k is generous and still returns
-        // inside the function's life.
-        max_tokens: 8000,
+        // THIS is what made every architect call a fallback. extended
+        // thinking is on by default and it is not free of the output
+        // budget: the model spent the ENTIRE allowance thinking and
+        // returned a response whose only content block was a thinking
+        // block, no text, no json. measured: output_tokens 8000, of which
+        // thinking_tokens 8000. raising the ceiling only bought it more
+        // room to think.
+        //
+        // thinking is worth having here, because massing a building before
+        // writing coordinates is exactly the kind of work it helps with. it
+        // just needs a budget of its own, with the rest left for the plan.
+        thinking: { type: "enabled", budget_tokens: 4000 },
+        max_tokens: 12000,
         system: BIBLE,
         // NO assistant prefill: this model rejects a conversation that ends
         // on an assistant turn. the bible asks for bare json instead and the

@@ -37,7 +37,27 @@ import { audio } from "./audio";
 import { CrewWorks, zoneOf as zoneOfCell, type AgentBody } from "./crew";
 import { Journal } from "./journal";
 import { Mason } from "./mason";
-import { blockColor, GENESIS as GENESIS_ID, MASS, MATERIALS, RUBBLE, STILLWATER, SWATCH } from "./palette";
+import {
+  blockColor,
+  EARTH,
+  GENESIS as GENESIS_ID,
+  GLASSLIGHT,
+  INTERIOR,
+  LANTERN,
+  MASS,
+  MATERIALS,
+  NEONAMBER,
+  NEONCYAN,
+  NEONEMBER,
+  NEONGREEN,
+  NEONPINK,
+  NEONRED,
+  RUBBLE,
+  SIGNWHITE,
+  SPILL,
+  STILLWATER,
+  SWATCH,
+} from "./palette";
 import { Candles } from "./candles";
 import { Glyphs } from "./glyphs";
 import { Plaques } from "./plaques";
@@ -50,12 +70,13 @@ import { Vitality } from "./vitality";
 import { Voice } from "./voice";
 import { firstTierWithGrounds } from "./components/compose";
 import { canalReach } from "./components/canal";
+import { streetBlock } from "./components/street";
 import { RULES } from "./rules";
 import { Scars } from "./scars";
 import { Sky } from "./sky";
 import { Strata } from "./strata";
 import { Flora } from "./flora";
-import { Water, Waterfall } from "./water";
+import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
 import { buildVoidFloor, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
 import { distributeBlocks, TickEngine } from "./ticks";
@@ -178,6 +199,10 @@ const flora = new Flora(scene, field, wind);
 // which is the part that has to move, catch the sun and hold the sky.
 const water = new Water(wind);
 scene.add(water.group);
+// the wet film the town's paving carries. it reflects the SIGNAGE, which
+// the sky trick cannot do, so it is handed the emitters directly.
+const wet = new WetPaving();
+scene.add(wet.group);
 {
   // every column whose top block is water, in one sweep. built from the
   // field rather than from the basin table, so a canal cut later is picked
@@ -721,6 +746,154 @@ const buildCanalReach = (cellX = GENESIS_CELL.x - 44, cellZ = GENESIS_CELL.z + 6
   };
 };
 
+// the town's own lamps. held here so the frame loop can ride their
+// intensity on the day cycle: full after dark, drowned by the sun before it.
+const streetLamps: THREE.PointLight[] = [];
+
+// THE STREET BLOCK. the town register's gate piece: four buildings in four
+// eras sharing one frontage, the road in front of them, and everything
+// people leave on it. review-only, like the tier and the reach.
+//
+// three things happen here that no other placement does. the site is
+// LEVELLED, because a street is flat and a town levels its ground. the
+// emitters are BAKED, because a sign that does not land on anything is a
+// sticker. and a wet film is laid over the road, because the reflection of
+// the signage in the tarmac is half of what this register is.
+const buildStreetBlock = (cellX = GENESIS_CELL.x - 78, cellZ = GENESIS_CELL.z + 22) => {
+  const work = streetBlock();
+  const W = work.footprint.w;
+  const D = work.footprint.d;
+
+  // 1. level the site. the median of the columns it covers, so the street
+  // sits in the land rather than on it.
+  const tops: number[] = [];
+  for (let x = -1; x <= W; x++) for (let z = -1; z <= D; z++) tops.push(field.topAt(cellX + x, cellZ + z));
+  tops.sort((a, b) => a - b);
+  const groundY = tops[Math.floor(tops.length / 2)];
+  let cut = 0;
+  let fill = 0;
+  for (let x = -2; x <= W + 1; x++) {
+    for (let z = -2; z <= D + 1; z++) {
+      const gx = cellX + x;
+      const gz = cellZ + z;
+      for (let y = field.topAt(gx, gz) - 1; y >= groundY; y--) if (field.breakAt(gx, y, gz)) cut++;
+      for (let y = field.topAt(gx, gz); y < groundY; y++) if (field.placeAt(gx, y, gz, EARTH)) fill++;
+    }
+  }
+
+  // 2. the block itself
+  const cells = work.cells.map((c) => ({
+    x: cellX + c.dx,
+    y: groundY + c.dy,
+    z: cellZ + c.dz,
+    material: c.m,
+  }));
+  const placed = mason.placeInstant({
+    planId: "street-block-1",
+    title: "the first street",
+    zone: "mason",
+    cells,
+  });
+
+  // 3. THE SPILL BAKE. every emitter throws its colour onto the surfaces
+  // near it, accumulated in linear light and written straight to the
+  // instance colours. where it piles up past 1.0 the surface itself starts
+  // to glow, which is what a wall under a sign actually does.
+  const HOTM = new Set([
+    LANTERN, INTERIOR, GLASSLIGHT, SPILL, SIGNWHITE,
+    NEONEMBER, NEONAMBER, NEONCYAN, NEONPINK, NEONRED, NEONGREEN,
+  ]);
+  const lamps = work.emitters.map((e) => ({
+    x: cellX + e.dx,
+    y: groundY + e.dy,
+    z: cellZ + e.dz,
+    reach: e.reach,
+    power: e.power,
+    col: new THREE.Color(blockColor(e.color)),
+  }));
+  // the bake is ALBEDO ONLY, clamped under 1.0. it was pushing surfaces
+  // into emission, which glows correctly at night and then repaints the
+  // whole frontage orange at noon, because a baked colour does not know
+  // what time it is. what stays baked is the part that is true at every
+  // hour: a wall beside a pink sign is a slightly pink wall. the GLOW is
+  // done below with real lights, which the sun drowns out by itself.
+  const GAIN = 1.15;
+  const base = new THREE.Color();
+  let touched = 0;
+  for (const c of cells) {
+    if (HOTM.has(c.material)) continue;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    for (const l of lamps) {
+      const dx = l.x - c.x;
+      const dy = l.y - c.y;
+      const dz = l.z - c.z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > l.reach * l.reach) continue;
+      const f = l.power * Math.pow(1 - Math.sqrt(d2) / l.reach, 1.7);
+      r += l.col.r * f;
+      g += l.col.g * f;
+      b += l.col.b * f;
+    }
+    if (r + g + b < 0.015) continue;
+    base.setHex(blockColor(c.material));
+    field.tintLinearAt(
+      c.x,
+      c.y,
+      c.z,
+      Math.min(0.98, base.r + r * GAIN),
+      Math.min(0.98, base.g + g * GAIN),
+      Math.min(0.98, base.b + b * GAIN)
+    );
+    touched++;
+  }
+
+  // 3b. THE LAMPS THEMSELVES. eight of them, the biggest signs only, with
+  // no shadows and a short range. a point light is the one thing here that
+  // knows what time it is: at night it pools colour down a facade and
+  // across the tarmac, and at noon the sun simply drowns it. the bake
+  // cannot do that and the emission cannot do that.
+  for (const l of streetLamps) scene.remove(l);
+  streetLamps.length = 0;
+  const strongest = lamps.slice().sort((a, b2) => b2.power * b2.reach - a.power * a.reach).slice(0, 8);
+  for (const l of strongest) {
+    const pl = new THREE.PointLight(l.col.getHex(), 0, l.reach * 2.4, 1.7);
+    pl.position.set(l.x - GRID / 2 + 0.5, l.y + 0.5, l.z - GRID / 2 + 0.5);
+    pl.castShadow = false;
+    scene.add(pl);
+    streetLamps.push(pl);
+  }
+
+  // 4. the wet film, and the dozen brightest signs it reflects
+  wet.addSurface(work.wet.map((w) => ({ x: cellX + w.dx, z: cellZ + w.dz, y: groundY + 1.004, wet: w.wet })));
+  wet.setEmitters(
+    lamps
+      .slice()
+      .sort((a, b2) => b2.power * b2.reach - a.power * a.reach)
+      .map((l) => ({ x: l.x - GRID / 2 + 0.5, y: l.y + 0.5, z: l.z - GRID / 2 + 0.5, reach: l.reach, color: l.col }))
+  );
+
+  journal.add(
+    "mason",
+    strata.epoch,
+    "levelled a block and built the street on it. four owners, four decades, one row. the signs are bigger than the shops.",
+    "scripted"
+  );
+  return {
+    placed,
+    designed: cells.length,
+    emitters: work.emitters.length,
+    litSurfaces: touched,
+    cut,
+    fill,
+    manifest: work.manifest,
+    height: work.height,
+    footprint: work.footprint,
+    at: { x: cellX, z: cellZ, groundY },
+  };
+};
+
 // dev only: the market decides life and death, but a test needs a lever
 panel.onLife = (mode) => {
   for (const r of ["surveyor", "architect", "mason", "keeper"] as const) vitality.setOverride(r, mode);
@@ -961,6 +1134,22 @@ function frame() {
     sky.light.sunDir,
     sky.light.sunIntensity
   );
+  // the town's lamps come up as the sun goes down. one curve, so the
+  // street lights itself on the same schedule the lanterns do.
+  if (streetLamps.length) {
+    const night = 1 - Math.min(1, Math.max(0, (sky.light.sunIntensity - 0.4) / 1.5));
+    for (const l of streetLamps) l.intensity = 2.0 + night * 12;
+  }
+  // the road dries out by day: the signs cannot compete with the sun, so
+  // the whole effect eases off rather than switching
+  wet.setSky(
+    sky.light.zenith,
+    sky.light.mid,
+    sky.light.horizon,
+    sky.light.fog,
+    Math.min(1, sky.light.sunIntensity / 2.1),
+    t
+  );
 
   if (net.enabled) {
     net.sendPos(fp.pos.x, fp.pos.y, fp.pos.z, fp.yaw, now);
@@ -1046,6 +1235,18 @@ declare global {
         height: number;
         at: { x: number; z: number; groundY: number };
       };
+      buildStreetBlock: (x?: number, z?: number) => {
+        placed: number;
+        designed: number;
+        emitters: number;
+        litSurfaces: number;
+        cut: number;
+        fill: number;
+        manifest: { component: string; instances: number }[];
+        height: number;
+        footprint: { w: number; d: number };
+        at: { x: number; z: number; groundY: number };
+      };
       buildCanalReach: (x?: number, z?: number) => {
         placed: number;
         designed: number;
@@ -1094,6 +1295,7 @@ window.cathedral = {
   voice,
   buildGatePiece,
   buildCanalReach,
+  buildStreetBlock,
   materials: MATERIALS,
   plaques,
   sky,
