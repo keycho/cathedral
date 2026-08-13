@@ -45,7 +45,7 @@ export class WorkSite {
     const ghostMat = new THREE.MeshBasicMaterial({
       color: SWATCH.glasslight,
       transparent: true,
-      opacity: 0.14,
+      opacity: 0.2,
       depthWrite: false,
       side: THREE.FrontSide,
     });
@@ -86,10 +86,33 @@ export class WorkSite {
     if (!bp) return;
     this.rebuiltAt = this.cursor;
 
-    // ---- the ghost: everything not yet laid ------------------------------
+    // ---- the ghost: the SHELL of what is not yet laid ---------------------
+    // filling every remaining cell came back as a solid white cloud. a
+    // translucent box is fine; fifteen hundred of them stacked along the
+    // view ray accumulate alpha until the whole mass is opaque, which is
+    // the opposite of what a ghost is for — the shape of the thing was
+    // completely hidden inside its own transparency.
+    //
+    // only the cells on the OUTER SURFACE of the remaining volume are
+    // drawn, so the view ray crosses one or two rather than thirty, and
+    // what is left reads as the outline of a building that is coming.
+    const left = new Set<number>();
+    for (let i = this.cursor; i < bp.cells.length; i++) {
+      const c = bp.cells[i];
+      left.add((c.x * GRID + c.z) * 128 + c.y);
+    }
+    const key = (x: number, y: number, z: number) => (x * GRID + z) * 128 + y;
     let g = 0;
     for (let i = this.cursor; i < bp.cells.length && g < GHOST_MAX; i++) {
       const c = bp.cells[i];
+      const buried =
+        left.has(key(c.x + 1, c.y, c.z)) &&
+        left.has(key(c.x - 1, c.y, c.z)) &&
+        left.has(key(c.x, c.y + 1, c.z)) &&
+        left.has(key(c.x, c.y - 1, c.z)) &&
+        left.has(key(c.x, c.y, c.z + 1)) &&
+        left.has(key(c.x, c.y, c.z - 1));
+      if (buried) continue;
       this.m.setPosition(c.x - GRID / 2 + 0.5, c.y + 0.5, c.z - GRID / 2 + 0.5);
       this.ghost.setMatrixAt(g++, this.m);
     }
