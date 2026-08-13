@@ -44,6 +44,27 @@ export const RULES = {
   // the one-to-two hours the great work is supposed to take. it is still
   // a stone you can watch land.
   agentBlockMs: 5_000,
+  // AT ONE STONE A BEAT THE MASON LAYS 720 AN HOUR, and a single work may
+  // now be three thousand. left alone the world would sit four hours behind
+  // one building and permanently behind the market — and because the
+  // architect's throttle then refuses to plan, the market's money would buy
+  // nothing at all on every cycle it was skipped.
+  //
+  // the last stones of any work are laid one at a time — a queue shrinks
+  // past this threshold on its way down, so every building FINISHES at the
+  // watchable pace and the last seventeen minutes of it are a stone you
+  // can follow. past the threshold the crew sets more per beat.
+  //
+  // the threshold has to be small or it becomes the whole cost: at 700 the
+  // tail alone was an hour and nothing could finish inside one however fast
+  // the rest went. at 200 and twelve a side, a 3000-block work lands in
+  // ~56 minutes and a full two-work yard in ~1h15 rather than eight hours.
+  masonWatchableBacklog: 200,
+  masonBatchMax: 12,
+  // and a hard stop on how deep the yard may get before the architect stops
+  // drawing. at this depth the batch is maxed, so the ceiling is about
+  // twenty-five minutes of laying however big the works that filled it were.
+  masonBacklogCeiling: 3_500,
   architectEpochs: 6, // the architect plans every 6 epochs (hourly at real cadence)
   crewBudgetUsdPerBlock: 40, // one blueprint block per $40 of trailing gross
   crewBudgetWindowMs: 10 * 60_000, // the trailing window that funds the crew

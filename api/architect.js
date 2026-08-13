@@ -15,7 +15,7 @@ the style bible:
 - the temple colour law: the BUILDINGS are dark tile, timber, plaster and a vermilion accent. green lives in the GROUNDS (moss, beds, canopy trees) and in verdigris on finials, bells and roof caps, so a temple reads AGAINST the green hillside instead of sinking into it.
 - detail resolution: no flat untextured face survives. a wall is posts and infill with a sill and a head rail. a roof is courses stepped one at a time with its corners swept. an edge is layered. if a form can be described by a single box it is not finished.
 - build in the palette identity you are given for this territory.
-- ambition is the law. aim for 200 to 600 blocks when the budget allows; under-spending a funded cycle on a footpath is a rejected plan.
+- ambition is the law. the allowance you are given is a target, not a fence: a work that spends a quarter of it is a shed on a site that could hold a hall. the catalogue quotes what every part costs and closes with the number you are building to — add them up as you go and keep building until you are near it. under-spending a funded cycle is a rejected plan.
 - build UP: towers, spires, stacked halls, bridges between heights. the skyline is the portfolio.
 - works worth entering get an interior: a doorway, a room, a reason to stand inside and look out.
 - every blueprint MUST contain one screenshot object: the thing a visitor frames without being told to. a tower, an arch, a terraced hall, a light garden, a stair that earns its climb, a bridge with a view.
@@ -78,7 +78,11 @@ each span smaller and each y one storey higher. a street is paving, then
 kerb, then a frontage of shopfronts with awnings over them and signage
 cantilevered off armatures above that.
 
-three worked examples of the form (short ones; yours should be far richer):
+three worked examples of the FORM. they are deliberately short — eighteen,
+ten and twenty-three parts — and they are not the size you are aiming at. a
+work at a two thousand block allowance runs to forty or sixty parts: read
+these for how a composition is ordered and how the stacking arithmetic
+works, then build something several times their weight:
 
 a temple hall — note the BUILDING goes down before its grounds, and the
 court is sized to what is left rather than to the site —
@@ -191,7 +195,10 @@ ${catalogue}`
       // and before the terrain rather than as a footnote after them.
       ...(plan ? [plan, ``] : []),
       `territory: the ${zone}'s third. palette identity: ${palette}.`,
-      `epoch ${epoch}. block budget: ${Math.min(600, budget ?? 0)}.`,
+      // THE ALLOWANCE, NOT SIX HUNDRED. this clamp outlived the budget
+      // raise by three ceilings: the payload said 2400 and the architect
+      // was told 600, so it designed 600 and the raise bought nothing.
+      `epoch ${epoch}. block budget: ${budget ?? 0}.`,
       `site patch: ${patch}x${patch}.`,
       `heights[z][x]: ${JSON.stringify(heights)}`,
       `blocked[z][x]: ${JSON.stringify(blocked)}`,

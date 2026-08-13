@@ -118,9 +118,29 @@ export class Architect {
   private async cycle(epoch: number) {
     this.cycling = true;
     try {
-      // never bury the mason: one plan in hand, one on the bench, no more
-      if (this.mason.backlog >= 2) return;
       const funded = this.budget();
+      // NEVER BURY THE MASON — counted in stones, not in blueprints. two
+      // queued works used to be twenty minutes of laying; at the raised
+      // ceiling they are eight hours, and this check went on reading "2"
+      // and calling it fine.
+      //
+      // and a skipped cycle is not free. the market funded it: the money
+      // goes to the great work rather than evaporating, and the skip is
+      // said out loud, because a cycle that silently returns is the crew
+      // ignoring the market with nothing on the record to show it.
+      if (this.mason.backlog >= 3 || this.mason.queuedBlocks >= RULES.masonBacklogCeiling) {
+        this.greatWorkPot = Math.min(
+          RULES.greatWorkBlocks,
+          this.greatWorkPot + Math.floor(funded * RULES.greatWorkShare)
+        );
+        this.lastMode = "idle";
+        this.journal.add(
+          "architect",
+          epoch,
+          `the yard is ${this.mason.queuedBlocks} stones deep. nothing new is drawn until it clears.`
+        );
+        return;
+      }
       if (funded < RULES.crewBudgetIdleBelow) {
         this.lastMode = "idle";
         this.journal.add("architect", epoch, "the market is quiet. the crew tends what stands.");

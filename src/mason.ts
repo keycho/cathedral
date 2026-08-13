@@ -84,6 +84,35 @@ export class Mason {
   get backlog(): number {
     return this.queue.length;
   }
+  // HOW FAR BEHIND THE CREW ACTUALLY IS, in stones rather than in
+  // blueprints. the architect's throttle counted blueprints, which stopped
+  // meaning anything when one work went from six hundred blocks to three
+  // thousand: two queued works used to be twenty minutes of laying and are
+  // now eight hours of it.
+  get queuedBlocks(): number {
+    let n = this.repairs.length;
+    for (let i = 0; i < this.queue.length; i++) {
+      n += this.queue[i].cells.length - (i === 0 ? this.cursor : 0);
+    }
+    return n;
+  }
+
+  // THE CREW WORKS HARDER WHEN IT IS BEHIND. one stone every five seconds
+  // is 720 an hour, and the raised ceiling designs up to 3000 for a single
+  // work — so at the cap the world runs four hours behind one building and
+  // permanently behind the market. the pace is not the point though; being
+  // watchable is. so the interval is left alone and the crew sets more
+  // stones per beat the deeper the queue gets, which reads as a gang
+  // working a face rather than as a fast-forward.
+  //
+  // below the threshold nothing changes, and because a queue shrinks past
+  // it on the way down, every work FINISHES at one stone a beat — the last
+  // few hundred stones of anything are laid where you can watch them.
+  private batchSize(): number {
+    const behind = this.queuedBlocks;
+    if (behind <= RULES.masonWatchableBacklog) return 1;
+    return Math.min(RULES.masonBatchMax, Math.ceil(behind / RULES.masonWatchableBacklog));
+  }
   get status(): string {
     if (this.repairs.length) return `mason: repairing ${this.repairs.length}`;
     const bp = this.queue[0];
@@ -159,15 +188,23 @@ export class Mason {
     if (this.inReach(c)) {
       this.walkTarget = null;
       if (now - this.lastPlace >= this.paceMs) {
-        const bp = this.queue[0];
-        const repairing = this.repairs.length > 0;
-        this.place(
-          c,
-          bp?.zone ?? "mason",
-          repairing ? "repair" : bp?.planId ?? "repair",
-          repairing ? "a repair" : bp?.title ?? "a repair",
-          now
-        );
+        // as many as the backlog earns, and only ones the mason can
+        // actually touch from where it stands — the batch is a faster
+        // crew, not a longer arm
+        let n = this.batchSize();
+        while (n-- > 0) {
+          const cell = this.nextCell();
+          if (!cell || !this.inReach(cell)) break;
+          const bp = this.queue[0];
+          const repairing = this.repairs.length > 0;
+          this.place(
+            cell,
+            bp?.zone ?? "mason",
+            repairing ? "repair" : bp?.planId ?? "repair",
+            repairing ? "a repair" : bp?.title ?? "a repair",
+            now
+          );
+        }
       }
       return;
     }
