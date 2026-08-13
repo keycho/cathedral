@@ -41,6 +41,10 @@ import type { TickEngine } from "./ticks";
 import type { VoxelField } from "./voxels";
 
 const PATCH = 30; // blueprint frame is a PATCH x PATCH site
+// the margin of untouched site left around the platform. shared, because the
+// trim after acceptance has to address exactly the rectangle the platform
+// was cut to — two copies of "3" is how the apron and its trim drift apart.
+const PLATFORM_PAD = 3;
 const API_TIMEOUT_MS = 45_000;
 const SKY_Y = 40; // above this is the sky realm: no wedge claims it
 
@@ -309,7 +313,7 @@ export class Architect {
     // still met grass on every side — the law read as "a building with a
     // patio" rather than "a building on built ground". three leaves room
     // for grounds and still makes the ground the work stands on.
-    const pad = 3;
+    const pad = PLATFORM_PAD;
     const { groundY } = this.plan.platform(best.x + pad, best.z + pad, PATCH - pad * 2, PATCH - pad * 2, quarter);
     this.lastPlanned = {
       anchorX: best.x,
@@ -430,16 +434,31 @@ export class Architect {
       minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x);
       minZ = Math.min(minZ, c.z); maxZ = Math.max(maxZ, c.z);
     }
+    const quarter = this.plan.quarterOf(site.anchorX + PATCH / 2, site.anchorZ + PATCH / 2);
     this.plan.record({
       x: minX,
       z: minZ,
       w: maxX - minX + 1,
       d: maxZ - minZ + 1,
-      quarter: this.plan.quarterOf(site.anchorX + PATCH / 2, site.anchorZ + PATCH / 2),
+      quarter,
       planId,
       title,
       epoch,
     });
+    // AND NOW THE COURT IS CUT TO THE BUILDING. the platform was laid to the
+    // whole site before the design existed, because the architect needs
+    // level ground and a height map to draw against; the footprint is only
+    // knowable here. what the work does not use grasses over — levelled,
+    // still made ground, still in the network — and what it does keep gets
+    // a border band, a grain and moss between the stones.
+    this.lastTrim = this.plan.trimPlatform(
+      site.anchorX + PLATFORM_PAD,
+      site.anchorZ + PLATFORM_PAD,
+      PATCH - PLATFORM_PAD * 2,
+      PATCH - PLATFORM_PAD * 2,
+      { minX, maxX, minZ, maxZ },
+      quarter
+    );
     return { planId, title, zone: site.zone, cells };
   }
 
@@ -454,6 +473,9 @@ export class Architect {
   // so a review that quotes the payload can report a 2236 budget for a
   // design that was cut at 282 cells.
   lastCeiling = 0;
+  // what the apron trim did, for review: stones kept as court, stones
+  // grassed back over
+  lastTrim: { kept: number; grassed: number } = { kept: 0, grassed: 0 };
 
   // the site the plan last handed out, so the payload can explain WHY here
   lastPlanned: PlannedSite | null = null;

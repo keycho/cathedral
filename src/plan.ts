@@ -24,7 +24,7 @@
 // than as a building fading into grass.
 
 import { GRID } from "./config";
-import { CONCRETEMID, EARTH, STONE, STONEDARK, isGeology } from "./palette";
+import { CONCRETEMID, CONCRETEPALE, EARTH, MEADOW, SCARMOSS, STONE, STONEDARK, isGeology } from "./palette";
 import type { VoxelField } from "./voxels";
 
 export type Quarter = "plaza" | "precinct" | "quarter";
@@ -172,6 +172,80 @@ export class UrbanPlan {
     for (let x = -2; x <= w + 1; x++) for (const z of [-2, d + 1]) skirt(x0 + x, z0 + z);
     for (let z = -2; z <= d + 1; z++) for (const x of [-2, w + 1]) skirt(x0 + x, z0 + z);
     return { groundY, laid };
+  }
+
+  // THE COURT IS CUT TO THE BUILDING, NOT TO THE SITE. the platform has to
+  // be laid BEFORE the design exists — the architect needs level ground to
+  // draw on and a height map to read — so it is cut to the whole site, and
+  // a 24x24 apron under a 15x15 hall is nine hundred stones of empty
+  // paving. at orbit fifteen of those read as car parks.
+  //
+  // once the design is validated its footprint IS known, so the apron is
+  // trimmed back to it. what falls outside does not revert to wilderness:
+  // it stays levelled, stays in the network, and grasses over — which is a
+  // cut terrace, exactly the made ground the plan wants, and it keeps the
+  // visible wild/built edge the platform was for.
+  //
+  // what stays inside is broken up. a court that is one material at one
+  // level is a slab whatever size it is: this lays a darker border band, a
+  // scatter of the second stone through the field, and planting beds in the
+  // corners the building does not reach.
+  trimPlatform(
+    x0: number,
+    z0: number,
+    w: number,
+    d: number,
+    work: { minX: number; maxX: number; minZ: number; maxZ: number },
+    quarter: Quarter
+  ): { kept: number; grassed: number } {
+    const surface = quarter === "quarter" ? CONCRETEMID : STONE;
+    const margin = 3;
+    const kx0 = Math.max(x0, work.minX - margin);
+    const kx1 = Math.min(x0 + w - 1, work.maxX + margin);
+    const kz0 = Math.max(z0, work.minZ - margin);
+    const kz1 = Math.min(z0 + d - 1, work.maxZ + margin);
+    let kept = 0;
+    let grassed = 0;
+    for (let gx = x0; gx < x0 + w; gx++) {
+      for (let gz = z0; gz < z0 + d; gz++) {
+        if (gx < 4 || gx >= GRID - 4 || gz < 4 || gz >= GRID - 4) continue;
+        const y = this.field.topAt(gx, gz) - 1;
+        const t = this.field.typeAt(gx, y, gz);
+        // only the paving this plan laid is touched; anything the design
+        // built on top of it, and any ground it never surfaced, is left
+        if (t !== surface && t !== STONE && t !== CONCRETEMID) continue;
+        const inside = gx >= kx0 && gx <= kx1 && gz >= kz0 && gz <= kz1;
+        if (!inside) {
+          this.field.placeAt(gx, y, gz, MEADOW);
+          grassed++;
+          continue;
+        }
+        kept++;
+        // the border band, one in from the trimmed edge
+        const edge = gx === kx0 || gx === kx1 || gz === kz0 || gz === kz1;
+        if (edge) {
+          this.field.placeAt(gx, y, gz, STONEDARK);
+          continue;
+        }
+        // and a coarse variation through the field, so the court has a
+        // grain rather than a colour
+        const n = Math.abs(Math.sin(gx * 12.9898 + gz * 78.233) * 43758.5453) % 1;
+        if (n < 0.16) this.field.placeAt(gx, y, gz, STONEDARK);
+        // moss between the stones in the precinct, a pale slab in the town
+        else if (n > 0.93) this.field.placeAt(gx, y, gz, quarter === "quarter" ? CONCRETEPALE : SCARMOSS);
+      }
+    }
+    // the retaining edge moves with the court
+    const skirtY = this.field.topAt((kx0 + kx1) >> 1, (kz0 + kz1) >> 1);
+    const skirt = (gx: number, gz: number) => {
+      if (gx < 4 || gx >= GRID - 4 || gz < 4 || gz >= GRID - 4) return;
+      this.field.placeAt(gx, skirtY - 1, gz, STONEDARK);
+      this.field.placeAt(gx, skirtY - 2, gz, STONEDARK);
+      this.network.add(key(gx, gz));
+    };
+    for (let gx = kx0 - 1; gx <= kx1 + 1; gx++) for (const gz of [kz0 - 1, kz1 + 1]) skirt(gx, gz);
+    for (let gz = kz0 - 1; gz <= kz1 + 1; gz++) for (const gx of [kx0 - 1, kx1 + 1]) skirt(gx, gz);
+    return { kept, grassed };
   }
 
   // ---- reading the plan ----------------------------------------------------

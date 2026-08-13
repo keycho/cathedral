@@ -81,7 +81,12 @@ export const SWATCH = {
   // timber post and beam, plaster infill, dark stacked tile. the older
   // register, and the one the great work is built in.
   // -------------------------------------------------------------------
-  tileCharcoal: 0x2f3742, // dark charcoal-blue roof tile, the register's signature
+  // lifted a value from 0x2f3742. it is the darkest thing in the palette and
+  // it roofs every hall, so at golden hour with the sun behind a building the
+  // whole roof mass went to a black cutout and the subject of the picture
+  // stopped being architecture. still unmistakably dark charcoal; now a dark
+  // you can see the courses in.
+  tileCharcoal: 0x3a4450, // dark charcoal-blue roof tile, the register's signature
   tileRidge: 0x3f4a58, // the ridge and hip courses, a value up so edges read
   plasterBone: 0xe4dcc6, // bone plaster infill between the posts
   vermilion: 0xb8412c, // ACCENT ONLY: gates, railings, a banner
@@ -180,6 +185,14 @@ export const SWATCH = {
   bounceWarm: 0xe8cba4, // sky bounce at golden hour
   bounceCool: 0xbcd0e4, // sky bounce at noon
   bounceNight: 0x33405e,
+  // THE GROUND HALF OF THE HEMISPHERE, which is what actually lights the
+  // shaded side of a building. it was the deep meadow green — a 0.13
+  // luminance bounce — so a charcoal tile roof turned away from the sun
+  // received almost nothing and came back a black cutout at the exact hour
+  // the stream runs on. this is that bounce warmed and lifted: still the
+  // colour of light coming off a green hillside, at a level a wall can be
+  // read by.
+  bounceGround: 0x6e7350,
   shadowTint: 0x6a6484, // shadows are violet-grey, never black
   crewSurveyor: 0xd8c79c, // the crew's own silhouettes
   crewArchitect: 0x6fa79c,

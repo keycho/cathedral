@@ -36,16 +36,16 @@ interface Key {
 // never black. t=0 is where a fresh visitor lands.
 const S = SWATCH;
 const KEYS: Key[] = [
-  { t: 0.00, top: S.skyZenithGolden, mid: S.bounceWarm, hor: S.skyHorizonGolden, fog: S.haze, sun: S.sunGolden, sunI: 2.05, sunE: 0.30, hemiSky: S.bounceWarm, hemiGround: S.meadowDeep, hemiI: 0.62, stars: 0, cloud: S.petal, cloudA: 0.5, glow: 0.42 },
-  { t: 0.18, top: S.skyZenithGolden, mid: S.bounceWarm, hor: S.skyHorizonGolden, fog: S.haze, sun: S.sunGolden, sunI: 1.95, sunE: 0.22, hemiSky: S.bounceWarm, hemiGround: S.meadowDeep, hemiI: 0.58, stars: 0, cloud: S.petal, cloudA: 0.5, glow: 0.44 },
+  { t: 0.00, top: S.skyZenithGolden, mid: S.bounceWarm, hor: S.skyHorizonGolden, fog: S.haze, sun: S.sunGolden, sunI: 2.05, sunE: 0.30, hemiSky: S.bounceWarm, hemiGround: S.bounceGround, hemiI: 0.86, stars: 0, cloud: S.petal, cloudA: 0.5, glow: 0.42 },
+  { t: 0.18, top: S.skyZenithGolden, mid: S.bounceWarm, hor: S.skyHorizonGolden, fog: S.haze, sun: S.sunGolden, sunI: 1.95, sunE: 0.22, hemiSky: S.bounceWarm, hemiGround: S.bounceGround, hemiI: 0.82, stars: 0, cloud: S.petal, cloudA: 0.5, glow: 0.44 },
   { t: 0.26, top: 0x2f3f63, mid: S.bloomMauve, hor: S.sunDusk, fog: 0xa2938e, sun: S.sunDusk, sunI: 1.1, sunE: 0.12, hemiSky: 0xc79a86, hemiGround: 0x3c4a36, hemiI: 0.42, stars: 0.3, cloud: S.bloomMauve, cloudA: 0.45, glow: 0.4 },
   { t: 0.34, top: S.skyZenithNight, mid: 0x1a2440, hor: S.skyHorizonNight, fog: 0x2a3450, sun: S.moon, sunI: 0.34, sunE: 0.42, hemiSky: S.bounceNight, hemiGround: 0x20261e, hemiI: 0.26, stars: 1, cloud: 0x2b3550, cloudA: 0.28, glow: 0 },
   { t: 0.46, top: S.skyZenithNight, mid: 0x1a2440, hor: S.skyHorizonNight, fog: 0x2a3450, sun: S.moon, sunI: 0.34, sunE: 0.42, hemiSky: S.bounceNight, hemiGround: 0x20261e, hemiI: 0.26, stars: 1, cloud: 0x2b3550, cloudA: 0.28, glow: 0 },
   { t: 0.56, top: 0x415878, mid: 0x9a7a80, hor: S.sunDusk, fog: 0xab9c94, sun: 0xe8a464, sunI: 1.15, sunE: 0.18, hemiSky: 0xd2a684, hemiGround: 0x3e4c37, hemiI: 0.45, stars: 0.14, cloud: 0xd8a290, cloudA: 0.45, glow: 0.42 },
   { t: 0.66, top: S.skyZenithDay, mid: 0x93aeb8, hor: S.skyHorizonDay, fog: 0xc0c8c2, sun: S.sunNoon, sunI: 2.25, sunE: 0.60, hemiSky: S.bounceCool, hemiGround: S.meadow, hemiI: 0.72, stars: 0, cloud: 0xe8e6d6, cloudA: 0.55, glow: 0.34 },
   { t: 0.78, top: S.skyZenithDay, mid: 0x93aeb8, hor: S.skyHorizonDay, fog: 0xc0c8c2, sun: S.sunNoon, sunI: 2.25, sunE: 0.60, hemiSky: S.bounceCool, hemiGround: S.meadow, hemiI: 0.72, stars: 0, cloud: 0xe8e6d6, cloudA: 0.55, glow: 0.34 },
-  { t: 0.90, top: 0x6b8bad, mid: S.bounceWarm, hor: 0xd8b27e, fog: 0xc9c6b8, sun: 0xf6cf94, sunI: 2.15, sunE: 0.40, hemiSky: S.bounceWarm, hemiGround: S.meadowDeep, hemiI: 0.66, stars: 0, cloud: S.petal, cloudA: 0.55, glow: 0.4 },
-  { t: 1.00, top: S.skyZenithGolden, mid: S.bounceWarm, hor: S.skyHorizonGolden, fog: S.haze, sun: S.sunGolden, sunI: 2.05, sunE: 0.30, hemiSky: S.bounceWarm, hemiGround: S.meadowDeep, hemiI: 0.62, stars: 0, cloud: S.petal, cloudA: 0.5, glow: 0.42 },
+  { t: 0.90, top: 0x6b8bad, mid: S.bounceWarm, hor: 0xd8b27e, fog: 0xc9c6b8, sun: 0xf6cf94, sunI: 2.15, sunE: 0.40, hemiSky: S.bounceWarm, hemiGround: S.bounceGround, hemiI: 0.90, stars: 0, cloud: S.petal, cloudA: 0.55, glow: 0.4 },
+  { t: 1.00, top: S.skyZenithGolden, mid: S.bounceWarm, hor: S.skyHorizonGolden, fog: S.haze, sun: S.sunGolden, sunI: 2.05, sunE: 0.30, hemiSky: S.bounceWarm, hemiGround: S.bounceGround, hemiI: 0.86, stars: 0, cloud: S.petal, cloudA: 0.5, glow: 0.42 },
 ];
 
 // what main applies to its lights each frame. the three gradient bands are

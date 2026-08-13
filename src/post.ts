@@ -34,12 +34,18 @@ interface Grade {
 // everywhere to make a warm world; that would now mud the cliff stone and
 // kill the mist, so the warmth moved into the gain and the shadows lift
 // cool instead.
+// THE SUBJECT CANNOT BE THE DARKEST THING IN THE FRAME. contrast 1.1 about
+// mid grey took a shaded charcoal wall at 0.074 down to 0.054 — the grade
+// was crushing the one part of the picture the whole world is built to
+// show. the shadows lift higher and stay cool, and the contrast comes off
+// enough that the toe is a value rather than a hole. the warmth stays in
+// the gain, which is where it was moved to and where it belongs.
 const GRADE_GOLDEN: Grade = {
-  lift: [0.012, 0.02, 0.04],
+  lift: [0.038, 0.045, 0.062],
   gain: [1.06, 1.005, 0.945],
   gamma: 0.96,
   sat: 1.08,
-  contrast: 1.1,
+  contrast: 1.04,
 };
 const GRADE_DAY: Grade = {
   lift: [0.012, 0.02, 0.038],
