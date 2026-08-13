@@ -387,6 +387,7 @@ export class Architect {
     // when they are all that is offered — the founding blueprint on disk is
     // written that way — but nothing the architect sends should be.
     const ceiling = Math.min(funded, this.capFor(site));
+    this.lastCeiling = ceiling;
     const local = this.composeParts(raw, ceiling);
     if (!local.length) return null;
 
@@ -447,6 +448,12 @@ export class Architect {
   lastManifest: { component: string; instances: number }[] = [];
   lastUnknown: string[] = [];
   lastDropped = 0; // parts that would not fit the budget
+  // the allowance the design was ACTUALLY judged against. the payload's
+  // budget is read when the site is snapshotted and the design comes back a
+  // minute and a half later, by which time the trailing window has moved —
+  // so a review that quotes the payload can report a 2236 budget for a
+  // design that was cut at 282 cells.
+  lastCeiling = 0;
 
   // the site the plan last handed out, so the payload can explain WHY here
   lastPlanned: PlannedSite | null = null;
