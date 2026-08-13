@@ -366,7 +366,10 @@ export class Architect {
           continue;
         }
         if (b.count + part.length > budget) {
-          this.lastDropped++;
+          // count the WHOLE tail, not the one part we stopped on. reporting
+          // "dropped 1" for a design that lost its roof, its finial and
+          // eleven other parts is a review tool lying to the reviewer.
+          this.lastDropped += raw.parts.length - raw.parts.indexOf(entry);
           // A DESIGN IS CUT, NOT SIEVED. skipping the parts that do not fit
           // and carrying on sounds gentler and produces incoherent
           // buildings: one composition lost its podium and both its roofs —

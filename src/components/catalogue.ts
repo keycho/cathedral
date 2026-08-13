@@ -281,10 +281,11 @@ function sizeOf(e: Entry): { w: number; h: number; d: number; y0: number } | nul
 // number, and the difference decides whether a design fits: pagodaTier is a
 // thousand blocks at its default span and a quarter of that at its smallest,
 // which is the difference between a pagoda and nothing.
-function costOf(e: Entry): { def: number; min: number } {
+function costOf(e: Entry): { def: number; min: number; max: number } {
   return {
     def: costAt(e, defaulted),
     min: costAt(e, (p) => (p.kind === "int" && p.name !== "seed" ? (p.min ?? 1) : defaulted(p))),
+    max: costAt(e, (p) => (p.kind === "int" && p.name !== "seed" ? (p.max ?? 32) : defaulted(p))),
   };
 }
 
@@ -303,7 +304,17 @@ export function catalogueText(register: "temple" | "town"): string {
       })
       .join(", ");
     const c = costOf(e);
-    const price = c.min && c.min !== c.def ? `~${c.def} blocks, ~${c.min} at its smallest` : `~${c.def} blocks`;
+    // THREE POINTS ON THE CURVE, not two. these parts cost roughly the
+    // square of their span, and quoting only the smallest and the default
+    // invites a straight line between them: one design picked span 9 for a
+    // tier, read across from 86 blocks at span 5 and 409 at span 11, and
+    // put its podium and body alone at 546 of a 600 budget — so the roof
+    // did not fit and the hall came out open to the sky. the third number
+    // is what makes the curve visible.
+    const price =
+      c.min !== c.def || c.max !== c.def
+        ? `~${c.min} smallest / ~${c.def} default / ~${c.max} largest`
+        : `~${c.def} blocks`;
     const s = sizeOf(e);
     // the size at default parameters, and where the part's own cells start
     // relative to the y it is placed at, so the next thing up can be put on
