@@ -61,7 +61,7 @@ export const CATALOGUE: Record<string, Entry> = {
   latticeWindow: { fn: temple.latticeWindow, register: "temple", params: [i("width", 2, 8, 3), i("h", 2, 6, 3)], note: "a timber lattice opening" },
   door: { fn: temple.door, register: "temple", params: [i("width", 1, 6, 2), i("h", 2, 6, 3)], note: "a doorway, so a work can be entered" },
   sweptRoof: { fn: temple.sweptRoof, register: "temple", params: [i("span", 5, 29, 11), i("courses", 2, 8, 4)], note: "tile laid course by course with the corners swept up" },
-  eaveCourse: { fn: temple.eaveCourse, register: "temple", params: [i("span", 3, 29, 11)], note: "the ridge course that finishes an eave" },
+  eaveCourse: { fn: temple.eaveCourse, register: "temple", params: [i("span", 3, 29, 11)], note: "the course that finishes the LOWER edge of a roof. it goes at the roof's own y, level with its first course — not above it. a roof does not need one; put it on when you want the eave line picked out" },
   finial: { fn: temple.finial, register: "temple", params: [i("h", 2, 8, 4)], note: "the verdigris crown on a roof" },
   courtyardPaving: { fn: temple.courtyardPaving, register: "temple", params: [i("w", 3, 29, 15), i("d", 3, 29, 15)], note: "a paved court" },
   wallWithCap: { fn: temple.wallWithCap, register: "temple", params: [i("len", 3, 29, 12), i("h", 2, 8, 3), axis()], note: "a boundary wall with a tiled cap" },
@@ -72,21 +72,22 @@ export const CATALOGUE: Record<string, Entry> = {
   gardenBed: { fn: temple.gardenBed, register: "temple", params: [i("w", 2, 20, 5), i("d", 2, 20, 4)], note: "planting: moss and low green, for the GROUNDS not the building" },
   ornamentalTree: { fn: temple.ornamentalTree, register: "temple", params: [i("height", 3, 12, 5), i("spread", 1, 5, 2), bool("blossoming", false)], note: "a canopy tree; blossoming turns it pink" },
   retainingWall: { fn: temple.retainingWall, register: "temple", params: [i("len", 3, 29, 12), i("h", 2, 12, 4), axis()], note: "holds a terrace back against a slope" },
-  // NOT a storey, whatever it is called. it carries its own podium, roof
-  // and finial, so two of them stacked puts a podium in the air — and one
-  // of them at its smallest span is already most of a full budget. the note
-  // says what it IS rather than what its name suggests, because a part
-  // described wrongly is worse than a part that does not exist.
-  pagodaTier: { fn: compose.pagodaTier, register: "temple", params: [i("span", 7, 27, 11), i("storey", 4, 9, 6)], note: "a COMPLETE tiered hall — its own podium, frame, walls, lattice, brackets, swept roof and finial. the most expensive thing here: use ONE, as the whole work, and spend the rest on its grounds. never stack them" },
-  // the only adapter in the file: templeGrounds takes its building corner
-  // as an object, and the wire carries flat numbers
-  templeGrounds: {
-    fn: ((courtW: number, courtD: number, bx: number, bz: number, bw: number) =>
-      compose.templeGrounds(courtW, courtD, { x: bx, z: bz }, bw)) as unknown as Entry["fn"],
-    register: "temple",
-    params: [i("courtW", 11, 29, 29), i("courtD", 11, 29, 27), i("buildingX", 0, 20, 7), i("buildingZ", 0, 20, 6), i("buildingW", 5, 25, 15)],
-    note: "a whole set of grounds at once: paving, wall, gate, lanterns, beds, trees, laid around a footprint you keep clear. it costs MORE THAN A FULL BUDGET at any size, so it is here for a rich cycle only — otherwise lay grounds by hand from courtyardPaving, wallWithCap, gate, stoneLantern, gardenBed and ornamentalTree, which is cheaper and composes better",
-  },
+  // THE TIER, IN ITS THREE REAL PIECES. pagodaTier builds a whole small
+  // building including its own podium and roof, so it could not be stacked
+  // and could not be afforded; these can be both. each note carries the
+  // offset to the next piece, because a part you cannot place without
+  // guessing is not usable.
+  tierPodium: { fn: compose.tierPodium, register: "temple", params: [i("span", 5, 25, 11), i("courses", 1, 4, 2)], note: "the stone base of a tier and the flight that climbs it. (span+4) square. the body goes on it at (x+2, y+courses, z+2)" },
+  tierBody: { fn: compose.tierBody, register: "temple", params: [i("span", 5, 25, 11), i("storey", 4, 9, 6)], note: "ONE STOREY: posts, plaster infill, door, lattice windows, the beam course and the bracket sets that carry the eave. span square. its roof goes on at (x-1, y+storey+3, z-1)" },
+  tierRoof: { fn: compose.tierRoof, register: "temple", params: [i("span", 5, 25, 11)], note: "the swept roof for a body of that span, overhanging three every side. (span+6) square. stack another storey by putting a smaller tierBody on top of this, and crown the last one with finial" },
+  pagodaTier: { fn: compose.pagodaTier, register: "temple", params: [i("span", 7, 27, 11), i("storey", 4, 9, 6)], note: "all three pieces at once as a COMPLETE single-storey hall, podium and roof and finial included. convenient but expensive and it cannot be stacked — for anything taller than one storey use tierPodium + tierBody + tierRoof" },
+  // templeGrounds IS NOT IN THE VOCABULARY. it costs 723 blocks at its
+  // smallest and 1615 at its default, so every cycle that reached for it
+  // spent a whole allowance on a courtyard and had nothing left for the
+  // building meant to stand in it. the function stays — the standing gate
+  // piece is built from it — but the architect lays grounds from the pieces
+  // below, which are affordable, composable, and can be sized to what is
+  // left after the building is paid for.
 
   // ---- town register ------------------------------------------------------
   floorSlab: { fn: town.floorSlab, register: "town", params: [i("w", 2, 29, 8), i("d", 2, 29, 8), mat("m", "concretemid")], note: "a storey plate with a proud edge: the horizontal line between floors" },
@@ -241,13 +242,32 @@ export function readCall(raw: unknown): PartCall | null {
 // composition written without these numbers spent its entire allowance on a
 // courtyard and had nothing left for the hall that was supposed to stand in
 // it. a part whose cost is unknown is a part that gets misused.
-function costAt(e: Entry, pick: (p: Param) => number | string | boolean): number {
+function cellsAt(e: Entry, pick: (p: Param) => number | string | boolean): Cell[] {
   try {
     const made = (e.fn as (...a: unknown[]) => Part | Build)(...e.params.map(pick));
-    return (made instanceof Build ? made.ordered : made).length;
+    return made instanceof Build ? made.ordered : made;
   } catch {
-    return 0;
+    return [];
   }
+}
+
+const costAt = (e: Entry, pick: (p: Param) => number | string | boolean) => cellsAt(e, pick).length;
+
+// HOW BIG THE PART IS, and where its top is. the architect has to stack
+// these vertically and the catalogue told it nothing about height, so it
+// guessed: one design put a finial four blocks above the roof it was
+// supposed to crown, and it hung there. a part you cannot measure is a part
+// you cannot stack.
+function sizeOf(e: Entry): { w: number; h: number; d: number; y0: number } | null {
+  const cells = cellsAt(e, defaulted);
+  if (!cells.length) return null;
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (const c of cells) {
+    x0 = Math.min(x0, c.dx); x1 = Math.max(x1, c.dx);
+    y0 = Math.min(y0, c.dy); y1 = Math.max(y1, c.dy);
+    z0 = Math.min(z0, c.dz); z1 = Math.max(z1, c.dz);
+  }
+  return { w: x1 - x0 + 1, h: y1 - y0 + 1, d: z1 - z0 + 1, y0 };
 }
 
 // TWO costs, because one is a trap. a part whose price barely moves with its
@@ -278,7 +298,12 @@ export function catalogueText(register: "temple" | "town"): string {
       .join(", ");
     const c = costOf(e);
     const price = c.min && c.min !== c.def ? `~${c.def} blocks, ~${c.min} at its smallest` : `~${c.def} blocks`;
-    lines.push(`${name}(${sig}) [${price}] — ${e.note}`);
+    const s = sizeOf(e);
+    // the size at default parameters, and where the part's own cells start
+    // relative to the y it is placed at, so the next thing up can be put on
+    // top of it rather than guessed at
+    const size = s ? `, ${s.w}x${s.d} and ${s.h} tall${s.y0 !== 0 ? ` starting at y${s.y0 >= 0 ? "+" : ""}${s.y0}` : ""}` : "";
+    lines.push(`${name}(${sig}) [${price}${size}] — ${e.note}`);
   }
   return lines.join("\n");
 }

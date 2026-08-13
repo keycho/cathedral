@@ -35,12 +35,34 @@ export const RULES = {
   gravestoneChars: 60,
 
   // the crew (agents build above the geology, never instead of it)
-  agentBlockMs: 8_000, // the mason lays one block per ~8 seconds
+  //
+  // THE WORLD HAS TO VISIBLY FINISH THINGS. at eight seconds a stone a
+  // full six hundred block blueprint took eighty minutes, so an ordinary
+  // building was never done inside an hour and a visitor only ever saw
+  // scaffolding. five seconds puts a full ordinary work at fifty minutes
+  // and a thousand-block great-work tier at about eighty-five, which is
+  // the one-to-two hours the great work is supposed to take. it is still
+  // a stone you can watch land.
+  agentBlockMs: 5_000,
   architectEpochs: 6, // the architect plans every 6 epochs (hourly at real cadence)
   crewBudgetUsdPerBlock: 40, // one blueprint block per $40 of trailing gross
   crewBudgetWindowMs: 10 * 60_000, // the trailing window that funds the crew
   crewBudgetIdleBelow: 12, // under this many funded blocks the crew idles + repairs
-  crewBudgetMax: 600, // a single blueprint never exceeds this
+  crewBudgetMax: 600, // a single ORDINARY blueprint never exceeds this
+
+  // THE GREAT WORK IS NOT AN ORDINARY BLUEPRINT. a tier of it is around a
+  // thousand blocks, which no single cycle's trailing volume will ever
+  // fund, so squeezing it into one cycle's allowance is how a cathedral
+  // becomes a shed. it draws on a STANDING budget instead: every funded
+  // cycle puts a share aside, the pot persists across cycles, and a tier
+  // is authorised when the pot can pay for it.
+  //
+  // sized in HOURS. at five seconds a stone a 1200-block ceiling is a
+  // hundred minutes of continuous laying — one tier, one afternoon. the
+  // pot fills in about eight ordinary cycles, so a tier lands roughly
+  // every couple of hours of a busy market rather than every few weeks.
+  greatWorkBlocks: 1200, // the ceiling for one tier of the great work
+  greatWorkShare: 0.5, // the share of each funded cycle that accrues to it
 } as const;
 
 // r1 growth shaping, frozen after judging (accretion is terrain: geology

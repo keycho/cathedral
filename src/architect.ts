@@ -122,10 +122,22 @@ export class Architect {
         this.journal.add("architect", epoch, "the market is quiet. the crew tends what stands.");
         return;
       }
+      // THE STANDING BUDGET. every funded cycle puts a share aside for the
+      // great work and the pot keeps it: a tier is around a thousand
+      // blocks, which no single cycle's trailing volume will ever fund, and
+      // squeezing it into one cycle's allowance is how a cathedral becomes
+      // a shed. what the pot buys is time, not stone — at five seconds a
+      // stone the ceiling is about a hundred minutes of continuous laying,
+      // so a tier is an afternoon's work rather than a month's.
+      this.greatWorkPot = Math.min(
+        RULES.greatWorkBlocks,
+        this.greatWorkPot + Math.floor(funded * RULES.greatWorkShare)
+      );
+
       // the signature project takes every other funded cycle once the sky
       // has land in it: the ascent rises stage by stage until it crosses
       if (this.planCount % 2 === 1) {
-        const asc = this.ascentBlueprint(funded, epoch);
+        const asc = this.ascentBlueprint(this.spendGreatWork(), epoch);
         if (asc) {
           this.lastMode = "ascent";
           this.planCount++;
@@ -310,6 +322,16 @@ export class Architect {
   lastUnknown: string[] = [];
   lastDropped = 0; // parts that would not fit the budget
 
+  // the great work's standing allowance, carried across cycles
+  greatWorkPot = 0;
+  // draw the pot down for one stage of the great work. an ordinary
+  // blueprint never touches this and is never capped by it.
+  private spendGreatWork(): number {
+    const spend = Math.min(this.greatWorkPot, RULES.greatWorkBlocks);
+    this.greatWorkPot -= spend;
+    return Math.max(RULES.crewBudgetIdleBelow, spend);
+  }
+
   // turn a design into site-local cells. a composition goes through the
   // kit; a bare cell list is taken as written.
   private composeParts(
@@ -432,7 +454,10 @@ export class Architect {
     if (!isl) return null;
     const cells: BlueprintCell[] = [];
     const put = (x: number, y: number, z: number, m: number) => {
-      if (cells.length >= Math.min(funded, RULES.crewBudgetMax)) return;
+      // the GREAT WORK's ceiling, not the ordinary one. clamping this to
+      // crewBudgetMax made the standing pot pointless: it could hold twelve
+      // hundred blocks and still only ever spend six hundred of them.
+      if (cells.length >= Math.min(funded, RULES.greatWorkBlocks)) return;
       if (!this.lawful(x, y, z)) return;
       cells.push({ x, y, z, material: m });
     };

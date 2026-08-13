@@ -38,6 +38,87 @@ export interface Composed {
   height: number;
 }
 
+// ---- the tier, in three stackable pieces -----------------------------------
+//
+// pagodaTier below builds a WHOLE small building — its own podium, roof and
+// finial — which made it useless twice over: it cost more than a full
+// budget at any span, and two of them stacked put a podium in mid-air, so
+// the one thing its name promised was the one thing it could not do.
+//
+// these three are the real storeys. each is authored from its own corner at
+// the origin and extends in +x, +y and +z, and each one's note says exactly
+// where the next sits relative to it, because a part you cannot place
+// without guessing is not usable:
+//
+//   tierPodium(span, courses)  is (span+4) square and `courses` tall
+//   tierBody(span, storey)     is span square, storey+3 tall, and sits at
+//                              (x+2, y+courses, z+2) on that podium
+//   tierRoof(span)             is (span+6) square and sits at
+//                              (x-1, y+storey+3, z-1) on that body
+//
+// stack a second storey by putting another tierBody on the roof at a
+// smaller span, and crown the last one with finial.
+
+// the stone base and the flight that climbs it
+export function tierPodium(span = 11, courses = 2): Build {
+  const b = new Build();
+  const podW = span + 4;
+  b.add("podium", podium(podW, podW, courses));
+  b.add("stair", stair(5, courses), Math.floor(podW / 2) - 2, 0, podW);
+  return b;
+}
+
+// the storey itself: posts, plaster between them, the openings, the beam
+// course that ties the post heads, and the brackets that carry the eave
+export function tierBody(span = 11, storey = 6): Build {
+  const b = new Build();
+  const h = storey;
+  for (let i = 0; i < span; i += 2) {
+    b.add("column", templeColumn(h), i, 0, 0);
+    b.add("column", templeColumn(h), i, 0, span - 1);
+  }
+  for (let i = 2; i < span - 2; i += 2) {
+    b.add("column", templeColumn(h), 0, 0, i);
+    b.add("column", templeColumn(h), span - 1, 0, i);
+  }
+  for (let i = 0; i < span - 1; i += 2) {
+    b.add("wall panel", wallPanel(3, h - 1), i, 1, 0);
+    b.add("wall panel", wallPanel(3, h - 1), i, 1, span - 1);
+    const w = wallPanel(3, h - 1).map((c) => ({ dx: c.dz, dy: c.dy, dz: c.dx, m: c.m }));
+    b.add("wall panel", w, 0, 1, i);
+    b.add("wall panel", w, span - 1, 1, i);
+  }
+  b.add("door", door(2, 3), Math.floor(span / 2) - 1, 2, span - 1);
+  b.add("window (lattice)", latticeWindow(3, 3), 1, 3, 0);
+  b.add("window (lattice)", latticeWindow(3, 3), span - 4, 3, 0);
+  const side = latticeWindow(3, 3).map((c) => ({ dx: c.dz, dy: c.dy, dz: c.dx, m: c.m }));
+  b.add("window (lattice)", side, 0, 3, 1);
+  b.add("window (lattice)", side, span - 1, 3, span - 4);
+
+  const top = h;
+  b.add("beam", ring(span, span, 0, TIMBERMID), 0, top, 0);
+  b.add("beam", beam(0, 1, span - 1, 1, top, TIMBERDARK));
+  for (let i = 0; i < span; i += 2) {
+    const north = bracketSet(2).map((c) => ({ dx: i, dy: c.dy, dz: -c.dx, m: c.m }));
+    const south = bracketSet(2).map((c) => ({ dx: i, dy: c.dy, dz: c.dx, m: c.m }));
+    b.add("bracket set", north, 0, top + 1, 0);
+    b.add("bracket set", south, 0, top + 1, span - 1);
+    const west = bracketSet(2).map((c) => ({ dx: -c.dx, dy: c.dy, dz: i, m: c.m }));
+    const east = bracketSet(2).map((c) => ({ dx: c.dx, dy: c.dy, dz: i, m: c.m }));
+    b.add("bracket set", west, 0, top + 1, 0);
+    b.add("bracket set", east, span - 1, top + 1, 0);
+  }
+  return b;
+}
+
+// the swept roof that overhangs a body of that span by three every side
+export function tierRoof(span = 11): Build {
+  const b = new Build();
+  const roofSpan = span + 6;
+  b.add("roof (swept)", sweptRoof(roofSpan, Math.ceil(roofSpan / 2)));
+  return b;
+}
+
 // one tier of the great work. span is the body's width in blocks; the roof
 // reaches four blocks wider on every side, which is what makes a pagoda
 // read as a pagoda from a distance.
