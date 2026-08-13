@@ -367,6 +367,20 @@ export class Architect {
         }
         if (b.count + part.length > budget) {
           this.lastDropped++;
+          // A DESIGN IS CUT, NOT SIEVED. skipping the parts that do not fit
+          // and carrying on sounds gentler and produces incoherent
+          // buildings: one composition lost its podium and both its roofs —
+          // the three most expensive parts — and kept the stone lanterns
+          // and the mooring post that came after them, so two storeys stood
+          // in the air with nothing under or over them. cutting at the
+          // first part that does not fit leaves a PREFIX, which is exactly
+          // what the bible's foundations-first ordering is for: you lose
+          // the grounds, not the roof.
+          //
+          // the one exception is a design whose very first part is already
+          // too big. cutting there builds nothing at all, so keep looking
+          // until something lands and cut from there.
+          if (b.count > 0) break;
           continue;
         }
         b.add(call.c, part);

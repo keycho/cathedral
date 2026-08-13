@@ -79,7 +79,13 @@ export const CATALOGUE: Record<string, Entry> = {
   // guessing is not usable.
   tierPodium: { fn: compose.tierPodium, register: "temple", params: [i("span", 5, 25, 11), i("courses", 1, 4, 2)], note: "the stone base of a tier and the flight that climbs it. (span+4) square. the body goes on it at (x+2, y+courses, z+2)" },
   tierBody: { fn: compose.tierBody, register: "temple", params: [i("span", 5, 25, 11), i("storey", 4, 9, 6)], note: "ONE STOREY: posts, plaster infill, door, lattice windows, the beam course and the bracket sets that carry the eave. span square. its roof goes on at (x-1, y+storey+3, z-1)" },
-  tierRoof: { fn: compose.tierRoof, register: "temple", params: [i("span", 5, 25, 11)], note: "the swept roof for a body of that span, overhanging three every side. (span+6) square. stack another storey by putting a smaller tierBody on top of this, and crown the last one with finial" },
+  // the roof's own height is ceil((span+6)/2) and BOTH things that go above
+  // it are placed off that number. the first run to get the documented
+  // offsets right still put its second storey three blocks up inside a
+  // nine-block roof, and its finial three blocks above the ridge, because
+  // those two offsets were the ones the note left out. an offset you do not
+  // write down is an offset that gets guessed.
+  tierRoof: { fn: compose.tierRoof, register: "temple", params: [i("span", 5, 25, 11)], note: "the swept roof for a body of that span, overhanging three every side. (span+6) square, and ceil((span+6)/2) TALL — so a span 11 roof is 9 tall. whatever goes above it goes at y + that height: the next tierBody (at a smaller span) or, on the last one, the finial. no gap and no overlap" },
   pagodaTier: { fn: compose.pagodaTier, register: "temple", params: [i("span", 7, 27, 11), i("storey", 4, 9, 6)], note: "all three pieces at once as a COMPLETE single-storey hall, podium and roof and finial included. convenient but expensive and it cannot be stacked — for anything taller than one storey use tierPodium + tierBody + tierRoof" },
   // templeGrounds IS NOT IN THE VOCABULARY. it costs 723 blocks at its
   // smallest and 1615 at its default, so every cycle that reached for it

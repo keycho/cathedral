@@ -54,9 +54,15 @@ each part is a COMPACT ARRAY: ["name", x, y, z, rot, ...parameters]
   from anything else, and a roof placed by guesswork lands above the columns
   it is supposed to sit on. the next thing up goes at y + that part's
   height, not at a y that looks about right.
-- the budget is spent PART BY PART in the order you write them, and a part
-  that will not fit is skipped — so put the building before its grounds, and
-  size the court to what is left.
+- THE BUDGET IS A HARD TOTAL AND YOU CAN ADD IT UP. every part's cost is on
+  its catalogue line; sum the parts you intend to write and keep the total
+  under the budget you are given. this is not advice, it is the contract:
+  the design is laid part by part in your order and CUT at the first part
+  that does not fit. everything after that point is lost, however cheap.
+  so order it foundations first, building before grounds, grounds before
+  clutter — and if the sum is over, make the building SMALLER rather than
+  writing parts that will be cut. a hall with its roof and no garden is a
+  hall; a hall with a garden and no roof is a ruin.
 - TOWN PARTS ARE SMALL AND NUMEROUS. an ac unit is six blocks, a bicycle
   five, a lightbox twelve. a street is a row of shopfronts and the road and
   the kerb and everything left lying on it, so a town design runs to forty
