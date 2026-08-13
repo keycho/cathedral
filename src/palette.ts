@@ -26,9 +26,18 @@ export interface Material {
 // ---------------------------------------------------------------------------
 export const SWATCH = {
   // ground: cedar-green hills. rich and deep, never olive, never mint.
+  // GRASS IS NEVER ONE COLOUR ACROSS A HILL. one mid-green covered most of
+  // the surface and the whole world read as felt: no tonal variation meant
+  // no form, and the eye had nothing to travel over. six values now, chosen
+  // by where a column sits rather than scattered — the hillside is painted,
+  // not dithered.
   meadow: 0x4f7038, // lit hillside grass, the world's ground note
   meadowDeep: 0x3a5a2c, // valley floors and shaded grass, deeper still
   meadowPale: 0x6d8a45, // ridgelines and sun-struck crowns
+  meadowOlive: 0x6a7530, // sun-facing slopes, yellow-olive
+  meadowShade: 0x35564a, // the cool side of a fold, blue-green
+  meadowSage: 0x7c8760, // dry sage on the ridge crowns
+  meadowMoss: 0x2e4726, // deep moss in the hollows
   earth: 0x40382a, // damp forest loam under the grass
   // the cliff is pushed further blue than it looks on a swatch card on
   // purpose: the golden hour's sun is strongly orange, and a neutral grey
@@ -69,12 +78,17 @@ export const SWATCH = {
   // as acid yellow-gold under a golden sun over cool ground. they stay
   // LIGHTER and cleaner than any stratum, because architecture has to read
   // as architecture against raw stone at a glance.
-  cream: 0xc8cac2, // pale dressed stone, the formal body
-  creamWarm: 0xd9d0b8, // bone-warm dressed stone, the domestic body
+  // THE STONE WAS COLD AND THE WORLD HAD NO MIDDLE. grey-white walls, near
+  // black roofs and a mid-green ground is three values with nothing between
+  // them. the dressed stone moves to warm cream and ochre, which both fills
+  // that gap and puts the buildings on the opposite temperature from the
+  // shadows they stand in.
+  cream: 0xcbc3a8, // pale dressed stone, the formal body
+  creamWarm: 0xdccfae, // bone-warm dressed stone, the domestic body
   timber: 0x4a3626, // dark timber: frames, braces, lintels
   tile: 0x8c4326, // fired tile roofs and kiln work
   lead: 0x5b6068, // lead grey: gates, straps, lamp posts
-  teal: 0x2b5f58, // deep teal, a SPARING accent only
+  teal: 0x3a5f5b, // deep teal, a SPARING accent only
 
   // -------------------------------------------------------------------
   // THE TEMPLE REGISTER (the heights and the sky islands)
@@ -97,8 +111,12 @@ export const SWATCH = {
   // shade, just one the eye reads as foliage.
   foliageDeep: 0x46612a, // deep foliage, the mass of a canopy
   foliageSun: 0x6d8c3a, // its sunward layer
-  blossom: 0xdfb0ba, // the seasonal accent. sparing: a single tree, a drift.
-  verdigris: 0x5f8f7a, // patinated copper: finials, bells, roof caps. the ONLY
+  blossom: 0xd6b5b8, // the seasonal accent. sparing: a single tree, a drift.
+  // VERMILION AND LANTERN LIGHT ARE THE ONLY SATURATED THINGS. verdigris,
+  // teal and blossom were all competing with the gates for the eye, and a
+  // frame with four accents has no focal point. they keep their hue and
+  // give up their chroma.
+  verdigris: 0x6d8a7d, // patinated copper: finials, bells, roof caps. the ONLY
   // green the temple buildings are allowed. green otherwise lives in the
   // grounds (moss, beds, canopy) so the buildings read AGAINST the hillside.
 
@@ -106,11 +124,11 @@ export const SWATCH = {
   // SHARED BETWEEN THE REGISTERS (and nothing else is shared)
   // stone and timber are how a world stays one world.
   // -------------------------------------------------------------------
-  stoneGrey: 0x8d8b84, // grey stone: stairs, retaining walls, kerbs, bridges
+  stoneGrey: 0x9a9081, // warm stone: stairs, retaining walls, kerbs, bridges
   // the shading partner for stone. paving speckled against TIMBER reads as
   // a chequerboard, because timber is a different temperature; speckled
   // against its own family it reads as coursing.
-  stoneDark: 0x6e6c66,
+  stoneDark: 0x776d5d,
   timberDark: 0x3b2b1d, // structural posts, beams, brackets
   timberMid: 0x5a4230, // rails, frames, scaffolding
   timberLight: 0x7a5a3e, // decking, shutters, stalls
@@ -159,8 +177,14 @@ export const SWATCH = {
   // light: the only things that glow
   lantern: 0xe8a94e,
   glasslight: 0xdbe4d2,
-  rise: 0x86c46a, // the ribbon's ascent
-  fall: 0xc2472a, // the ribbon's descent
+  // A DATA ELEMENT MUST NOT OUTCOMPETE THE ARCHITECTURE. at 0x86c46a and
+  // 0xc2472a the ribbon was the most saturated thing in every frame — a
+  // green-and-red candy stripe crossing a muted world, pulling the eye off
+  // the buildings it is supposed to cross behind. it keeps its reading (up
+  // is green-biased, down is red-biased) and gives up almost all of its
+  // chroma: a lit path with a bias, not a signal.
+  rise: 0x8a9a72, // the ribbon's ascent
+  fall: 0x9c7160, // the ribbon's descent
 
   // air and dust, so particles never fall outside the palette. the haze
   // reads as mountain mist: pale, luminous, faintly green-grey. it is the
@@ -183,6 +207,15 @@ export const SWATCH = {
   sunDusk: 0xe08a4e,
   moon: 0x8fa2c6,
   bounceWarm: 0xe8cba4, // sky bounce at golden hour
+  // WARM SUN, COOL SHADE. every surface was the same temperature, so the
+  // world had no depth — a lit wall and a shaded one differed only in
+  // brightness. the sky half of the hemisphere is what lights a SHADOW, so
+  // at golden hour it goes blue-violet while the sun stays orange, and the
+  // two temperatures are what separate a near wall from a far one. this is
+  // deliberately NOT bounceWarm, which still paints the sky's own mid band:
+  // the sky is warm to look at and cool to be lit by, which is what an
+  // evening actually does.
+  bounceShade: 0x8f9ac6,
   bounceCool: 0xbcd0e4, // sky bounce at noon
   bounceNight: 0x33405e,
   // THE GROUND HALF OF THE HEMISPHERE, which is what actually lights the
@@ -269,6 +302,14 @@ export const MATERIALS: Material[] = [
   { id: 57, key: "neonred", name: "neon sign", color: SWATCH.neonRed },
   { id: 58, key: "neongreen", name: "neon sign", color: SWATCH.neonGreen },
   { id: 59, key: "signwhite", name: "lightbox", color: SWATCH.signWhite },
+  // the rest of the ground family. terrain picks between these per column;
+  // they are not in AGENT_KEYS because nothing designs with them.
+  { id: 60, key: "meadowolive", name: "meadow", color: SWATCH.meadowOlive },
+  { id: 61, key: "meadowshade", name: "meadow", color: SWATCH.meadowShade },
+  { id: 62, key: "meadowsage", name: "meadow", color: SWATCH.meadowSage },
+  { id: 63, key: "meadowmoss", name: "meadow", color: SWATCH.meadowMoss },
+  { id: 64, key: "meadowpale", name: "meadow", color: SWATCH.meadowPale },
+  { id: 65, key: "meadowdeep", name: "meadow", color: SWATCH.meadowDeep },
 ];
 
 export const MEADOW = 1;
@@ -308,6 +349,15 @@ export const TIMBERMID = 32;
 export const TIMBERLIGHT = 33;
 // the town register
 export const CONCRETEPALE = 34;
+export const MEADOWOLIVE = 60;
+export const MEADOWSHADE = 61;
+export const MEADOWSAGE = 62;
+export const MEADOWMOSS = 63;
+export const MEADOWPALE = 64;
+export const MEADOWDEEP = 65;
+// every green the ground may be, so the woods and the plan can ask "is this
+// grass" without naming six constants at each call site
+export const MEADOWS = [MEADOW, MEADOWOLIVE, MEADOWSHADE, MEADOWSAGE, MEADOWMOSS, MEADOWPALE, MEADOWDEEP] as const;
 export const CONCRETEMID = 35;
 export const CONCRETEDARK = 36;
 export const PANELCREAM = 37;
@@ -349,13 +399,18 @@ const AGENT = new Set([
   PAINTOX, PAINTMUSTARD, PAINTTEAL, PAINTCOBALT, PAINTPLUM, SHUTTER, ASPHALT,
   NEONPINK, NEONRED, NEONGREEN, SIGNWHITE,
 ]);
-const GROUND = new Set([MEADOW, EARTH, SCARMOSS, CLIFF, CLIFFDEEP, EMBERSEAM]);
+const GROUND = new Set([...MEADOWS, EARTH, SCARMOSS, CLIFF, CLIFFDEEP, EMBERSEAM]);
 
 export function isGeology(id: number): boolean {
   return GEOLOGY.has(id);
 }
 export function isAgentMaterial(id: number): boolean {
   return AGENT.has(id);
+}
+// is this any of the ground's greens
+const MEADOW_SET = new Set<number>(MEADOWS);
+export function isMeadow(id: number): boolean {
+  return MEADOW_SET.has(id);
 }
 export function isGround(id: number): boolean {
   return GROUND.has(id);

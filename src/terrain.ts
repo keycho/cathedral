@@ -12,10 +12,17 @@ import {
   EMBERSEAM,
   GENESIS,
   MEADOW,
+  MEADOWDEEP,
+  MEADOWMOSS,
+  MEADOWOLIVE,
+  MEADOWPALE,
+  MEADOWSAGE,
+  MEADOWSHADE,
   CLIFF,
   SCARMOSS,
   STILLWATER,
   SWATCH,
+  isMeadow,
 } from "./palette";
 import type { FieldSampler, VoxelField } from "./voxels";
 
@@ -111,6 +118,42 @@ function ridge(x: number, z: number): number {
   return crest * crest;
 }
 
+// WHICH GREEN THIS COLUMN IS. one mid-green over the whole surface read as
+// felt — no tonal variation is no form, and the eye had nothing to travel
+// over. the choice is made from where the column SITS rather than from
+// noise alone, so the variation follows the land: sun-facing slopes go
+// yellow-olive, the cool side of a fold goes blue-green, ridge crowns dry to
+// sage and pale, hollows hold deep moss. a slow macro noise sits under all
+// of it so neighbouring hills are not the same hill.
+//
+// the slope is read off the base fractal directly rather than off
+// neighbouring columns: sampleColumn memoises exactly one column, so asking
+// it about a neighbour mid-computation would thrash it.
+function greenFor(x: number, z: number, h: number, amp: number): number {
+  const at = (px: number, pz: number) => fractal(px * 0.017 + 31, pz * 0.017 + 57) * 9 * amp;
+  const gx = at(x + 2, z) - at(x - 2, z);
+  const gz = at(x, z + 2) - at(x, z - 2);
+  // the identity light comes from the west and low, so a face with a
+  // negative x gradient is the one turned into it
+  const sun = -gx * 0.8 - gz * 0.3;
+  const macro = fractal(x * 0.008 + 917, z * 0.008 + 431);
+  const grain = hash2(x * 0.9 + 3, z * 1.1 + 7);
+
+  // THE THRESHOLDS ARE THE MEASURED QUANTILES, not round numbers. the first
+  // set was guessed against distributions that were never checked and four
+  // of the six greens never fired once: 73% of the surface came back the
+  // base note and the ground still read as felt. sampled over the whole map,
+  // macro runs 0.42..0.76 with its median at 0.54 and sun runs -0.29..0.26
+  // about zero, so cuts at 0.34 and 0.55 were simply outside the data.
+  if (h <= 6.6 && macro < 0.55) return MEADOWMOSS;
+  if (h >= 10.4) return grain < 0.45 ? MEADOWSAGE : MEADOWPALE;
+  if (sun > 0.09) return grain < 0.7 ? MEADOWOLIVE : MEADOWPALE;
+  if (sun < -0.09) return grain < 0.7 ? MEADOWSHADE : MEADOWDEEP;
+  if (macro > 0.6) return MEADOWPALE;
+  if (macro < 0.49) return MEADOWDEEP;
+  return MEADOW;
+}
+
 interface Sample {
   h: number;
   top: number; // material of the top block
@@ -174,7 +217,7 @@ function computeColumn(x: number, z: number): Sample {
   }
 
   let h = base + ridgeBoost;
-  let top = MEADOW;
+  let top = greenFor(x, z, base, amp);
   let water = false;
 
   // craters: a mossy bowl with a raised lip
@@ -226,13 +269,13 @@ function computeColumn(x: number, z: number): Sample {
   // the founding plaza: flat ground for the stone and the crew's yard
   const plaza = sstep(14, 26, dGen);
   h = PLAZA_H * (1 - plaza) + h * plaza;
-  if (dGen < 14) top = MEADOW;
+  if (dGen < 14) top = greenFor(x, z, base, amp);
 
   // exposed rock where the crests actually broke through
-  if (ridgeBoost > 1.6 && top === MEADOW) top = CLIFF;
+  if (ridgeBoost > 1.6 && isMeadow(top)) top = CLIFF;
 
   // low wet pockets moss over
-  if (top === MEADOW && h < 5.2 && dGen > 30) {
+  if (isMeadow(top) && h < 5.2 && dGen > 30) {
     if (valueNoise(x * 0.045 + 210, z * 0.045 + 77) > 0.72) top = SCARMOSS;
   }
 

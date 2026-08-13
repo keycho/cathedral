@@ -24,7 +24,7 @@
 // than as a building fading into grass.
 
 import { GRID } from "./config";
-import { CONCRETEMID, CONCRETEPALE, EARTH, MEADOW, SCARMOSS, STONE, STONEDARK, isGeology, isGround } from "./palette";
+import { CONCRETEMID, CONCRETEPALE, EARTH, MEADOW, SCARMOSS, STONE, STONEDARK, isGeology, isGround, isMeadow } from "./palette";
 import type { VoxelField } from "./voxels";
 
 export type Quarter = "plaza" | "precinct" | "quarter";
@@ -244,7 +244,9 @@ export class UrbanPlan {
         if (t !== surface && t !== STONE && t !== CONCRETEMID) continue;
         if (!near.has(gx * GRID + gz)) {
           this.field.breakAt(gx, y, gz);
-          this.field.placeAt(gx, y, gz, MEADOW);
+          // a reclaimed terrace takes the green of the ground around it,
+          // not the one flat note the family replaced
+          this.field.placeAt(gx, y, gz, this.greenNear(gx, gz));
           grassed++;
           continue;
         }
@@ -283,6 +285,22 @@ export class UrbanPlan {
     for (let gx = kx0 - 1; gx <= kx1 + 1; gx++) for (const gz of [kz0 - 1, kz1 + 1]) skirt(gx, gz);
     for (let gz = kz0 - 1; gz <= kz1 + 1; gz++) for (const gx of [kx0 - 1, kx1 + 1]) skirt(gx, gz);
     return { kept, grassed };
+  }
+
+  // the commonest green among the columns just outside a patch, so ground
+  // handed back to the wild matches the wild it is handed back to
+  private greenNear(x: number, z: number): number {
+    const tally = new Map<number, number>();
+    for (let dx = -6; dx <= 6; dx += 3) {
+      for (let dz = -6; dz <= 6; dz += 3) {
+        const t = this.field.typeAt(x + dx, this.field.topAt(x + dx, z + dz) - 1, z + dz);
+        if (isMeadow(t)) tally.set(t, (tally.get(t) ?? 0) + 1);
+      }
+    }
+    let best = MEADOW;
+    let n = 0;
+    for (const [t, k] of tally) if (k > n) { best = t; n = k; }
+    return best;
   }
 
   // ---- reading the plan ----------------------------------------------------

@@ -15,7 +15,6 @@ import {
   GENESIS,
   isAgentMaterial,
   isGround,
-  MEADOW,
   MONUMENT,
   CLIFF,
   RISE,
@@ -23,6 +22,7 @@ import {
   SCARMOSS,
   SEED,
   STILLWATER,
+  isMeadow,
 } from "./palette";
 import type { Strata } from "./strata";
 import type { VoxelField } from "./voxels";
@@ -97,7 +97,7 @@ export class Plaques {
     const mat = blockById(type)?.name ?? "stone";
 
     if (isGround(type)) {
-      if (type === MEADOW) return [mat, "the old world. it was always here."];
+      if (isMeadow(type)) return [mat, "the old world. it was always here."];
       if (type === SCARMOSS) return [mat, "an old wound, greened over."];
       if (type === CLIFF) return [mat, "the bones of the land."];
       if (type === EMBERSEAM) return [mat, "heat that never quite left."];

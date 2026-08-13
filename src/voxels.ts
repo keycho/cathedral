@@ -45,8 +45,12 @@ const HOT: Record<number, number> = {
   [GLASSLIGHT]: 1.45,
   [STILLWATER]: 1.12,
   [EMBERSEAM]: 2.0,
-  [RISE]: 1.8,
-  [FALL]: 1.8,
+  // the ribbon reads as a LIT PATH, not as a signal. at 1.8 it was radiating
+  // harder than the lanterns it crosses behind, so the brightest thing in
+  // every frame was a data element. it sits well under the lantern now: the
+  // architecture and its lights are what the eye is supposed to find.
+  [RISE]: 0.85,
+  [FALL]: 0.85,
   // the town's own light. at night the flats GLOW against the quiet dark
   // heights, and the glow is the subject: the buildings read dark and the
   // signage is what a visitor actually sees. these sit well above the

@@ -7,7 +7,9 @@
 
 import * as THREE from "three";
 import { GRID } from "./config";
-import { EARTH, MEADOW, SCARMOSS, SWATCH } from "./palette";
+import { EARTH, SCARMOSS, SWATCH,
+  isMeadow,
+} from "./palette";
 import { BASINS, meadowSampler } from "./terrain";
 import type { Wind } from "./wind";
 import type { VoxelField } from "./voxels";
@@ -151,7 +153,7 @@ export class Flora {
     for (let tries = 0; tries < GRASS_N * 4 && grass.count < GRASS_N; tries++) {
       const x = cell();
       const z = cell();
-      if (topType(x, z) !== MEADOW) continue;
+      if (!isMeadow(topType(x, z))) continue;
       place(grass, x, z, topOf(x, z), 0.7 + rand() * 0.6, SWATCH.grass, 0.05);
     }
 
@@ -160,14 +162,14 @@ export class Flora {
     for (let c = 0; c < 200 && flowers.count < FLOWER_N; c++) {
       const x = cell();
       const z = cell();
-      if (topType(x, z) !== MEADOW) continue;
+      if (!isMeadow(topType(x, z))) continue;
       const hue = FLOWER_COLORS[Math.floor(rand() * FLOWER_COLORS.length)];
       const n = 8 + Math.floor(rand() * 9);
       for (let i = 0; i < n && flowers.count < FLOWER_N; i++) {
         const fx = Math.round(x + (rand() - 0.5) * 5);
         const fz = Math.round(z + (rand() - 0.5) * 5);
         if (fx < 2 || fz < 2 || fx > GRID - 3 || fz > GRID - 3) continue;
-        if (topType(fx, fz) !== MEADOW) continue;
+        if (!isMeadow(topType(fx, fz))) continue;
         place(flowers, fx, fz, topOf(fx, fz), 0.8 + rand() * 0.5, hue, 0.02);
       }
     }
@@ -183,7 +185,7 @@ export class Flora {
         const z = Math.round(b.z + Math.sin(a) * d);
         if (x < 2 || z < 2 || x > GRID - 3 || z > GRID - 3) continue;
         const tt = topType(x, z);
-        if (tt !== EARTH && tt !== MEADOW) continue;
+        if (tt !== EARTH && !isMeadow(tt)) continue;
         const y = topOf(x, z);
         if (y < b.wl || y > b.wl + 3) continue;
         place(reeds, x, z, y, 0.7 + rand() * 0.6, SWATCH.reed, 0.04);
