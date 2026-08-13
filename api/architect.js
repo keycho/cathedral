@@ -135,10 +135,17 @@ export default async function handler(req, res) {
     let out = await ask(key, BIBLE, user, shape);
     let recovered = false;
     // the architect runs unattended in a live world, so it has to survive
-    // its own deliberation: if the whole budget went to thinking, ask again
+    // its own deliberation: if nothing came back but a thought, ask again
     // with the thinking off rather than hand the world a scripted fallback
     // and say nothing about why.
-    if (!out.httpError && !out.text.trim() && out.data?.stop_reason === "max_tokens") {
+    //
+    // the trigger is NO TEXT, not a stop reason. the first version only
+    // caught max_tokens, on the theory that an empty answer means a
+    // truncated one — and then a cycle came back stop_reason end_turn,
+    // content ["thinking"], where the model had reasoned about the site and
+    // simply considered itself finished without writing the plan down. an
+    // empty answer is an empty answer however calmly it ends.
+    if (!out.httpError && !out.text.trim()) {
       out = await ask(key, BIBLE, user, { ...shape, think: false });
       recovered = true;
     }
@@ -149,7 +156,40 @@ export default async function handler(req, res) {
     const { data, text } = out;
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
-    if (start < 0 || end <= start) {
+
+    // SALVAGE. a design that runs past the ceiling arrives as valid json
+    // with its last few characters missing — an unfinished coordinate, an
+    // unclosed array — and throwing all of it away over the final block is
+    // how a five hundred block work became a scripted footpath. cut back to
+    // the last block that finished and close the brackets ourselves.
+    const salvage = (body) => {
+      const cut = body.lastIndexOf("]");
+      if (cut <= body.indexOf("[")) return null;
+      try {
+        const test = JSON.parse(body.slice(0, cut + 1) + "]}");
+        return Array.isArray(test?.blocks) && test.blocks.length ? test : null;
+      } catch {
+        return null; // the cut landed somewhere unrepairable
+      }
+    };
+
+    let parsed = null;
+    let salvaged = 0;
+    if (start >= 0 && end > start) {
+      try {
+        parsed = JSON.parse(text.slice(start, end + 1));
+      } catch {
+        parsed = null; // a closing brace that was not the design's own
+      }
+    }
+    if (!parsed && start >= 0) {
+      const rescued = salvage(text.slice(start));
+      if (rescued) {
+        parsed = rescued;
+        salvaged = rescued.blocks.length;
+      }
+    }
+    if (!parsed) {
       // say WHY. an empty detail here cost an afternoon: the useful facts
       // are the stop reason, what block types came back and what the model
       // spent its budget on, none of which the old message carried.
@@ -161,18 +201,6 @@ export default async function handler(req, res) {
         recovered,
         usage: data?.usage ?? null,
         detail: text.slice(0, 300),
-      });
-      return;
-    }
-    let parsed;
-    try {
-      parsed = JSON.parse(text.slice(start, end + 1));
-    } catch (e) {
-      res.status(502).json({
-        error: "malformed json",
-        stop: data?.stop_reason ?? "?",
-        usage: data?.usage ?? null,
-        detail: String(e).slice(0, 160) + " :: tail " + text.slice(-160),
       });
       return;
     }
@@ -189,6 +217,7 @@ export default async function handler(req, res) {
     parsed.stop = data?.stop_reason ?? null;
     parsed.shape = shape;
     parsed.recovered = recovered;
+    parsed.salvaged = salvaged;
     res.status(200).json(parsed);
   } catch (e) {
     res.status(500).json({ error: String(e && e.message ? e.message : e).slice(0, 200) });
