@@ -34,6 +34,18 @@ function hash2(x: number, y: number): number {
 function plantable(field: VoxelField, plan: UrbanPlan | null, x: number, z: number): boolean {
   if (x < 10 || x >= GRID - 10 || z < 10 || z >= GRID - 10) return false;
   if (plan?.isBuiltGround(x, z)) return false;
+  // THE SETTLEMENT GETS AIR. keeping off the paving was not enough — a wood
+  // planted right up to a platform's skirt hides the works it is supposed
+  // to frame. the civic core is cleared, and the ring beyond it is thinned
+  // rather than emptied, so the town sits in a clearing that fades into
+  // forest instead of ending at a fence. dense groves belong on the
+  // hillsides and in the middle distance, which is where the eye wants
+  // them anyway.
+  if (plan) {
+    const d = Math.hypot(x - plan.plazaX, z - plan.plazaZ);
+    if (d < 26) return false;
+    if (d < 48 && hash2(x * 0.7, z * 0.9) > 0.28) return false;
+  }
   const y = field.topAt(x, z);
   if (y < 2) return false;
   const under = field.typeAt(x, y - 1, z);
@@ -124,11 +136,19 @@ export function plantWoods(
       put(w.name, w.fn(13, g + 3), sx + 6, sz + 2);
       continue;
     }
+    // GREEN DOMINATES; SEASON IS PUNCTUATION. the first planting picked
+    // uniformly from a list where three of five lowland species were
+    // autumn, blossom or maple, so more than half the wood came out red or
+    // pink and the whole frame read muddy brown. an accent species is now
+    // taken by roughly one grove in eight, and never on the heights.
     const high = y > 12;
-    const candidates = high
+    const green = high
       ? TREES.filter((t) => ["conifer", "cedar", "pine", "ancient"].includes(t.name))
-      : TREES.filter((t) => ["broadleaf", "blossom", "autumn", "maple", "weeping"].includes(t.name));
-    pick = candidates[Math.floor(hash2(g * 2.9, 13) * candidates.length) % candidates.length];
+      : TREES.filter((t) => ["broadleaf", "weeping", "pine", "ancient"].includes(t.name));
+    const accents = TREES.filter((t) => t.accent);
+    const wantAccent = !high && hash2(g * 5.1, 29) < 0.125;
+    const from = wantAccent ? accents : green;
+    pick = from[Math.floor(hash2(g * 2.9, 13) * from.length) % from.length];
 
     const count = 6 + Math.floor(hash2(g, 17) * 9);
     for (let k = 0; k < count; k++) {

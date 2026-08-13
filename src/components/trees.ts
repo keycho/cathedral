@@ -161,7 +161,7 @@ export function coniferTree(h = 22, seed = 1): Part {
   for (let i = 0; i < tiers; i++) {
     const t = i / (tiers - 1);
     const y = first + Math.round((h - first - 2) * t);
-    const r = 5.4 * (1 - t * 0.82) + 0.8;
+    const r = 4.0 * (1 - t * 0.82) + 0.7;
     out.push(...whorl(0, y, 0, r, FOLIAGE, seed + i * 7));
   }
   return out;
@@ -189,9 +189,9 @@ export function broadleafTree(h = 16, seed = 2, canopy = FOLIAGE): Part {
     }
   }
   const top = forkAt + Math.round(h * 0.42);
-  out.push(...dome(0, top, 0, 7.5, 4.2, canopy, seed));
+  out.push(...dome(0, top, 0, 5.2, 3.0, canopy, seed));
   // a puff at each limb tip so the crown is lumpy rather than one blob
-  for (const t of tips) out.push(...dome(t.x, t.y + 1, t.z, 2.6, 1.8, canopy, seed + t.x));
+  for (const t of tips) out.push(...dome(t.x, t.y + 1, t.z, 2.0, 1.4, canopy, seed + t.x));
   return out;
 }
 
@@ -251,7 +251,7 @@ export function weepingTree(h = 14, seed = 6): Part {
         out.push(leaf(l.tip.x - Math.sign(Math.cos(ang)), l.tip.y - k, l.tip.z, FOLIAGE, false));
     }
   }
-  out.push(...dome(0, forkAt + 2, 0, 5.4, 2.4, FOLIAGE, seed));
+  out.push(...dome(0, forkAt + 2, 0, 4.0, 1.9, FOLIAGE, seed));
   return out;
 }
 
@@ -275,7 +275,7 @@ export function pineTree(h = 15, seed = 7): Part {
     const px = l.tip.x + Math.round(lean * fromY);
     const pz = l.tip.z + Math.round(lean * fromY * 0.6);
     for (let y = 0; y < 2; y++) {
-      const r = 3.4 - y * 0.9;
+      const r = 2.7 - y * 0.8;
       const ri = Math.ceil(r);
       for (let dx = -ri; dx <= ri; dx++)
         for (let dz = -ri; dz <= ri; dz++) {
@@ -286,7 +286,7 @@ export function pineTree(h = 15, seed = 7): Part {
         }
     }
   }
-  out.push(...dome(bx, h + 1, bz, 3.2, 1.8, FOLIAGE, seed + 21));
+  out.push(...dome(bx, h + 1, bz, 2.5, 1.5, FOLIAGE, seed + 21));
   return out;
 }
 
@@ -299,7 +299,7 @@ export function cedarTree(h = 26, seed = 8): Part {
   for (let i = 0; i < tiers; i++) {
     const t = i / (tiers - 1);
     const y = first + Math.round((h - first - 1) * t);
-    const r = 3.6 * (1 - t * 0.6) + 0.7;
+    const r = 2.8 * (1 - t * 0.6) + 0.6;
     out.push(...whorl(0, y, 0, r, FOLIAGE, seed + i * 5));
   }
   return out;
@@ -314,9 +314,9 @@ export function mapleTree(h = 10, seed = 9): Part {
     const ang = (i / 5) * Math.PI * 2 + hash(i, seed, 3) * 0.6;
     const l = limb(forkAt, ang, 3, 1.1, seed + i);
     out.push(...l.cells);
-    out.push(...dome(l.tip.x, l.tip.y + 1, l.tip.z, 3.0, 1.9, VERMILION, seed + i * 3));
+    out.push(...dome(l.tip.x, l.tip.y + 1, l.tip.z, 2.3, 1.5, VERMILION, seed + i * 3));
   }
-  out.push(...dome(0, forkAt + 3, 0, 5.2, 2.6, VERMILION, seed));
+  out.push(...dome(0, forkAt + 3, 0, 3.8, 2.0, VERMILION, seed));
   return out;
 }
 
@@ -339,21 +339,29 @@ export function ancientTree(h = 18, seed = 10): Part {
     const ang = (i / 6) * Math.PI * 2 + hash(i, seed, 2) * 0.8;
     const l = limb(forkAt, ang, 5 + Math.round(hash(i, seed, 6) * 4), 0.8, seed + i);
     out.push(...l.cells);
-    out.push(...dome(l.tip.x, l.tip.y + 1, l.tip.z, 3.4, 2.2, FOLIAGE, seed + i * 5));
+    out.push(...dome(l.tip.x, l.tip.y + 1, l.tip.z, 2.6, 1.7, FOLIAGE, seed + i * 5));
   }
-  out.push(...dome(0, forkAt + 5, 0, 6.4, 3.4, FOLIAGE, seed + 31));
+  out.push(...dome(0, forkAt + 5, 0, 4.6, 2.6, FOLIAGE, seed + 31));
   return out;
 }
 
-// the roster, for the world scatterer and for a review to walk
-export const TREES: { name: string; fn: (h: number, seed: number) => Part; h: [number, number] }[] = [
-  { name: "conifer", fn: coniferTree, h: [16, 28] },
-  { name: "broadleaf", fn: (h, s) => broadleafTree(h, s), h: [12, 20] },
-  { name: "blossom", fn: blossomTreeBig, h: [10, 16] },
-  { name: "autumn", fn: autumnTree, h: [11, 17] },
-  { name: "weeping", fn: weepingTree, h: [11, 17] },
-  { name: "pine", fn: pineTree, h: [12, 19] },
-  { name: "cedar", fn: cedarTree, h: [20, 32] },
-  { name: "maple", fn: mapleTree, h: [8, 13] },
-  { name: "ancient", fn: ancientTree, h: [15, 22] },
+// the roster. HEIGHTS ARE SIZED AGAINST THE BUILDINGS: a hall stands 15 to
+// 25, and a mature tree wants to be roughly two thirds of that, because in
+// the references the trees FLANK and FRAME the architecture — they never
+// bury it. the first pass had canopies taller and wider than the halls they
+// stood beside and the town read as undergrowth. cedar is the one that may
+// overtop a roof, and it is deliberately the narrowest.
+//
+// `accent` marks the ones that are not living green. they are seasonal
+// punctuation, not the wood.
+export const TREES: { name: string; fn: (h: number, seed: number) => Part; h: [number, number]; accent?: boolean }[] = [
+  { name: "conifer", fn: coniferTree, h: [11, 16] },
+  { name: "broadleaf", fn: (h, s) => broadleafTree(h, s), h: [9, 14] },
+  { name: "blossom", fn: blossomTreeBig, h: [8, 12], accent: true },
+  { name: "autumn", fn: autumnTree, h: [8, 13], accent: true },
+  { name: "weeping", fn: weepingTree, h: [8, 13] },
+  { name: "pine", fn: pineTree, h: [9, 14] },
+  { name: "cedar", fn: cedarTree, h: [14, 20] },
+  { name: "maple", fn: mapleTree, h: [6, 10], accent: true },
+  { name: "ancient", fn: ancientTree, h: [11, 16] },
 ];

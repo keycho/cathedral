@@ -85,8 +85,13 @@ export const SWATCH = {
   tileRidge: 0x3f4a58, // the ridge and hip courses, a value up so edges read
   plasterBone: 0xe4dcc6, // bone plaster infill between the posts
   vermilion: 0xb8412c, // ACCENT ONLY: gates, railings, a banner
-  foliageDeep: 0x38491f, // deep foliage, the mass of a canopy
-  foliageSun: 0x53682a, // its sunward layer
+  // LIVING GREEN HAS TO SURVIVE THE GRADE. at 0x38491f a canopy mass came
+  // out brown-black across a whole frame under the golden hour — the value
+  // was low enough that the warm grade had nothing green left to work on.
+  // lifted and pushed toward green rather than olive; it is still a deep
+  // shade, just one the eye reads as foliage.
+  foliageDeep: 0x46612a, // deep foliage, the mass of a canopy
+  foliageSun: 0x6d8c3a, // its sunward layer
   blossom: 0xdfb0ba, // the seasonal accent. sparing: a single tree, a drift.
   verdigris: 0x5f8f7a, // patinated copper: finials, bells, roof caps. the ONLY
   // green the temple buildings are allowed. green otherwise lives in the
