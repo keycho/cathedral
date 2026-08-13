@@ -160,26 +160,17 @@ export class UrbanPlan {
     const surface = quarter === "quarter" ? CONCRETEMID : STONE;
     const laid = this.pave(x0 - 1, z0 - 1, w + 2, d + 2, surface);
     const groundY = this.field.topAt(x0 + (w >> 1), z0 + (d >> 1));
-    // the skirt: one course of dark stone around the platform's rim, which
-    // is the visible line between made ground and meadow
-    for (let x = -2; x <= w + 1; x++) {
-      for (const z of [-2, d + 1]) {
-        const gx = x0 + x;
-        const gz = z0 + z;
-        if (gx < 4 || gx >= GRID - 4 || gz < 4 || gz >= GRID - 4) continue;
-        this.field.placeAt(gx, groundY - 1, gz, STONEDARK);
-        this.network.add(key(gx, gz));
-      }
-    }
-    for (let z = -2; z <= d + 1; z++) {
-      for (const x of [-2, w + 1]) {
-        const gx = x0 + x;
-        const gz = z0 + z;
-        if (gx < 4 || gx >= GRID - 4 || gz < 4 || gz >= GRID - 4) continue;
-        this.field.placeAt(gx, groundY - 1, gz, STONEDARK);
-        this.network.add(key(gx, gz));
-      }
-    }
+    // TWO courses, not one. a single course is a change of colour and reads
+    // as a path; two is a retaining edge, which is what says somebody CUT
+    // this ground rather than found it.
+    const skirt = (gx: number, gz: number) => {
+      if (gx < 4 || gx >= GRID - 4 || gz < 4 || gz >= GRID - 4) return;
+      this.field.placeAt(gx, groundY - 1, gz, STONEDARK);
+      this.field.placeAt(gx, groundY - 2, gz, STONEDARK);
+      this.network.add(key(gx, gz));
+    };
+    for (let x = -2; x <= w + 1; x++) for (const z of [-2, d + 1]) skirt(x0 + x, z0 + z);
+    for (let z = -2; z <= d + 1; z++) for (const x of [-2, w + 1]) skirt(x0 + x, z0 + z);
     return { groundY, laid };
   }
 

@@ -1302,6 +1302,7 @@ declare global {
       runHistory: (epochs?: number) => Promise<number>;
       captureMode: (on: boolean) => void;
       plan: UrbanPlan;
+      settle: (n?: number) => { made: number; parcels: number };
     };
   }
 }
@@ -1325,9 +1326,23 @@ const captureMode = (on: boolean) => {
   for (const a of [surveyor.body, architect.body, mason.body, keeper.body]) a.avatar.showLabel(!on);
 };
 
+// age the settlement: N works sited by the plan, laid whole. the capture
+// lever for looking at a TOWN rather than at one building.
+const settle = (n = 12) => {
+  let made = 0;
+  for (let k = 0; k < n; k++) {
+    const bp = architect.settleOnce(strata.epoch);
+    if (!bp) continue;
+    mason.placeInstant(bp);
+    made++;
+  }
+  return { made, parcels: plan.parcels.length };
+};
+
 window.cathedral = {
   captureMode,
   plan,
+  settle,
   field,
   rig,
   fp,

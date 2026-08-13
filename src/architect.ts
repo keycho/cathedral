@@ -247,7 +247,12 @@ export class Architect {
     // meadow. the outer band is left wild so the work has somewhere to put
     // its grounds and the edge is a place rather than a border.
     const quarter = this.plan.quarterOf(best.x + PATCH / 2, best.z + PATCH / 2);
-    const pad = 6;
+    // THE PLATFORM IS THE SITE, not a doormat in the middle of it. at a
+    // six-block margin the made ground was eighteen of thirty and the works
+    // still met grass on every side — the law read as "a building with a
+    // patio" rather than "a building on built ground". three leaves room
+    // for grounds and still makes the ground the work stands on.
+    const pad = 3;
     const { groundY } = this.plan.platform(best.x + pad, best.z + pad, PATCH - pad * 2, PATCH - pad * 2, quarter);
     this.lastPlanned = {
       anchorX: best.x,
@@ -732,6 +737,26 @@ export class Architect {
     this.planCount++;
     this.lastMode = source;
     this.mason.assign(bp);
+    return bp;
+  }
+
+  // A CAPTURE LEVER, and a fair one: it runs the REAL cycle path — the
+  // plan's site pick, the platform, the validator, the parcel record — and
+  // only swaps the brain for the scripted generator, because forty works at
+  // the endpoint's ninety-second cadence is an hour of waiting to look at a
+  // town. what it shows is the SITING, which is the thing being judged, and
+  // the siting is identical either way.
+  settleOnce(epoch: number): Blueprint | null {
+    const zone = ZONES[this.planCount % ZONES.length];
+    const site = this.pickSite(zone);
+    if (!site) return null;
+    // scripted() validates and records its own parcel on the way out, so
+    // this must NOT validate again — doing so would enter the work in the
+    // plan twice and skew every density reading after it.
+    void epoch;
+    const bp = this.scripted(site, this.capFor(site));
+    if (!bp.cells.length) return null;
+    this.planCount++;
     return bp;
   }
 
