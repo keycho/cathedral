@@ -155,8 +155,12 @@ export function signBoard(w: number, h: number, seed: number, neon = NEONAMBER):
       for (let x = 0; x < cw - 1; x++) if (g[y][x]) out.push(cell(c * cw + x, h - 1 - y, 0, neon));
     }
   }
+  // the lit underline takes THE SIGN'S OWN COLOUR. it used to be a white
+  // tube, and because it runs the full width it was the largest lit shape
+  // on the board — so every sign on the street, whatever colour its glyphs
+  // were, was read as a white bar with something written on it.
   for (let x = -1; x <= w; x++) {
-    out.push(cell(x, -1, 0, SIGNWHITE));
+    out.push(cell(x, -1, 0, neon));
     out.push(cell(x, h, 0, SHUTTER));
   }
   return out;

@@ -63,7 +63,12 @@ const HOT: Record<number, number> = {
   [NEONPINK]: 2.15,
   [NEONRED]: 2.1,
   [NEONGREEN]: 2.0,
-  [SIGNWHITE]: 1.8,
+  // white is the one swatch that cannot be made more saturated by turning
+  // it up, only brighter, so it wins every contest it enters. at 1.8 the
+  // white tubes framing a banner outshone the banner and the street read
+  // as white bars on black. it sits BELOW the colours now: a lit panel,
+  // not the brightest thing in the frame.
+  [SIGNWHITE]: 1.3,
   [SPILL]: 1.9,
 };
 
