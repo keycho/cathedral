@@ -72,7 +72,12 @@ export const CATALOGUE: Record<string, Entry> = {
   gardenBed: { fn: temple.gardenBed, register: "temple", params: [i("w", 2, 20, 5), i("d", 2, 20, 4)], note: "planting: moss and low green, for the GROUNDS not the building" },
   ornamentalTree: { fn: temple.ornamentalTree, register: "temple", params: [i("height", 3, 12, 5), i("spread", 1, 5, 2), bool("blossoming", false)], note: "a canopy tree; blossoming turns it pink" },
   retainingWall: { fn: temple.retainingWall, register: "temple", params: [i("len", 3, 29, 12), i("h", 2, 12, 4), axis()], note: "holds a terrace back against a slope" },
-  pagodaTier: { fn: compose.pagodaTier, register: "temple", params: [i("span", 7, 27, 11), i("storey", 4, 9, 6)], note: "ONE WHOLE STOREY of a pagoda: columns, walls, brackets, swept roof, eaves. stack these with each span smaller and each y one storey up" },
+  // NOT a storey, whatever it is called. it carries its own podium, roof
+  // and finial, so two of them stacked puts a podium in the air — and one
+  // of them at its smallest span is already most of a full budget. the note
+  // says what it IS rather than what its name suggests, because a part
+  // described wrongly is worse than a part that does not exist.
+  pagodaTier: { fn: compose.pagodaTier, register: "temple", params: [i("span", 7, 27, 11), i("storey", 4, 9, 6)], note: "a COMPLETE tiered hall — its own podium, frame, walls, lattice, brackets, swept roof and finial. the most expensive thing here: use ONE, as the whole work, and spend the rest on its grounds. never stack them" },
   // the only adapter in the file: templeGrounds takes its building corner
   // as an object, and the wire carries flat numbers
   templeGrounds: {
@@ -80,7 +85,7 @@ export const CATALOGUE: Record<string, Entry> = {
       compose.templeGrounds(courtW, courtD, { x: bx, z: bz }, bw)) as unknown as Entry["fn"],
     register: "temple",
     params: [i("courtW", 11, 29, 29), i("courtD", 11, 29, 27), i("buildingX", 0, 20, 7), i("buildingZ", 0, 20, 6), i("buildingW", 5, 25, 15)],
-    note: "a whole set of grounds: paving, wall, gate, lanterns, beds, trees, laid around a building footprint you keep clear",
+    note: "a whole set of grounds at once: paving, wall, gate, lanterns, beds, trees, laid around a footprint you keep clear. it costs MORE THAN A FULL BUDGET at any size, so it is here for a rich cycle only — otherwise lay grounds by hand from courtyardPaving, wallWithCap, gate, stoneLantern, gardenBed and ornamentalTree, which is cheaper and composes better",
   },
 
   // ---- town register ------------------------------------------------------
@@ -236,13 +241,25 @@ export function readCall(raw: unknown): PartCall | null {
 // composition written without these numbers spent its entire allowance on a
 // courtyard and had nothing left for the hall that was supposed to stand in
 // it. a part whose cost is unknown is a part that gets misused.
-function costOf(e: Entry): number {
+function costAt(e: Entry, pick: (p: Param) => number | string | boolean): number {
   try {
-    const made = (e.fn as (...a: unknown[]) => Part | Build)(...e.params.map(defaulted));
+    const made = (e.fn as (...a: unknown[]) => Part | Build)(...e.params.map(pick));
     return (made instanceof Build ? made.ordered : made).length;
   } catch {
     return 0;
   }
+}
+
+// TWO costs, because one is a trap. a part whose price barely moves with its
+// span and a part that quadruples look identical when you quote a single
+// number, and the difference decides whether a design fits: pagodaTier is a
+// thousand blocks at its default span and a quarter of that at its smallest,
+// which is the difference between a pagoda and nothing.
+function costOf(e: Entry): { def: number; min: number } {
+  return {
+    def: costAt(e, defaulted),
+    min: costAt(e, (p) => (p.kind === "int" && p.name !== "seed" ? (p.min ?? 1) : defaulted(p))),
+  };
 }
 
 export function catalogueText(register: "temple" | "town"): string {
@@ -260,7 +277,8 @@ export function catalogueText(register: "temple" | "town"): string {
       })
       .join(", ");
     const c = costOf(e);
-    lines.push(`${name}(${sig}) [~${c} blocks at default size] — ${e.note}`);
+    const price = c.min && c.min !== c.def ? `~${c.def} blocks, ~${c.min} at its smallest` : `~${c.def} blocks`;
+    lines.push(`${name}(${sig}) [${price}] — ${e.note}`);
   }
   return lines.join("\n");
 }

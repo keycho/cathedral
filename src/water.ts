@@ -341,7 +341,11 @@ const WET_FRAG = /* glsl */ `
     vec2 p = vWorld.xz;
     float n1 = h21(floor(p * 0.7));
     float n2 = h21(floor(p * 1.9) + 31.0);
-    float puddle = smoothstep(0.42, 0.95, n1 * 0.65 + n2 * 0.35) * vWet;
+    // the film covers MORE of the road than it did. the old thresholds left
+    // most of the surface below the puddle cutoff, and everything the signs
+    // contribute is scaled by puddle, so most of the road was reflecting
+    // nothing at all.
+    float puddle = smoothstep(0.28, 0.82, n1 * 0.65 + n2 * 0.35) * vWet;
     vec3 n = normalize(vec3((n2 - 0.5) * 0.12 * (1.0 - puddle), 1.0, (n1 - 0.5) * 0.12 * (1.0 - puddle)));
 
     vec3 view = normalize(cameraPosition - vWorld);
@@ -357,13 +361,21 @@ const WET_FRAG = /* glsl */ `
       float reach = emPos[i].w;
       vec3 mir = vec3(e.x, 2.0 * vWorld.y - e.y, e.z);
       vec3 toM = normalize(mir - vWorld);
-      float s = pow(max(dot(refl, toM), 0.0), sharp);
+      float aim = max(dot(refl, toM), 0.0);
+      // TWO LOBES, and the broad one is the whole effect. a single lobe at
+      // an exponent of ninety is a mirror, and a mirror of a one-block sign
+      // seen from across a street is a pinpoint you cannot find — which is
+      // why the road came back flat grey under a frontage of neon. a wet
+      // road is not a mirror: it is a bright core smeared into a streak by
+      // the roughness around it. the tight lobe is the core, the broad one
+      // is the smear, and the smear is what you actually see.
+      float s = pow(aim, sharp) + 0.6 * pow(aim, 5.0);
       float d = length(e.xz - p);
-      float falloff = 1.0 - smoothstep(0.0, reach * 2.6, d);
+      float falloff = 1.0 - smoothstep(0.0, reach * 3.4, d);
       // the smear flickers a little, because a sign is a tube and a road
       // is not still
       float flick = 0.9 + 0.1 * sin(time * 2.1 + float(i) * 2.3);
-      col += emCol[i] * s * falloff * gain * mix(0.3, 1.0, puddle) * flick;
+      col += emCol[i] * s * falloff * gain * mix(0.5, 1.0, puddle) * flick;
     }
     gl_FragColor = vec4(col * wetness, clamp(f * 0.5 + puddle * 0.45, 0.0, 0.92));
     #include <tonemapping_fragment>
@@ -405,8 +417,11 @@ export class WetPaving {
           emCol: { value: cols },
           emCount: { value: 0 },
           wetness: { value: 1 },
-          sharp: { value: 90 },
-          gain: { value: 0.9 },
+          // the tight lobe is now only the CORE of the smear, so it does
+          // not have to be a mirror; the broad lobe beside it carries the
+          // streak. see WET_FRAG.
+          sharp: { value: 42 },
+          gain: { value: 1.45 },
           time: { value: 0 },
         },
       ]),
