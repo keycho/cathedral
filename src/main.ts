@@ -30,6 +30,7 @@ import { Shrine } from "./shrine";
 import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
 import { Post } from "./post";
+import { WorkSite } from "./site";
 import { FRAMINGS, Photo } from "./photo";
 import { PerfHud } from "./perfhud";
 import { AutoQuality, configAt, startStep, type Config } from "./quality";
@@ -123,6 +124,8 @@ const dofAim = new THREE.Vector3();
 // between the two is a dead zone the loop walks into and the whole world
 // fails to boot with "cannot access before initialization".
 let photo: Photo | undefined;
+// same story as photo: built late, called from the loop's first frame
+let workSite: WorkSite | undefined;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(HAZE);
@@ -1267,6 +1270,10 @@ function frame() {
     }
     post.render();
   }
+  if (workSite) {
+    const onSite = mason.current;
+    workSite.show(onSite.bp, onSite.cursor);
+  }
   // the one moment the drawing buffer is guaranteed to hold a picture
   photo?.afterRender(renderer);
   perf.update(dt);
@@ -1345,6 +1352,7 @@ declare global {
       plan: UrbanPlan;
       woods: { planted: number; blocks: number; bySpecies: Record<string, number> };
       settle: (n?: number) => { made: number; parcels: number };
+      workSite: WorkSite;
       photo: Photo;
       framings: typeof FRAMINGS;
     };
@@ -1368,9 +1376,17 @@ const captureMode = (on: boolean) => {
   // "surveyor" floating over a hall. the crew stay in frame, they just stop
   // introducing themselves.
   for (const a of [surveyor.body, architect.body, mason.body, keeper.body]) a.avatar.showLabel(!on);
+  // a plate of the settlement wants the settlement, not the scaffolding
+  // around the half of it that happens to be going up this hour
+  workSite?.setVisible(!on);
 };
 
 photo = new Photo(camera, rig, post, field, captureMode);
+
+// THE WORLD SHOULD LOOK LIKE SOMEWHERE WORK IS HAPPENING. finished objects
+// appearing a block at a time never read as construction: the ghost shows
+// what is coming, the staging shows what is rising.
+workSite = new WorkSite(scene);
 
 // age the settlement: N works sited by the plan, laid whole. the capture
 // lever for looking at a TOWN rather than at one building.
@@ -1387,6 +1403,9 @@ const settle = (n = 12) => {
 
 window.cathedral = {
   captureMode,
+  get workSite() {
+    return workSite!;
+  },
   get photo() {
     return photo!;
   },

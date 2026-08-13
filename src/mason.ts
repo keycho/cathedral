@@ -120,6 +120,12 @@ export class Mason {
     if (behind <= RULES.masonWatchableBacklog) return 1;
     return Math.min(RULES.masonBatchMax, Math.ceil(behind / RULES.masonWatchableBacklog));
   }
+  // what the crew is on, for anything that wants to DRAW the work rather
+  // than do it: the ghost of what is coming and the staging up what has
+  // risen both need the same two facts
+  get current(): { bp: Blueprint | null; cursor: number } {
+    return { bp: this.queue[0] ?? null, cursor: this.cursor };
+  }
   get status(): string {
     if (this.repairs.length) return `mason: repairing ${this.repairs.length}`;
     const bp = this.queue[0];
