@@ -728,6 +728,7 @@ export class Architect {
     // the temple is everything that climbs away from them. the architect is
     // handed one vocabulary, not both, so it cannot mix them in one work.
     const register = this.registerOf(site);
+    const budget = Math.min(funded, this.capFor(site));
     return {
       zone: site.zone,
       palette: ZONE_PALETTES[site.zone],
@@ -735,8 +736,8 @@ export class Architect {
       // THE SETTLEMENT, in words. the architect sites into a town it can
       // see rather than onto a patch of grass it cannot place.
       plan: this.lastPlanned ? this.plan.brief(this.lastPlanned) : "",
-      catalogue: catalogueText(register),
-      budget: Math.min(funded, this.capFor(site)),
+      catalogue: catalogueText(register, budget),
+      budget,
       patch: PATCH,
       heights: site.heights,
       blocked: site.blocked,

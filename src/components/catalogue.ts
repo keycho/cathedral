@@ -306,7 +306,7 @@ function costOf(e: Entry): { def: number; min: number; max: number } {
   };
 }
 
-export function catalogueText(register: "temple" | "town"): string {
+export function catalogueText(register: "temple" | "town", budget = 0): string {
   const lines: string[] = [];
   for (const [name, e] of Object.entries(CATALOGUE)) {
     if (e.register !== register && e.register !== "any") continue;
@@ -338,6 +338,30 @@ export function catalogueText(register: "temple" | "town"): string {
     // top of it rather than guessed at
     const size = s ? `, ${s.w}x${s.d} and ${s.h} tall${s.y0 !== 0 ? ` starting at y${s.y0 >= 0 ? "+" : ""}${s.y0}` : ""}` : "";
     lines.push(`${name}(${sig}) [${price}${size}] — ${e.note}`);
+  }
+  // THE ALLOWANCE IS A TARGET, NOT A FENCE. the budget was raised from
+  // ~900 to 2400/3000 and the first three works after the raise came back
+  // at 624, 788 and 579 cells with nothing dropped — the ceiling moved and
+  // the designs did not, because nothing ever told the architect that a
+  // quarter of its allowance is a small building. it reads the quoted costs
+  // exactly and guesses at everything the catalogue leaves unsaid, which is
+  // the pattern behind every fault this interface has had.
+  if (budget > 0) {
+    const floor = Math.round(budget * 0.6);
+    lines.push("");
+    lines.push(`SCALE. your allowance for this work is ${budget} blocks. spend it.`);
+    lines.push(
+      `add the quoted costs of your parts as you go and keep building until the total is at least ~${floor}. ` +
+        `a work that lands near ${Math.round(budget * 0.25)} is a shed on a site that could hold a hall.`
+    );
+    lines.push(
+      register === "temple"
+        ? `a hall at this allowance is a podium, TWO OR THREE stacked tiers with their roofs, stairs sized to the climb, and grounds around it — walls, gates, lanterns, planting. not one storey and a roof.`
+        : `a street at this allowance is FOUR OR FIVE buildings along one frontage, each with its own signage and upper storeys, plus the paving, wires, furniture and trees between them. not two shopfronts.`
+    );
+    lines.push(
+      `ORDER MATTERS: if the total overruns, everything from the first part that does not fit is dropped. put foundations, storeys and roofs first and ornament last, so an overrun costs you lanterns and not a roof.`
+    );
   }
   return lines.join("\n");
 }

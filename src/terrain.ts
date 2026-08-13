@@ -86,12 +86,22 @@ export const BASINS = [
 
 // how far into the world's edge a column sits: 0 interior -> 1 at the rim.
 // the land tapers there and the haze takes it; no void, just distance.
+// THE FRAME WAS THE WORST OF IT. a chebyshev distance makes this a SQUARE,
+// and squeezing eleven blocks of fall into the last third of the map made
+// ten tight terraces of it — a picture-frame of parallel grey steps running
+// the whole way round the world, which is the one shape nothing in geology
+// makes. the fall is spread over half the map instead of a third, and the
+// metric is bent at two scales: a slow fractal worth about twenty blocks
+// that throws whole headlands out past where the edge "should" be, and the
+// old fine ripple on top for the coastline.
 function rim(x: number, z: number): number {
-  const dx = x - CX;
-  const dz = z - CZ;
-  const edge = Math.max(Math.abs(dx), Math.abs(dz)) / (GRID / 2);
-  const wobble = (valueNoise(x * 0.05 + 400, z * 0.05 + 420) - 0.5) * 0.1;
-  return sstep(0.62, 0.985, edge + wobble);
+  const dx = Math.abs(x - CX);
+  const dz = Math.abs(z - CZ);
+  // half chebyshev, half euclidean: the square corner is what read as made
+  const edge = (Math.max(dx, dz) * 0.5 + Math.hypot(dx, dz) * 0.5) / (GRID / 2);
+  const coast = (fractal(x * 0.02 + 400, z * 0.02 + 420) - 0.5) * 0.3;
+  const ripple = (valueNoise(x * 0.07 + 61, z * 0.07 + 88) - 0.5) * 0.07;
+  return sstep(0.54, 1.04, edge + coast + ripple);
 }
 
 // ridge crests: folded noise, sharpened, only counted on high ground
@@ -121,10 +131,29 @@ function sampleColumn(x: number, z: number): Sample {
   return memoVal;
 }
 
+// GEOLOGY DOES NOT KNOW WHERE THE FOUNDING STONE IS. every radial gate in
+// this file — the plaza's flat, the amplitude ramp, the radius at which bare
+// rock is allowed — was a function of pure distance from the world's centre,
+// so each one drew a perfect circle on the ground. stacked and then rounded
+// to whole blocks they came out as concentric grey steps, a target painted
+// round the settlement.
+//
+// the gates stay; what they measure is bent. a low-frequency wobble worth
+// about ten blocks pushes the "distance" in and out with bearing, so a gate
+// that used to trace a circle now wanders like a treeline.
+//
+// the wobble ramps in from the middle out. the founding plaza has to stay
+// genuinely flat — the plan cuts platforms against it and the crew's yard
+// sits on it — so inside ten blocks the distance is the true one, and the
+// bending is full strength by the time it reaches the gates that matter.
+function wobbledRadius(x: number, z: number, d: number): number {
+  const w = (fractal(x * 0.013 + 803, z * 0.013 + 517) - 0.5) * 21 * sstep(10, 34, d);
+  return Math.max(0, d + w);
+}
+
 function computeColumn(x: number, z: number): Sample {
-  const dgx = x - CX;
-  const dgz = z - CZ;
-  const dGen = Math.hypot(dgx, dgz);
+  const dTrue = Math.hypot(x - CX, z - CZ);
+  const dGen = wobbledRadius(x, z, dTrue);
 
   // rolling hillside, damped inside the crew's build ring so the basin stays
   // calm and buildable, full amplitude out toward the horizon
@@ -207,8 +236,28 @@ function computeColumn(x: number, z: number): Sample {
     if (valueNoise(x * 0.045 + 210, z * 0.045 + 77) > 0.72) top = SCARMOSS;
   }
 
-  // the rim: taper into the mist
-  if (edge > 0) h = h * (1 - edge * 0.9) + 2 * edge * 0.9;
+  // AND THE CONTOUR LINES THEMSELVES. any smooth field rounded to whole
+  // blocks terraces along its own contours; that is unavoidable in a voxel
+  // world and it is half of what makes a hillside read. what makes it read
+  // as a STAIRCASE is the contours all being the same shape. a coherent
+  // ripple of rather less than a block, ramped in past the plaza and kept
+  // off the water, moves where each contour falls without adding any
+  // per-column speckle, so a terrace keeps a broken edge.
+  // the ripple has to be FINER than the terrace it is breaking. between the
+  // plaza and the hills the land climbs about four blocks over twenty-five,
+  // which is the worst case there is: a shallow smooth cone terraces into
+  // rings six blocks wide and perfectly round. a swell eighteen blocks across
+  // rides over those rings and leaves them intact — measured, and it did.
+  // nine across, worth a whole step at the crest, dissolves them.
+  if (!water) h += (fractal(x * 0.1 + 271, z * 0.1 + 349) - 0.5) * 2.2 * sstep(12, 26, dTrue);
+
+  // the rim: taper into the mist. the far shore is not a flat plate either —
+  // a single target height meant every column out there rounded to the same
+  // number and the outermost band came out as one dead terrace
+  if (edge > 0) {
+    const shore = 1.4 + fractal(x * 0.03 + 155, z * 0.03 + 241) * 3.2;
+    h = h * (1 - edge * 0.9) + shore * edge * 0.9;
+  }
 
   return { h: Math.max(1, Math.round(h)), top, water, ridgeBoost };
 }
