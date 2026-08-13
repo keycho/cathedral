@@ -22,6 +22,10 @@ import {
   NEONAMBER,
   NEONCYAN,
   NEONEMBER,
+  NEONGREEN,
+  NEONPINK,
+  NEONRED,
+  SIGNWHITE,
   SPILL,
   NONE,
   RISE,
@@ -43,12 +47,18 @@ const HOT: Record<number, number> = {
   [EMBERSEAM]: 2.0,
   [RISE]: 1.8,
   [FALL]: 1.8,
-  // the town's own light. the flats GLOW after dark against the quiet dark
-  // heights, and they glow warm: ember and amber lead, cyan answers.
+  // the town's own light. at night the flats GLOW against the quiet dark
+  // heights, and the glow is the subject: the buildings read dark and the
+  // signage is what a visitor actually sees. these sit well above the
+  // temple's lantern because a sign is a light, not a lit surface.
   [INTERIOR]: 2.3,
-  [NEONEMBER]: 3.0,
-  [NEONAMBER]: 3.0,
-  [NEONCYAN]: 2.7,
+  [NEONEMBER]: 3.2,
+  [NEONAMBER]: 3.2,
+  [NEONCYAN]: 3.0,
+  [NEONPINK]: 3.4,
+  [NEONRED]: 3.2,
+  [NEONGREEN]: 3.0,
+  [SIGNWHITE]: 2.8,
   [SPILL]: 2.4,
 };
 

@@ -239,6 +239,18 @@ export const MATERIALS: Material[] = [
   { id: 46, key: "verdigris", name: "patinated copper", color: SWATCH.verdigris },
   { id: 47, key: "mist", name: "mist", color: SWATCH.mist },
   { id: 48, key: "stonedark", name: "shaded stone", color: SWATCH.stoneDark },
+  // the town's saturated paints and its full neon set
+  { id: 49, key: "paintox", name: "oxblood paint", color: SWATCH.paintOx },
+  { id: 50, key: "paintmustard", name: "mustard paint", color: SWATCH.paintMustard },
+  { id: 51, key: "paintteal", name: "teal paint", color: SWATCH.paintTeal },
+  { id: 52, key: "paintcobalt", name: "cobalt paint", color: SWATCH.paintCobalt },
+  { id: 53, key: "paintplum", name: "plum paint", color: SWATCH.paintPlum },
+  { id: 54, key: "shutter", name: "rolling shutter", color: SWATCH.shutterSteel },
+  { id: 55, key: "asphalt", name: "asphalt", color: SWATCH.asphalt },
+  { id: 56, key: "neonpink", name: "neon sign", color: SWATCH.neonPink },
+  { id: 57, key: "neonred", name: "neon sign", color: SWATCH.neonRed },
+  { id: 58, key: "neongreen", name: "neon sign", color: SWATCH.neonGreen },
+  { id: 59, key: "signwhite", name: "lightbox", color: SWATCH.signWhite },
 ];
 
 export const MEADOW = 1;
@@ -292,6 +304,17 @@ export const SPILL = 45;
 export const VERDIGRIS = 46;
 export const MIST = 47;
 export const STONEDARK = 48;
+export const PAINTOX = 49;
+export const PAINTMUSTARD = 50;
+export const PAINTTEAL = 51;
+export const PAINTCOBALT = 52;
+export const PAINTPLUM = 53;
+export const SHUTTER = 54;
+export const ASPHALT = 55;
+export const NEONPINK = 56;
+export const NEONRED = 57;
+export const NEONGREEN = 58;
+export const SIGNWHITE = 59;
 
 // families: geology is grown by the market; agent materials are built by
 // the crew; ground is the old world; rise/fall belong to the price ribbon.
@@ -305,6 +328,8 @@ const AGENT = new Set([
   // the town register
   CONCRETEPALE, CONCRETEMID, CONCRETEDARK, PANELCREAM, PANELBLUE, PANELGREEN,
   GLASSBLUE, INTERIOR, NEONEMBER, NEONCYAN, NEONAMBER, SPILL, VERDIGRIS,
+  PAINTOX, PAINTMUSTARD, PAINTTEAL, PAINTCOBALT, PAINTPLUM, SHUTTER, ASPHALT,
+  NEONPINK, NEONRED, NEONGREEN, SIGNWHITE,
 ]);
 const GROUND = new Set([MEADOW, EARTH, SCARMOSS, CLIFF, CLIFFDEEP, EMBERSEAM]);
 
@@ -357,6 +382,17 @@ export const AGENT_KEYS: Record<string, number> = {
   neoncyan: NEONCYAN,
   neonamber: NEONAMBER,
   spill: SPILL,
+  paintox: PAINTOX,
+  paintmustard: PAINTMUSTARD,
+  paintteal: PAINTTEAL,
+  paintcobalt: PAINTCOBALT,
+  paintplum: PAINTPLUM,
+  shutter: SHUTTER,
+  asphalt: ASPHALT,
+  neonpink: NEONPINK,
+  neonred: NEONRED,
+  neongreen: NEONGREEN,
+  signwhite: SIGNWHITE,
   verdigris: VERDIGRIS,
   // legacy names from the first blueprints
   dressed: CREAM,

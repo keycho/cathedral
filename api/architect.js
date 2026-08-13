@@ -30,8 +30,8 @@ the frame:
 - blocked[z][x] = 1 means that column is forbidden (geology or another territory): never place there.
 - stay within the block budget. order the blocks the way the mason should lay them: foundations first, crowns last.
 
-respond with ONLY a json object, no prose:
-{"title": "two to four words, lowercase", "memo": "one line, lowercase, why this and why here", "blocks": [{"x":0,"y":0,"z":0,"m":"cream"}, ...]}`;
+respond with ONLY a json object, no prose. blocks are COMPACT ARRAYS, [x, y, z, "material"], not objects, because a six hundred block design written as objects is most of a response budget spent on punctuation:
+{"title": "two to four words, lowercase", "memo": "one line, lowercase, why this and why here", "blocks": [[0,0,0,"stone"], [0,1,0,"timberdark"], ...]}`;
 
 // a six hundred block design is a lot of json to emit. the default
 // function duration kills the request mid-generation and the client falls
@@ -83,12 +83,12 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        // a 600 block design is roughly 18k characters of json, and the
-        // model may spend budget thinking before it writes any of it. too
-        // small a budget and the whole allowance goes on thinking: the
-        // response comes back with no text block at all and the client
-        // silently falls back.
-        max_tokens: 32000,
+        // the budget is a CEILING ON TIME, not a target. at 32k the model
+        // spent four minutes filling it and the request died before a
+        // single byte came back; in the compact block format a 600 block
+        // design is about 2k tokens, so 8k is generous and still returns
+        // inside the function's life.
+        max_tokens: 8000,
         system: BIBLE,
         // NO assistant prefill: this model rejects a conversation that ends
         // on an assistant turn. the bible asks for bare json instead and the
@@ -131,6 +131,17 @@ export default async function handler(req, res) {
       });
       return;
     }
+    // normalise the compact form back to the objects the client validates,
+    // and tolerate a model that answers in objects anyway
+    if (Array.isArray(parsed?.blocks)) {
+      parsed.blocks = parsed.blocks
+        .map((b) =>
+          Array.isArray(b) ? { x: b[0], y: b[1], z: b[2], m: b[3] } : b
+        )
+        .filter((b) => b && typeof b.x === "number");
+    }
+    parsed.usage = data?.usage ?? null;
+    parsed.stop = data?.stop_reason ?? null;
     res.status(200).json(parsed);
   } catch (e) {
     res.status(500).json({ error: String(e && e.message ? e.message : e).slice(0, 200) });
