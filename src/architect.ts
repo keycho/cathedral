@@ -451,12 +451,14 @@ export class Architect {
     // knowable here. what the work does not use grasses over — levelled,
     // still made ground, still in the network — and what it does keep gets
     // a border band, a grain and moss between the stones.
+    const columns = new Set<number>();
+    for (const c of cells) columns.add(c.x * GRID + c.z);
     this.lastTrim = this.plan.trimPlatform(
       site.anchorX + PLATFORM_PAD,
       site.anchorZ + PLATFORM_PAD,
       PATCH - PLATFORM_PAD * 2,
       PATCH - PLATFORM_PAD * 2,
-      { minX, maxX, minZ, maxZ },
+      columns,
       quarter
     );
     return { planId, title, zone: site.zone, cells };

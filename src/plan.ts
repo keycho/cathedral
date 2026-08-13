@@ -24,7 +24,7 @@
 // than as a building fading into grass.
 
 import { GRID } from "./config";
-import { CONCRETEMID, CONCRETEPALE, EARTH, MEADOW, SCARMOSS, STONE, STONEDARK, isGeology } from "./palette";
+import { CONCRETEMID, CONCRETEPALE, EARTH, MEADOW, SCARMOSS, STONE, STONEDARK, isGeology, isGround } from "./palette";
 import type { VoxelField } from "./voxels";
 
 export type Quarter = "plaza" | "precinct" | "quarter";
@@ -146,6 +146,18 @@ export class UrbanPlan {
         if (gx < 4 || gx >= GRID - 4 || gz < 4 || gz >= GRID - 4) continue;
         for (let yy = this.field.topAt(gx, gz) - 1; yy >= y; yy--) this.field.breakAt(gx, yy, gz);
         for (let yy = this.field.topAt(gx, gz); yy < y; yy++) this.field.placeAt(gx, yy, gz, EARTH);
+        // PAVING REPLACES THE GROUND, IT DOES NOT LAND ON IT. placeAt only
+        // fills air, so on a column that needed no cut and no fill the
+        // surface call was a silent no-op — and the flattest ground in the
+        // world is the founding plaza, which is also the most built on. a
+        // whole 24x24 platform came back as untouched meadow: every work on
+        // level ground has been standing directly on grass this entire time,
+        // which is the one thing the plan exists to prevent.
+        //
+        // geology is never replaced, and neither is anything the crew built.
+        const top = this.field.topAt(gx, gz) - 1;
+        const under = this.field.typeAt(gx, top, gz);
+        if (top === y - 1 && isGround(under) && !isGeology(under)) this.field.breakAt(gx, top, gz);
         if (this.field.placeAt(gx, y - 1, gz, surface)) laid++;
         this.network.add(key(gx, gz));
       }
@@ -195,17 +207,33 @@ export class UrbanPlan {
     z0: number,
     w: number,
     d: number,
-    work: { minX: number; maxX: number; minZ: number; maxZ: number },
+    columns: Set<number>,
     quarter: Quarter
   ): { kept: number; grassed: number } {
     const surface = quarter === "quarter" ? CONCRETEMID : STONE;
+    // A BOUNDING BOX IS NOT A FOOTPRINT. an L of buildings round two sides
+    // of a court has a box that covers the whole platform, so trimming to
+    // one reclaimed 14% and left the aprons. this dilates the columns the
+    // work ACTUALLY stands on, so an empty corner is an empty corner
+    // however the work is shaped.
     const margin = 3;
-    const kx0 = Math.max(x0, work.minX - margin);
-    const kx1 = Math.min(x0 + w - 1, work.maxX + margin);
-    const kz0 = Math.max(z0, work.minZ - margin);
-    const kz1 = Math.min(z0 + d - 1, work.maxZ + margin);
+    const near = new Set<number>();
+    for (const c of columns) {
+      const cx = Math.floor(c / GRID);
+      const cz = c % GRID;
+      for (let dx = -margin; dx <= margin; dx++) {
+        for (let dz = -margin; dz <= margin; dz++) {
+          if (dx * dx + dz * dz > margin * margin + 1) continue;
+          near.add((cx + dx) * GRID + (cz + dz));
+        }
+      }
+    }
     let kept = 0;
     let grassed = 0;
+    let kx0 = Infinity;
+    let kx1 = -Infinity;
+    let kz0 = Infinity;
+    let kz1 = -Infinity;
     for (let gx = x0; gx < x0 + w; gx++) {
       for (let gz = z0; gz < z0 + d; gz++) {
         if (gx < 4 || gx >= GRID - 4 || gz < 4 || gz >= GRID - 4) continue;
@@ -214,16 +242,23 @@ export class UrbanPlan {
         // only the paving this plan laid is touched; anything the design
         // built on top of it, and any ground it never surfaced, is left
         if (t !== surface && t !== STONE && t !== CONCRETEMID) continue;
-        const inside = gx >= kx0 && gx <= kx1 && gz >= kz0 && gz <= kz1;
-        if (!inside) {
+        if (!near.has(gx * GRID + gz)) {
+          this.field.breakAt(gx, y, gz);
           this.field.placeAt(gx, y, gz, MEADOW);
           grassed++;
           continue;
         }
         kept++;
-        // the border band, one in from the trimmed edge
-        const edge = gx === kx0 || gx === kx1 || gz === kz0 || gz === kz1;
-        if (edge) {
+        kx0 = Math.min(kx0, gx); kx1 = Math.max(kx1, gx);
+        kz0 = Math.min(kz0, gz); kz1 = Math.max(kz1, gz);
+        // the court's edge: a darker band wherever the paving meets what is
+        // no longer paved, which follows the dilated shape rather than a
+        // rectangle drawn round it
+        const rim =
+          !near.has((gx - 1) * GRID + gz) || !near.has((gx + 1) * GRID + gz) ||
+          !near.has(gx * GRID + gz - 1) || !near.has(gx * GRID + gz + 1);
+        this.field.breakAt(gx, y, gz);
+        if (rim) {
           this.field.placeAt(gx, y, gz, STONEDARK);
           continue;
         }
@@ -233,8 +268,10 @@ export class UrbanPlan {
         if (n < 0.16) this.field.placeAt(gx, y, gz, STONEDARK);
         // moss between the stones in the precinct, a pale slab in the town
         else if (n > 0.93) this.field.placeAt(gx, y, gz, quarter === "quarter" ? CONCRETEPALE : SCARMOSS);
+        else this.field.placeAt(gx, y, gz, surface);
       }
     }
+    if (!kept) return { kept, grassed };
     // the retaining edge moves with the court
     const skirtY = this.field.topAt((kx0 + kx1) >> 1, (kz0 + kz1) >> 1);
     const skirt = (gx: number, gz: number) => {
