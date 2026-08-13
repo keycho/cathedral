@@ -35,8 +35,15 @@ export class Mason {
   private queue: Blueprint[] = [];
   private cursor = 0;
   private repairs: BlueprintCell[] = [];
+  // stones the mason could not walk to on this pass, and how many passes
+  // they have survived. the count is what makes this terminate.
+  private deferred: BlueprintCell[] = [];
+  private deferPass = 0;
   private lastPlace = 0;
   private repairsDone = 0;
+  // set after the retry passes are spent: the last stranded stones are laid
+  // without a route rather than left out
+  private reachAnyway = false;
   private stepsWalked = 0;
   // main wires this: a finished work is a fact other systems care about
   onFinished?: (bp: Blueprint) => void;
@@ -124,6 +131,18 @@ export class Mason {
     if (this.repairs.length) return this.repairs[0];
     const bp = this.queue[0];
     if (!bp) return null;
+    if (this.cursor >= bp.cells.length && this.deferred.length) {
+      // THE RETRY PASS. the work has risen since these were skipped, so
+      // most of them are reachable now. two passes, and then whatever is
+      // still stranded is set from wherever the mason can get to — a
+      // finished court with one stone placed at arm's length is a court; a
+      // court with a hole in it is not.
+      const again = this.deferred;
+      this.deferred = [];
+      this.deferPass++;
+      bp.cells.push(...again);
+      if (this.deferPass >= 3) this.reachAnyway = true;
+    }
     if (this.cursor >= bp.cells.length) {
       const line = this.voice
         ? this.voice.mason({ title: bp.title, set: bp.cells.length, repairs: this.repairsDone, steps: this.stepsWalked, planId: bp.planId })
@@ -134,6 +153,9 @@ export class Mason {
       this.onFinished?.(bp);
       this.queue.shift();
       this.cursor = 0;
+      this.deferred = [];
+      this.deferPass = 0;
+      this.reachAnyway = false;
       return this.nextCell();
     }
     return bp.cells[this.cursor];
@@ -238,6 +260,15 @@ export class Mason {
       }
       return;
     }
+    if (this.reachAnyway) {
+      if (now - this.lastPlace >= this.paceMs * 1.5) {
+        const bp = this.queue[0];
+        const repairing = this.repairs.length > 0;
+        this.place(c, bp?.zone ?? "mason", repairing ? "repair" : bp?.planId ?? "repair",
+          repairing ? "a repair" : bp?.title ?? "a repair", now);
+      }
+      return;
+    }
     if (now - this.walkFailedAt < 2000) return;
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [0, 0]] as const) {
       if (this.body.walkTo(c.x + dx, c.z + dz)) {
@@ -246,8 +277,17 @@ export class Mason {
         return;
       }
     }
-    // no route at all: skip this stone so the plan never wedges
+    // A STONE WITH NO ROUTE IS DEFERRED, NEVER DROPPED. skipping it kept
+    // the plan from wedging and quietly vetoed whole forms: an enclosed
+    // court, a walled garden, a room with one door, anything across water —
+    // every design whose inside cannot be walked to lost exactly the cells
+    // that made it that shape, and came back as a wall with a hole in it.
+    //
+    // it goes to the back of the work instead. by the time the rest has
+    // risen the route usually exists, because the thing that was missing
+    // was often the stair or the bridge still queued behind it.
     this.walkFailedAt = now;
+    this.deferred.push(c);
     this.advance(false);
   }
 }
