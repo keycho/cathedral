@@ -102,9 +102,17 @@ export class Photo {
     // of not at all. the azimuth is left alone: turning would point the
     // camera at something other than its subject, and rising will not.
     this.rig.polar = f.polar;
-    for (let step = 0; step < 26; step++) {
-      if (this.clear(f.radius, this.rig.polar)) break;
+    // and it gives up rather than climbing forever. the first version rose
+    // in twenty-six steps until it cleared and ended level with the sky
+    // islands, because it asked topAt whether the eye was above the ground
+    // and topAt answers with the highest solid in the column — which under
+    // an island is the island. a camera fifty blocks up is not a street
+    // shot; a slightly awkward one is.
+    for (let step = 0; step < 9 && !this.clear(this.rig.radius, this.rig.polar); step++) {
       this.rig.polar += 0.05;
+      // a low framing would rather come CLOSER than rise: pulling in keeps
+      // the eye in the street, lifting takes it out of one
+      if (step >= 4 && f.polar < 0.25) this.rig.radius *= 0.88;
     }
     if (this.camera.fov !== f.fov) {
       this.camera.fov = f.fov;
@@ -126,11 +134,17 @@ export class Photo {
     const pz = this.rig.target.z + Math.sin(this.rig.azimuth) * ch;
     const cx = Math.round(px + 128 - 0.5);
     const cz = Math.round(pz + 128 - 0.5);
-    if (cx < 2 || cx > 253 || cz < 2 || cz > 253) return true;
-    if (py <= this.field.topAt(cx, cz) + 1.2) return false;
+    const cy = Math.round(py);
+    if (cx < 2 || cx > 253 || cz < 2 || cz > 253 || cy < 1) return true;
+    // SOLIDITY, NOT ALTITUDE. asking whether the eye is above the column's
+    // top means asking about whatever happens to be flying over it, and
+    // under a sky island the answer is "no" forever. what matters is whether
+    // there is stone where the camera is standing.
     for (let dx = -1; dx <= 1; dx++) {
       for (let dz = -1; dz <= 1; dz++) {
-        if (this.field.isSolid(cx + dx, Math.round(py), cz + dz)) return false;
+        for (const dy of [0, -1, 1]) {
+          if (this.field.isSolid(cx + dx, cy + dy, cz + dz)) return false;
+        }
       }
     }
     return true;
