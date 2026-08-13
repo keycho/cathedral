@@ -22,6 +22,7 @@ import * as canal from "./canal";
 import * as compose from "./compose";
 import * as temple from "./temple";
 import * as town from "./town";
+import * as trees from "./trees";
 
 // how a parameter is read off the wire. everything is a number on the
 // wire; the kind says what that number means and what a legal one is.
@@ -124,6 +125,22 @@ export const CATALOGUE: Record<string, Entry> = {
   pavement: { fn: town.pavement, register: "town", params: [i("w", 1, 10, 3), i("d", 2, 44, 20), seed()], note: "a footway" },
   torii: { fn: town.torii, register: "any", params: [i("w", 2, 8, 3), i("h", 3, 10, 4)], note: "a vermilion gate. put one down an alley and light it red" },
   alleyShrine: { fn: town.alleyShrine, register: "any", params: [seed()], note: "a small shrine, glimpsed between buildings" },
+  // ---- trees, which are buildings ----------------------------------------
+  // in the references more than half the frame is tree and rock, and the
+  // trees carry the composition. these are built the way a roof is built —
+  // a trunk that tapers and forks, canopies laid course by course — so a
+  // grove is a piece of architecture rather than ground cover.
+  conifer: { fn: trees.coniferTree, register: "any", params: [i("h", 12, 30, 22), seed()], note: "a columnar evergreen: whorls shrinking with height, bare spar on top. plant these in stands on a hillside" },
+  broadleaf: { fn: trees.broadleafTree, register: "any", params: [i("h", 10, 22, 16), seed()], note: "a thick bole forking into limbs that fork again, under one wide lumpy dome. the shade tree for a court" },
+  blossomCanopy: { fn: trees.blossomTreeBig, register: "any", params: [i("h", 9, 18, 13), seed()], note: "the same architecture in PINK, lower and wider. the single highest-impact object you can plant — put one where it will be seen against dark timber" },
+  autumnTree: { fn: trees.autumnTree, register: "any", params: [i("h", 10, 19, 15), seed()], note: "a broadleaf that has turned: ember canopy" },
+  weepingTree: { fn: trees.weepingTree, register: "any", params: [i("h", 10, 18, 14), seed()], note: "limbs reaching level then hanging curtains of leaf. plant at a water edge" },
+  pineTree: { fn: trees.pineTree, register: "any", params: [i("h", 10, 20, 15), seed()], note: "the windswept specimen: leaning kinked trunk, flat plates of needle. the tree a temple court is built around" },
+  cedarTree: { fn: trees.cedarTree, register: "any", params: [i("h", 18, 34, 26), seed()], note: "very tall and narrow, a dark column. line a ridge or an avenue with these" },
+  mapleTree: { fn: trees.mapleTree, register: "any", params: [i("h", 7, 14, 10), seed()], note: "small, red, wide for its height. the courtyard specimen" },
+  ancientTree: { fn: trees.ancientTree, register: "any", params: [i("h", 13, 24, 18), seed()], note: "gnarled, with buttressed roots. build a shrine beside one" },
+  bambooStand: { fn: trees.bambooStand, register: "any", params: [i("count", 8, 40, 26), i("spread", 2, 8, 4), seed()], note: "a THICKET of single-block culms with leaf sprays near their tops — no trunk, which is why it reads as bamboo. plant at water and in gaps between buildings" },
+
   blossomTree: { fn: town.blossomTree, register: "any", params: [i("h", 3, 12, 5), i("spread", 2, 5, 3), seed()], note: "a pink canopy. stand one in front of signage and it takes the colour" },
 
   // ---- water --------------------------------------------------------------

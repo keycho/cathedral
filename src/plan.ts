@@ -191,6 +191,12 @@ export class UrbanPlan {
     return Math.hypot(x - this.plazaX, z - this.plazaZ) <= UrbanPlan.COMMON_R;
   }
 
+  // the routes, for anything that wants to line them — the avenue planting
+  // reads them so a road is a made thing rather than a strip of paving
+  routeList() {
+    return this.routes;
+  }
+
   isBuiltGround(x: number, z: number): boolean {
     return this.network.has(key(x, z));
   }

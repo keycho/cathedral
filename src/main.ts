@@ -77,6 +77,7 @@ import { Sky } from "./sky";
 import { Strata } from "./strata";
 import { Flora } from "./flora";
 import { UrbanPlan } from "./plan";
+import { plantWoods } from "./woods";
 import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
 import { buildVoidFloor, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
@@ -441,6 +442,19 @@ const mason = new Mason(
 // can find, which is precisely how they end up scattered.
 const plan = new UrbanPlan(field, GENESIS_CELL, genesisY);
 plan.found();
+
+// THE WILD IS WOODED BEFORE THE SETTLEMENT IS. a world where trees exist
+// only where a building was designed is a world of landscaped plots in a
+// bare field — the references are more than half tree and rock, and the
+// trees carry the composition. groves cluster by species and by altitude,
+// bamboo takes the waterside, cedar lines the plan's roads. it runs after
+// the plan so the paving stays clear: what grows here is what the town
+// gets carved out of.
+// the grove count is readable from the url so a before/after measurement is
+// a page load rather than a rebuild: ?trees=0 boots the same world bare.
+const woods = plantWoods(field, plan, {
+  groves: Number(new URLSearchParams(location.search).get("trees") ?? 26),
+});
 
 const architect = new Architect(
   scene,
@@ -1302,6 +1316,7 @@ declare global {
       runHistory: (epochs?: number) => Promise<number>;
       captureMode: (on: boolean) => void;
       plan: UrbanPlan;
+      woods: { planted: number; blocks: number; bySpecies: Record<string, number> };
       settle: (n?: number) => { made: number; parcels: number };
     };
   }
@@ -1342,6 +1357,7 @@ const settle = (n = 12) => {
 window.cathedral = {
   captureMode,
   plan,
+  woods,
   settle,
   field,
   rig,

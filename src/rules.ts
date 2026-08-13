@@ -48,7 +48,19 @@ export const RULES = {
   crewBudgetUsdPerBlock: 40, // one blueprint block per $40 of trailing gross
   crewBudgetWindowMs: 10 * 60_000, // the trailing window that funds the crew
   crewBudgetIdleBelow: 12, // under this many funded blocks the crew idles + repairs
-  crewBudgetMax: 600, // a single ORDINARY temple blueprint never exceeds this
+  // A SIGNIFICANT WORK IS A SIGNIFICANT WORK. six hundred blocks is a
+  // pavilion, and a world of pavilions is what six hundred blocks buys. a
+  // hall wants fifteen hundred and a great hall two and a half thousand,
+  // which at five seconds a stone is two to four hours of laying — the same
+  // pacing the great work runs at, and the right pacing for a building you
+  // are meant to watch go up.
+  //
+  // this is a CEILING, not a target. the architect picks the scale from
+  // what it is building: a wayside shrine is two hundred, a gate complex
+  // eight hundred, a hall fifteen hundred. the catalogue quotes every
+  // part's cost at three sizes now, so it can sum before it commits, and a
+  // design that overreaches still degrades to a coherent prefix.
+  crewBudgetMax: 2400,
 
   // A STREET IS A BIGGER OBJECT THAN A HALL, and the same allowance for
   // both is why town designs arrived half-built: one composition wrote 48
@@ -61,7 +73,7 @@ export const RULES = {
   //
   // 900 at five seconds a stone is seventy-five minutes: still inside the
   // hour-and-a-bit an ordinary work is supposed to take.
-  crewBudgetTownMax: 900,
+  crewBudgetTownMax: 3000,
 
   // THE GREAT WORK IS NOT AN ORDINARY BLUEPRINT. a tier of it is around a
   // thousand blocks, which no single cycle's trailing volume will ever
@@ -74,7 +86,7 @@ export const RULES = {
   // hundred minutes of continuous laying — one tier, one afternoon. the
   // pot fills in about eight ordinary cycles, so a tier lands roughly
   // every couple of hours of a busy market rather than every few weeks.
-  greatWorkBlocks: 1200, // the ceiling for one tier of the great work
+  greatWorkBlocks: 4000, // the ceiling for one tier of the great work — above any ordinary work, which is the point of it
   greatWorkShare: 0.5, // the share of each funded cycle that accrues to it
 } as const;
 
