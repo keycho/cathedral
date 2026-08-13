@@ -811,13 +811,18 @@ const buildStreetBlock = (cellX = GENESIS_CELL.x - 78, cellZ = GENESIS_CELL.z + 
     power: e.power,
     col: new THREE.Color(blockColor(e.color)),
   }));
-  // the bake is ALBEDO ONLY, clamped under 1.0. it was pushing surfaces
-  // into emission, which glows correctly at night and then repaints the
-  // whole frontage orange at noon, because a baked colour does not know
-  // what time it is. what stays baked is the part that is true at every
-  // hour: a wall beside a pink sign is a slightly pink wall. the GLOW is
-  // done below with real lights, which the sun drowns out by itself.
-  const GAIN = 1.15;
+  // the bake is a HUE SHIFT, not a brightness one, and that distinction is
+  // the whole fix. adding the lamp's colour to the albedo made a wall under
+  // four pink signs into a pink wall — correct at midnight, and at noon a
+  // wide magenta stain smeared across a mustard facade in full sunlight,
+  // because a baked colour does not know what time it is.
+  //
+  // what IS true at every hour is the hue: a wall beside a pink sign is a
+  // wall whose plaster leans pink. so the surface is mixed toward the
+  // lamp's colour AT ITS OWN BRIGHTNESS, never past a third of the way, and
+  // its value never moves. the GLOW is done below with real lights, which
+  // the sun drowns out by itself.
+  const LEAN = 0.34; // the furthest a surface may be pulled toward a lamp
   const base = new THREE.Color();
   let touched = 0;
   for (const c of cells) {
@@ -836,15 +841,22 @@ const buildStreetBlock = (cellX = GENESIS_CELL.x - 78, cellZ = GENESIS_CELL.z + 
       g += l.col.g * f;
       b += l.col.b * f;
     }
-    if (r + g + b < 0.015) continue;
+    const sum = r + g + b;
+    if (sum < 0.02) continue;
+    // the accumulated light's own hue, normalised off its brightness
+    const hr = r / sum;
+    const hg = g / sum;
+    const hb = b / sum;
     base.setHex(blockColor(c.material));
+    const luma = base.r * 0.2126 + base.g * 0.7152 + base.b * 0.0722;
+    const k = Math.min(LEAN, sum * 0.5);
     field.tintLinearAt(
       c.x,
       c.y,
       c.z,
-      Math.min(0.98, base.r + r * GAIN),
-      Math.min(0.98, base.g + g * GAIN),
-      Math.min(0.98, base.b + b * GAIN)
+      base.r + (hr * 3 * luma - base.r) * k,
+      base.g + (hg * 3 * luma - base.g) * k,
+      base.b + (hb * 3 * luma - base.b) * k
     );
     touched++;
   }
@@ -856,7 +868,19 @@ const buildStreetBlock = (cellX = GENESIS_CELL.x - 78, cellZ = GENESIS_CELL.z + 
   // cannot do that and the emission cannot do that.
   for (const l of streetLamps) scene.remove(l);
   streetLamps.length = 0;
-  const strongest = lamps.slice().sort((a, b2) => b2.power * b2.reach - a.power * a.reach).slice(0, 8);
+  // SPACED, not just strongest. taking the top eight by output handed four
+  // of the eight slots to the four lamps stacked down one pink banner, so
+  // half the street's real illumination was one sign and the whole block
+  // read magenta. a light now has to stand clear of the ones already
+  // chosen, which spreads the eight across the frontage and lets the cyan,
+  // the amber and the green actually reach the ground.
+  const SEPARATION = 9;
+  const strongest: typeof lamps = [];
+  for (const l of lamps.slice().sort((a, b2) => b2.power * b2.reach - a.power * a.reach)) {
+    if (strongest.length >= 8) break;
+    if (strongest.some((k) => Math.hypot(k.x - l.x, k.y - l.y, k.z - l.z) < SEPARATION)) continue;
+    strongest.push(l);
+  }
   for (const l of strongest) {
     const pl = new THREE.PointLight(l.col.getHex(), 0, l.reach * 2.4, 1.7);
     pl.position.set(l.x - GRID / 2 + 0.5, l.y + 0.5, l.z - GRID / 2 + 0.5);

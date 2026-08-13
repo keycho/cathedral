@@ -190,7 +190,11 @@ function modernBlock(b: LitBuild, z0: number, len: number, paint: number, seed: 
   const bannerH = 18;
   b.add("armature", armature(3, 2).map((c) => ({ dx: c.dx, dy: c.dy, dz: c.dz, m: c.m })), FRONT, top - 4, z0 + 1);
   b.add("vertical banner", faceStreet(verticalBanner(3, bannerH, seed + 11, NEONPINK)), FRONT + 2, top - bannerH - 2, z0 + 1);
-  for (let k = 0; k < 4; k++) b.lamp(FRONT + 3, top - 3 - k * 5, z0 + 2, NEONPINK, 13, 1.3);
+  // two lamps down its length, not four. four made this one sign brighter
+  // than the rest of the street put together and the whole block read
+  // magenta; a sign this size only needs a top and a bottom.
+  b.lamp(FRONT + 3, top - 3, z0 + 2, NEONPINK, 13, 1.25);
+  b.lamp(FRONT + 3, top - 15, z0 + 2, NEONPINK, 12, 1.1);
 
   // a second sign cantilevered over the pavement, at the height of a face
   b.add("armature", armature(3, 2), FRONT, 8, z0 + len - 4);
@@ -295,14 +299,20 @@ function narrowInfill(b: LitBuild, z0: number, len: number, paint: number, seed:
   b.add("awning", awning(len - 2, 3, NEONGREEN, PLASTER).map((c) => ({ dx: c.dz, dy: c.dy, dz: c.dx, m: c.m })), FRONT + 1, 4, z0 + 1);
   b.lamp(FRONT + 2, 3, z0 + 3, LANTERN, 6, 0.8);
 
-  // the whole face papered in lightboxes, on their own steel
-  const NEONS4 = [NEONCYAN, NEONPINK, NEONAMBER, NEONGREEN, NEONEMBER];
+  // the whole face papered in lightboxes, on their own steel.
+  //
+  // this is the COOL building. each owner on this street leads with a
+  // colour — the machiya warm red, the modern block pink, the western stone
+  // amber — and the four of them are what makes the row read as four
+  // owners rather than one developer. without that rule every sign was
+  // drawn from the same bag and the street came out monochrome.
+  const NEONS4 = [NEONCYAN, NEONGREEN, NEONCYAN, NEONGREEN, NEONEMBER];
   for (let f = 1; f < FLOORS; f++) {
     const y0 = f * STOREY + 1;
     const neon = NEONS4[f % NEONS4.length];
     b.add("lightbox", faceStreet(lightbox(len - 2, 2, seed + f, neon)), FRONT + 1, y0, z0 + 1);
     b.add("armature", armature(2, 1), FRONT, y0, z0 + 1);
-    b.lamp(FRONT + 2, y0, z0 + Math.floor(len / 2), neon, 10, 1.15);
+    b.lamp(FRONT + 2, y0, z0 + Math.floor(len / 2), neon, 11, 1.3);
     if (hash(f, seed, 31) < 0.7) b.add("ac unit", acUnit(seed + f), BACK - 1, y0, z0 + 1 + (f % (len - 2)));
   }
   b.add("ladder", ladder(top), BACK - 1, 1, z0 + 1);
