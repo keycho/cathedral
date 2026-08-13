@@ -25,6 +25,7 @@ import { SWATCH } from "./palette";
 
 const GHOST_MAX = 2600; // an ordinary work is well under this
 const SCAFFOLD_MAX = 900;
+const GHOST_MARK = 0.34; // the survey mark's size, in blocks
 
 function box(): THREE.BoxGeometry {
   return new THREE.BoxGeometry(1, 1, 1);
@@ -45,7 +46,7 @@ export class WorkSite {
     const ghostMat = new THREE.MeshBasicMaterial({
       color: SWATCH.glasslight,
       transparent: true,
-      opacity: 0.2,
+      opacity: 0.5,
       depthWrite: false,
       side: THREE.FrontSide,
     });
@@ -113,6 +114,16 @@ export class WorkSite {
         left.has(key(c.x, c.y, c.z + 1)) &&
         left.has(key(c.x, c.y, c.z - 1));
       if (buried) continue;
+      // AND EACH MARK IS SMALL. culling the buried cells barely helped,
+      // because a voxel building is mostly shell already — the near wall,
+      // the far wall and the roof still stack three deep along the view ray
+      // and three panes at a fifth opacity is a white smear.
+      //
+      // a third of a block, centred in its cell, reads as a SURVEY MARK
+      // rather than as a pane: the marks outline the thing that is coming
+      // and you can see straight through the outline, which is the whole
+      // point of drawing it in the first place.
+      this.m.makeScale(GHOST_MARK, GHOST_MARK, GHOST_MARK);
       this.m.setPosition(c.x - GRID / 2 + 0.5, c.y + 0.5, c.z - GRID / 2 + 0.5);
       this.ghost.setMatrixAt(g++, this.m);
     }
@@ -136,6 +147,9 @@ export class WorkSite {
     let s = 0;
     if (maxY - minY >= 3 && maxX > minX) {
       const top = maxY + 1;
+      // full size again: the matrix is shared and the ghost left a third
+      // scale in it, which would have built the staging out of matchsticks
+      this.m.identity();
       const put = (x: number, y: number, z: number) => {
         if (s >= SCAFFOLD_MAX) return;
         this.m.setPosition(x - GRID / 2 + 0.5, y + 0.5, z - GRID / 2 + 0.5);
