@@ -197,6 +197,22 @@ export class UrbanPlan {
     return this.routes;
   }
 
+  // THE PLAN'S DISTRICTS OUTRANK THE AGENTS' WEDGES. the precinct sits
+  // wherever the highest workable ground happened to be, which lands it
+  // inside one agent's third — so only that agent could ever build there,
+  // and on a rotation the other two simply found nothing and their cycles
+  // were skipped. twelve consecutive site picks produced plaza and quarter
+  // and never once the precinct.
+  //
+  // the wedges divide the WILD, which is what they were for. a district is
+  // the settlement's own ground and any of the crew may build in it.
+  isDistrictGround(x: number, z: number): boolean {
+    return (
+      Math.hypot(x - this.precinct.x, z - this.precinct.z) <= this.precinct.r ||
+      Math.hypot(x - this.quarter.x, z - this.quarter.z) <= this.quarter.r
+    );
+  }
+
   isBuiltGround(x: number, z: number): boolean {
     return this.network.has(key(x, z));
   }

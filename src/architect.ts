@@ -177,22 +177,42 @@ export class Architect {
 
   // ---- site + snapshot -----------------------------------------------------
 
+  // which district this cycle is FOR. left to the site score alone the
+  // settlement only ever thickens where it already is, because adjacency and
+  // density both point at the densest place — so the districts are visited
+  // in turn and the search ring is centred on the one whose turn it is.
+  //
+  // the REACH matters as much as the centre. a fixed thirty-block ring around
+  // a district twenty-two across spills most of its samples back out into the
+  // common ground, and since the plaza scores best on adjacency and density
+  // every turn quietly resolved to the plaza again — twelve picks came back
+  // seven plaza, four quarter, one precinct. a district's turn searches that
+  // district.
+  private districtTurn = 0;
+  private districtCentre(): { x: number; z: number; r: number } {
+    const d = this.districtTurn++ % 3;
+    if (d === 0) return { x: this.plan.plazaX, z: this.plan.plazaZ, r: 26 };
+    if (d === 1) return { x: this.plan.precinct.x, z: this.plan.precinct.z, r: this.plan.precinct.r };
+    return { x: this.plan.quarter.x, z: this.plan.quarter.z, r: this.plan.quarter.r };
+  }
+
   private pickSite(zone: ZoneName): Site | null {
     // the mass grows with age: seek open ground from the near ring out to
     // well past a large world's edge, requiring genuinely buildable sites
     // (an aged mass swallows the near ring entirely)
+    const centre = this.districtCentre();
     let best: { x: number; z: number; score: number } | null = null;
     let bestOpen: { x: number; z: number; score: number } | null = null;
     const probes = 64; // 8x8 sampling of the patch
     for (let k = 0; k < 140; k++) {
       const ang = Math.random() * Math.PI * 2;
-      const r = 10 + Math.random() * 34;
-      const cx = Math.round(this.genesisCell.x + Math.cos(ang) * r);
-      const cz = Math.round(this.genesisCell.z + Math.sin(ang) * r);
+      const r = 4 + Math.random() * (centre.r - 4);
+      const cx = Math.round(centre.x + Math.cos(ang) * r);
+      const cz = Math.round(centre.z + Math.sin(ang) * r);
       const ax = cx - PATCH / 2;
       const az = cz - PATCH / 2;
       if (ax < 8 || ax + PATCH >= GRID - 8 || az < 8 || az + PATCH >= GRID - 8) continue;
-      const common = this.plan.isCommonGround(cx, cz);
+      const common = this.plan.isCommonGround(cx, cz) || this.plan.isDistrictGround(cx, cz);
       if (!common && zoneOf(cx, cz) !== zone) continue;
       let minH = Infinity;
       let maxH = 0;
@@ -234,7 +254,7 @@ export class Architect {
       const adjoins = this.plan.touchesFabric(ax, az, PATCH, PATCH);
       const density = this.plan.densityAt(ax + PATCH / 2, az + PATCH / 2, 26);
       const score =
-        openCells - (maxH - minH) * 2 - r * 0.4 + (adjoins ? 60 : 0) + Math.min(density, 5) * 8 - builtCells * 1.6;
+        openCells - (maxH - minH) * 2 - r * 0.5 + (adjoins ? 60 : 0) + Math.min(density, 5) * 8 - builtCells * 1.6;
       if (!best || score > best.score) best = { x: ax, z: az, score };
       // a fully qualified site is open AND wholly inside its territory,
       // so validation never trims the blueprint at a wedge border
@@ -294,7 +314,7 @@ export class Architect {
         hr.push(h - groundY);
         const t = this.field.typeAt(x, h - 1, z);
         const taken = isGeology(t) || isAgentMaterial(t);
-        const offZone = zoneOf(x, z) !== zone && !this.plan.isCommonGround(x, z);
+        const offZone = zoneOf(x, z) !== zone && !this.plan.isCommonGround(x, z) && !this.plan.isDistrictGround(x, z);
         br.push(taken || offZone ? 1 : 0);
       }
       heights.push(hr);
@@ -364,7 +384,7 @@ export class Architect {
       const z = site.anchorZ + lz;
       const y = site.groundY + ly;
       if (y < 1 || y >= MAXY - 2) continue;
-      if (zoneOf(x, z) !== site.zone && !this.plan.isCommonGround(x, z)) continue;
+      if (zoneOf(x, z) !== site.zone && !this.plan.isCommonGround(x, z) && !this.plan.isDistrictGround(x, z)) continue;
       if (x === this.genesisCell.x && z === this.genesisCell.z) continue;
       if (this.field.isSolid(x, y, z)) continue; // air only, never geology
       if (this.isHollow(x, y, z)) continue; // never inside a burn
@@ -682,32 +702,23 @@ export class Architect {
     return { site, payload: this.payloadFor(site, funded, epoch) };
   }
 
-  // the height the flats give way to the heights: the median of the world's
-  // own surface, sampled once and kept.
-  //
-  // this was the founding stone's column plus five, which is how every site
-  // in the world came back as town register — the genesis cell has a
-  // monument standing on it, so topAt there reports the top of the monument
-  // (24) and no site on the hillside (7 to 14) could clear it. measure the
-  // GROUND, and measure it everywhere, not at the one cell guaranteed to
-  // have a building on it.
+  // THE REGISTER FOLLOWS THE PLAN, NOT THE CONTOUR. deciding it from raw
+  // altitude looked equivalent and was not: the platform LEVELS a site
+  // before its groundY is read, and the siting bonuses pull every candidate
+  // toward the plaza, which sits on the flats — so twenty-two consecutive
+  // sites came back "town" and the temple precinct the plan had chosen on
+  // the heights was never built in at all. the plan already knows which
+  // district a point belongs to; that is the answer.
   private registerOf(site: Site): "temple" | "town" {
-    return site.groundY <= this.flatsLine() ? "town" : "temple";
+    const q = this.plan.quarterOf(site.anchorX + PATCH / 2, site.anchorZ + PATCH / 2);
+    // the civic core is formal: the plaza builds in the temple register
+    return q === "quarter" ? "town" : "temple";
   }
+
   // a street gets a bigger allowance than a hall, because it is a bigger
   // object made of smaller parts
   private capFor(site: Site): number {
     return this.registerOf(site) === "town" ? RULES.crewBudgetTownMax : RULES.crewBudgetMax;
-  }
-
-  private flatsY?: number;
-  private flatsLine(): number {
-    if (this.flatsY !== undefined) return this.flatsY;
-    const h: number[] = [];
-    for (let x = 8; x < GRID - 8; x += 4) for (let z = 8; z < GRID - 8; z += 4) h.push(this.field.topAt(x, z));
-    h.sort((a, b) => a - b);
-    this.flatsY = h.length ? h[Math.floor(h.length / 2)] : 8;
-    return this.flatsY;
   }
 
   // everything the brain is told about a site, in ONE place.
