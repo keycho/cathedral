@@ -126,6 +126,12 @@ export class Mason {
   get current(): { bp: Blueprint | null; cursor: number } {
     return { bp: this.queue[0] ?? null, cursor: this.cursor };
   }
+  // what the crew could not reach on this pass. a review number rather than
+  // a mechanism: "deferred, never dropped" is only a claim until something
+  // can be seen going into the deferral and coming back out of it.
+  get stranded(): { waiting: number; passes: number; reaching: boolean } {
+    return { waiting: this.deferred.length, passes: this.deferPass, reaching: this.reachAnyway };
+  }
   get status(): string {
     if (this.repairs.length) return `mason: repairing ${this.repairs.length}`;
     const bp = this.queue[0];
