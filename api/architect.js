@@ -40,6 +40,54 @@ respond with ONLY a json object, no prose. blocks are COMPACT ARRAYS, [x, y, z, 
 // fallback. give it room.
 export const maxDuration = 300;
 
+// how the request is shaped, in one place, because two rounds of guessing
+// at thinking knobs cost more than measuring would have.
+//
+// the model reasons ITSELF out of a response if you let it: at the default
+// depth it spent all twelve thousand tokens thinking and returned a message
+// whose only content block was the thought. thinking still earns its place
+// here — massing a building before writing coordinates is exactly what it is
+// for — it just has to leave room for the plan underneath it.
+//
+// low is that setting. the design quality lives in the bible and in the
+// model's eye for a building, not in the length of its deliberation, and a
+// six hundred block plan is mostly the patient emission of coordinates.
+const DEPTH = "low";
+const CEILING = 20000;
+
+async function ask(key, system, user, { think, effort, ceiling }) {
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-5",
+      // this model has no budget_tokens at all — it is rejected outright,
+      // and so is thinking.type "enabled". adaptive or disabled, and the
+      // depth comes from effort.
+      thinking: think ? { type: "adaptive" } : { type: "disabled" },
+      output_config: { effort },
+      max_tokens: ceiling,
+      system,
+      // NO assistant prefill: this model rejects a conversation that ends
+      // on an assistant turn. the bible asks for bare json instead and the
+      // extraction below tolerates a stray fence or sentence.
+      messages: [{ role: "user", content: user }],
+    }),
+  });
+  if (!r.ok) return { httpError: (await r.text()).slice(0, 300), status: r.status };
+  const data = await r.json();
+  const parts = data?.content ?? [];
+  return {
+    data,
+    text: parts.map((c) => (c?.type === "text" ? c.text ?? "" : "")).join(""),
+    kinds: parts.map((c) => c?.type ?? "?").join(","),
+  };
+}
+
 let lastCall = 0;
 
 export default async function handler(req, res) {
@@ -74,46 +122,31 @@ export default async function handler(req, res) {
       `design one blueprint for this site.`,
     ].join("\n");
 
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-5",
-        // THIS is what made every architect call a fallback. extended
-        // thinking is on by default and it is not free of the output
-        // budget: the model spent the ENTIRE allowance thinking and
-        // returned a response whose only content block was a thinking
-        // block, no text, no json. measured: output_tokens 8000, of which
-        // thinking_tokens 8000. raising the ceiling only bought it more
-        // room to think.
-        //
-        // thinking is worth having here — massing a building before writing
-        // coordinates is exactly what it helps with — it just has to leave
-        // room for the plan. on this model there is no budget_tokens (it is
-        // rejected outright); depth is set by effort, and medium is the
-        // setting that thinks about the massing and then stops.
-        thinking: { type: "adaptive" },
-        output_config: { effort: "medium" },
-        max_tokens: 12000,
-        system: BIBLE,
-        // NO assistant prefill: this model rejects a conversation that ends
-        // on an assistant turn. the bible asks for bare json instead and the
-        // extraction below tolerates a stray fence or sentence.
-        messages: [{ role: "user", content: user }],
-      }),
-    });
-    if (!r.ok) {
-      const detail = await r.text();
-      res.status(502).json({ error: "anthropic api error", detail: detail.slice(0, 300) });
+    // the tuning hatch. it stays for the same reason the water shader kept
+    // its channel switch: reasoning about why a design came back empty from
+    // the outside cost far more than measuring it from the inside did.
+    const tune = req.body?.tune ?? {};
+    const shape = {
+      think: tune.think !== "off",
+      effort: tune.effort ?? DEPTH,
+      ceiling: Math.min(24000, tune.ceiling ?? CEILING),
+    };
+
+    let out = await ask(key, BIBLE, user, shape);
+    let recovered = false;
+    // the architect runs unattended in a live world, so it has to survive
+    // its own deliberation: if the whole budget went to thinking, ask again
+    // with the thinking off rather than hand the world a scripted fallback
+    // and say nothing about why.
+    if (!out.httpError && !out.text.trim() && out.data?.stop_reason === "max_tokens") {
+      out = await ask(key, BIBLE, user, { ...shape, think: false });
+      recovered = true;
+    }
+    if (out.httpError) {
+      res.status(502).json({ error: "anthropic api error", detail: out.httpError });
       return;
     }
-    const data = await r.json();
-    const blocks = data?.content ?? [];
-    const text = blocks.map((c) => (c?.type === "text" ? c.text ?? "" : "")).join("");
+    const { data, text } = out;
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
     if (start < 0 || end <= start) {
@@ -123,7 +156,9 @@ export default async function handler(req, res) {
       res.status(502).json({
         error: "no json in response",
         stop: data?.stop_reason ?? "?",
-        kinds: blocks.map((c) => c?.type ?? "?").join(","),
+        kinds: out.kinds,
+        shape,
+        recovered,
         usage: data?.usage ?? null,
         detail: text.slice(0, 300),
       });
@@ -152,6 +187,8 @@ export default async function handler(req, res) {
     }
     parsed.usage = data?.usage ?? null;
     parsed.stop = data?.stop_reason ?? null;
+    parsed.shape = shape;
+    parsed.recovered = recovered;
     res.status(200).json(parsed);
   } catch (e) {
     res.status(500).json({ error: String(e && e.message ? e.message : e).slice(0, 200) });
