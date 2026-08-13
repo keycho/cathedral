@@ -455,6 +455,11 @@ export class Architect {
     this.lastDropped = 0;
     if (Array.isArray(raw?.parts) && raw.parts.length) {
       const b = new Build();
+      // parts skipped because they were too big to be the FIRST thing built.
+      // they are dropped too, and counting them into the tail below would
+      // add the whole remaining list once per skip.
+      let skippedLead = 0;
+      let cut = false;
       // THE BUDGET CUTS WHOLE PARTS, NOT LAYERS. cutting the cell list at
       // the budget looked reasonable and was not: the kit hands back cells
       // sorted foundations-first, so a design whose grounds alone spent the
@@ -476,7 +481,7 @@ export class Architect {
           // count the WHOLE tail, not the one part we stopped on. reporting
           // "dropped 1" for a design that lost its roof, its finial and
           // eleven other parts is a review tool lying to the reviewer.
-          this.lastDropped += raw.parts.length - raw.parts.indexOf(entry);
+          const tail = raw.parts.length - raw.parts.indexOf(entry);
           // A DESIGN IS CUT, NOT SIEVED. skipping the parts that do not fit
           // and carrying on sounds gentler and produces incoherent
           // buildings: one composition lost its podium and both its roofs —
@@ -490,11 +495,17 @@ export class Architect {
           // the one exception is a design whose very first part is already
           // too big. cutting there builds nothing at all, so keep looking
           // until something lands and cut from there.
-          if (b.count > 0) break;
+          if (b.count > 0) {
+            this.lastDropped = tail + skippedLead;
+            cut = true;
+            break;
+          }
+          skippedLead++;
           continue;
         }
         b.add(call.c, part);
       }
+      if (!cut) this.lastDropped = skippedLead;
       this.lastManifest = b.manifest;
       return b.ordered;
     }
