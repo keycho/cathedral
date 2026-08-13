@@ -141,7 +141,13 @@ export function plantWoods(
     // autumn, blossom or maple, so more than half the wood came out red or
     // pink and the whole frame read muddy brown. an accent species is now
     // taken by roughly one grove in eight, and never on the heights.
-    const high = y > 12;
+    // THE ALTITUDE THAT MEANS "HIGH" MOVED WITH THE TERRAIN. this was 12
+    // when the world's mean was nine; at the raised amplitude nearly every
+    // grove cleared it, so the lowland list never ran and the accent
+    // species — which are lowland only, by design — dropped to ZERO. a
+    // wood with no blossom and no maple in it is not the mix that was
+    // specified, and nothing in the tree code changed to cause it.
+    const high = y > 20;
     const green = high
       ? TREES.filter((t) => ["conifer", "cedar", "pine", "ancient"].includes(t.name))
       : TREES.filter((t) => ["broadleaf", "weeping", "pine", "ancient"].includes(t.name));

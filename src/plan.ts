@@ -25,7 +25,13 @@
 
 import { GRID } from "./config";
 import { CONCRETEDARK, CONCRETEMID, CONCRETEPALE, EARTH, MEADOW, SCARMOSS, STONE, STONEDARK, isGeology, isGround, isMeadow } from "./palette";
+import { bench, courtFeature, lowWall, paveBed } from "./components/clutter";
 import type { VoxelField } from "./voxels";
+
+function hash2(x: number, y: number): number {
+  const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+  return s - Math.floor(s);
+}
 
 export type Quarter = "plaza" | "precinct" | "quarter";
 
@@ -354,6 +360,7 @@ export class UrbanPlan {
       }
     }
     if (!kept) return { kept, grassed };
+    this.furnishCourt(kx0, kz0, kx1, kz1, columns);
     // the retaining edge moves with the court
     const skirtY = this.field.topAt((kx0 + kx1) >> 1, (kz0 + kz1) >> 1);
     const skirt = (gx: number, gz: number) => {
@@ -365,6 +372,61 @@ export class UrbanPlan {
     for (let gx = kx0 - 1; gx <= kx1 + 1; gx++) for (const gz of [kz0 - 1, kz1 + 1]) skirt(gx, gz);
     for (let gz = kz0 - 1; gz <= kz1 + 1; gz++) for (const gx of [kx0 - 1, kx1 + 1]) skirt(gx, gz);
     return { kept, grassed };
+  }
+
+  // A COURT OVER ABOUT EIGHT BLOCKS IS A SLAB whatever it is made of. the
+  // trim leaves an open area around a work and open paving at that size is
+  // exactly the grey apron the trim was meant to stop — smaller, but still
+  // flat, still empty, still the thing the eye slides off.
+  //
+  // this is laid by RULE rather than designed, because the thing that knows
+  // a court is too big is the thing that laid it, and the architect is not
+  // in the room by the time the footprint is known. it goes only where the
+  // work itself put nothing, so it can never land on a design.
+  private furnishCourt(x0: number, z0: number, x1: number, z1: number, columns: Set<number>): void {
+    const w = x1 - x0 + 1;
+    const d = z1 - z0 + 1;
+    if (w < 9 && d < 9) return;
+    const free = (gx: number, gz: number, r = 1) => {
+      for (let dx = -r; dx <= r; dx++) {
+        for (let dz = -r; dz <= r; dz++) {
+          if (columns.has((gx + dx) * GRID + (gz + dz))) return false;
+        }
+      }
+      return true;
+    };
+    const put = (part: { dx: number; dy: number; dz: number; m: number }[], ax: number, az: number) => {
+      const y = this.field.topAt(ax, az);
+      for (const c of part) {
+        const gx = ax + c.dx;
+        const gz = az + c.dz;
+        if (gx < 4 || gx >= GRID - 4 || gz < 4 || gz >= GRID - 4) continue;
+        if (columns.has(gx * GRID + gz)) continue;
+        if (c.dy === 0) this.field.breakAt(gx, y - 1, gz);
+        this.field.placeAt(gx, y + c.dy - (c.dy === 0 ? 1 : 0), gz, c.m);
+      }
+    };
+    const seed = (x0 * 31 + z0 * 17) | 0;
+    // the thing in the middle, wherever the middle happens to be clear
+    const cx = (x0 + x1) >> 1;
+    const cz = (z0 + z1) >> 1;
+    for (let attempt = 0; attempt < 24; attempt++) {
+      const ax = cx + Math.round((hash2(seed, attempt) - 0.5) * w * 0.5);
+      const az = cz + Math.round((hash2(attempt, seed) - 0.5) * d * 0.5);
+      if (!free(ax, az, 3)) continue;
+      put(courtFeature(seed + attempt), ax, az);
+      break;
+    }
+    // beds and a bench in the corners the work does not reach into
+    for (let k = 0; k < 6; k++) {
+      const ax = x0 + 1 + Math.floor(hash2(seed + k, 3.1) * Math.max(1, w - 6));
+      const az = z0 + 1 + Math.floor(hash2(4.7, seed + k) * Math.max(1, d - 6));
+      if (!free(ax, az, 3)) continue;
+      const roll = hash2(seed + k * 3, 9.3);
+      if (roll < 0.45) put(paveBed(3 + Math.floor(roll * 6), 3, seed + k), ax, az);
+      else if (roll < 0.72) put(bench(4, seed + k), ax, az);
+      else put(lowWall(4 + Math.floor(roll * 5), roll < 0.86 ? "x" : "z", seed + k), ax, az);
+    }
   }
 
   // the commonest green among the columns just outside a patch, so ground

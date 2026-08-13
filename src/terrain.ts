@@ -145,8 +145,8 @@ function greenFor(x: number, z: number, h: number, amp: number): number {
   // base note and the ground still read as felt. sampled over the whole map,
   // macro runs 0.42..0.76 with its median at 0.54 and sun runs -0.29..0.26
   // about zero, so cuts at 0.34 and 0.55 were simply outside the data.
-  if (h <= 6.6 && macro < 0.55) return MEADOWMOSS;
-  if (h >= 10.4) return grain < 0.45 ? MEADOWSAGE : MEADOWPALE;
+  if (h <= 8.5 && macro < 0.55) return MEADOWMOSS;
+  if (h >= 17.5) return grain < 0.45 ? MEADOWSAGE : MEADOWPALE;
   if (sun > 0.09) return grain < 0.7 ? MEADOWOLIVE : MEADOWPALE;
   if (sun < -0.09) return grain < 0.7 ? MEADOWSHADE : MEADOWDEEP;
   if (macro > 0.6) return MEADOWPALE;
@@ -200,8 +200,18 @@ function computeColumn(x: number, z: number): Sample {
 
   // rolling hillside, damped inside the crew's build ring so the basin stays
   // calm and buildable, full amplitude out toward the horizon
-  const amp = 0.45 + 0.55 * sstep(16, 44, dGen);
-  const base = 4 + fractal(x * 0.017 + 31, z * 0.017 + 57) * 9 * amp;
+  // THE WORLD WAS FLAT AT ORBIT. six to ten blocks of mean relief across a
+  // 256 grid is a plate: at any distance the hills stop being hills, the
+  // precinct's "heights" are a metre above the flats, and a wide shot has
+  // no silhouette to read. the amplitude roughly doubles, so the fold the
+  // precinct is found on is genuinely high ground and the horizon has a
+  // shape.
+  //
+  // the basin the crew builds in is damped harder than before rather than
+  // less, because the same multiplier that gives the horizon its shape
+  // would otherwise make the founding ground unbuildable.
+  const amp = 0.34 + 0.66 * sstep(16, 52, dGen);
+  const base = 3 + fractal(x * 0.017 + 31, z * 0.017 + 57) * 21 * amp;
 
   // how far into the world's edge this column sits, needed here and not
   // only at the end: the rim flattens the land, and a crest that keeps its
@@ -213,7 +223,7 @@ function computeColumn(x: number, z: number): Sample {
   let ridgeBoost = 0;
   if (base > 7.2) {
     const r = ridge(x, z);
-    if (r > 0.55) ridgeBoost = (r - 0.55) * 11 * sstep(30, 48, dGen) * (1 - edge);
+    if (r > 0.55) ridgeBoost = (r - 0.55) * 16 * sstep(30, 48, dGen) * (1 - edge);
   }
 
   let h = base + ridgeBoost;

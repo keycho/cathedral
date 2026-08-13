@@ -23,6 +23,7 @@ import * as compose from "./compose";
 import * as temple from "./temple";
 import * as town from "./town";
 import * as trees from "./trees";
+import * as clutter from "./clutter";
 
 // how a parameter is read off the wire. everything is a number on the
 // wire; the kind says what that number means and what a legal one is.
@@ -118,6 +119,18 @@ export const CATALOGUE: Record<string, Entry> = {
   streetlight: { fn: town.streetlight, register: "town", params: [i("h", 3, 12, 7)], note: "a street lamp on a bent arm" },
   vendingMachine: { fn: town.vendingMachine, register: "town", params: [seed()], note: "a lit vending machine" },
   bicycle: { fn: town.bicycle, register: "town", params: [seed()], note: "a parked bicycle" },
+  // ---- eye height, either register ----------------------------------------
+  // what a person standing in the place actually sees. ground-level frames
+  // came back legible and EMPTY: paving, a wall, a hall, nothing between the
+  // camera and the building.
+  bench: { fn: clutter.bench, register: "any", params: [i("len", 2, 9, 4), seed()], note: "a plank bench, with a back if it is long enough to want one" },
+  hangingLanterns: { fn: clutter.hangingLanterns, register: "any", params: [i("len", 3, 24, 9), seed()], note: "paper lanterns strung on a cord at head height, running along x. hung low they read as a street rather than as roof decoration" },
+  threshold: { fn: clutter.threshold, register: "any", params: [i("w", 1, 5, 2), i("h", 2, 5, 3), seed()], note: "a doorway with the room BEHIND it lit, and a noren across the head. the cheapest interior there is, and it says the building is occupied" },
+  brazier: { fn: clutter.brazier, register: "any", params: [seed()], note: "a small bowl on a plinth, lit. something warm at the end of an approach" },
+  lowWall: { fn: clutter.lowWall, register: "any", params: [i("len", 2, 28, 8), axis(), seed()], note: "a knee wall: divides a court without closing it" },
+  stepBank: { fn: clutter.stepBank, register: "any", params: [i("w", 2, 28, 8), axis(), seed()], note: "a change of level across a court. the single most effective thing for stopping paving reading as a slab" },
+  paveBed: { fn: clutter.paveBed, register: "any", params: [i("w", 3, 14, 5), i("d", 3, 14, 4), seed()], note: "a planting bed sunk into paving, kerbed" },
+  courtFeature: { fn: clutter.courtFeature, register: "any", params: [seed()], note: "the thing in the middle of a court: a tree in a ring, a bowl on a plinth, or a lantern with a bed at its foot. place it at the CENTRE of the court, not at a corner" },
   stall: { fn: town.stall, register: "town", params: [i("w", 2, 12, 5), seed()], note: "a lean-to market stall" },
   crates: { fn: town.crates, register: "town", params: [seed()], note: "stacked goods left outside a shop" },
   streetPaving: { fn: town.streetPaving, register: "town", params: [i("w", 2, 29, 8), i("d", 2, 44, 20), seed()], note: "the road surface" },
