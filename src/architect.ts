@@ -192,17 +192,33 @@ export class Architect {
       const ax = cx - PATCH / 2;
       const az = cz - PATCH / 2;
       if (ax < 8 || ax + PATCH >= GRID - 8 || az < 8 || az + PATCH >= GRID - 8) continue;
-      if (zoneOf(cx, cz) !== zone) continue;
+      const common = this.plan.isCommonGround(cx, cz);
+      if (!common && zoneOf(cx, cz) !== zone) continue;
       let minH = Infinity;
       let maxH = 0;
       let openCells = 0;
+      let builtCells = 0;
       for (let dz = 0; dz < PATCH; dz += 3) {
         for (let dx = 0; dx < PATCH; dx += 3) {
           const h = this.field.topAt(ax + dx, az + dz);
           minH = Math.min(minH, h);
           maxH = Math.max(maxH, h);
           const under = this.field.typeAt(ax + dx, h - 1, az + dz);
-          if (!isGeology(under) && !isAgentMaterial(under)) openCells++;
+          // GROUND THE SETTLEMENT ALREADY BUILT IS NOT DISQUALIFYING. it was
+          // lumped in with geology as "not open", which is exactly backwards
+          // for a plan that wants infill: the ring around the founding stone
+          // is the most built part of the world, so every patch near the
+          // centre failed the openness test and siting was pushed outward.
+          // the measured result was a density gradient with a HOLE in it —
+          // nothing at all within twenty blocks of the plaza and the whole
+          // settlement in a band beyond it.
+          //
+          // geology is still unbuildable. the settlement's own fabric counts
+          // as open ground to stand BESIDE, and only heavy coverage is
+          // penalised, because a patch with no room left really is full.
+          if (isGeology(under)) continue;
+          openCells++;
+          if (isAgentMaterial(under)) builtCells++;
         }
       }
       // SITING IS AN ARGUMENT ABOUT THE SETTLEMENT, not a search for the
@@ -218,15 +234,16 @@ export class Architect {
       const adjoins = this.plan.touchesFabric(ax, az, PATCH, PATCH);
       const density = this.plan.densityAt(ax + PATCH / 2, az + PATCH / 2, 26);
       const score =
-        openCells - (maxH - minH) * 2 - r * 0.4 + (adjoins ? 60 : 0) + Math.min(density, 5) * 8;
+        openCells - (maxH - minH) * 2 - r * 0.4 + (adjoins ? 60 : 0) + Math.min(density, 5) * 8 - builtCells * 1.6;
       if (!best || score > best.score) best = { x: ax, z: az, score };
       // a fully qualified site is open AND wholly inside its territory,
       // so validation never trims the blueprint at a wedge border
       const cornersIn =
-        zoneOf(ax, az) === zone &&
-        zoneOf(ax + PATCH - 1, az) === zone &&
-        zoneOf(ax, az + PATCH - 1) === zone &&
-        zoneOf(ax + PATCH - 1, az + PATCH - 1) === zone;
+        common ||
+        (zoneOf(ax, az) === zone &&
+          zoneOf(ax + PATCH - 1, az) === zone &&
+          zoneOf(ax, az + PATCH - 1) === zone &&
+          zoneOf(ax + PATCH - 1, az + PATCH - 1) === zone);
       if (openCells >= probes * 0.72 && cornersIn && (!bestOpen || score > bestOpen.score)) {
         bestOpen = { x: ax, z: az, score };
       }
@@ -277,7 +294,7 @@ export class Architect {
         hr.push(h - groundY);
         const t = this.field.typeAt(x, h - 1, z);
         const taken = isGeology(t) || isAgentMaterial(t);
-        const offZone = zoneOf(x, z) !== zone;
+        const offZone = zoneOf(x, z) !== zone && !this.plan.isCommonGround(x, z);
         br.push(taken || offZone ? 1 : 0);
       }
       heights.push(hr);
@@ -347,7 +364,7 @@ export class Architect {
       const z = site.anchorZ + lz;
       const y = site.groundY + ly;
       if (y < 1 || y >= MAXY - 2) continue;
-      if (zoneOf(x, z) !== site.zone) continue;
+      if (zoneOf(x, z) !== site.zone && !this.plan.isCommonGround(x, z)) continue;
       if (x === this.genesisCell.x && z === this.genesisCell.z) continue;
       if (this.field.isSolid(x, y, z)) continue; // air only, never geology
       if (this.isHollow(x, y, z)) continue; // never inside a burn

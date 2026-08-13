@@ -176,6 +176,21 @@ export class UrbanPlan {
 
   // ---- reading the plan ----------------------------------------------------
 
+  // THE PLAZA IS COMMON GROUND. the three territories are angular wedges
+  // radiating from the world's centre, and the world's centre is the
+  // founding stone — so every patch near the plaza straddles two or three
+  // of them, fails the "wholly inside one territory" test, and cannot be
+  // sited on by anybody. that is why the density gradient came back with a
+  // hole in the middle: not because the plan preferred the edge, but
+  // because the centre was the one place the territory law forbade.
+  //
+  // a civic core cut into three pie slices is not a civic core. inside this
+  // radius the wedges do not apply and any agent may build.
+  static readonly COMMON_R = 24;
+  isCommonGround(x: number, z: number): boolean {
+    return Math.hypot(x - this.plazaX, z - this.plazaZ) <= UrbanPlan.COMMON_R;
+  }
+
   isBuiltGround(x: number, z: number): boolean {
     return this.network.has(key(x, z));
   }
