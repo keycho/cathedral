@@ -165,12 +165,18 @@ export class SmallLife {
     const lo = { x: Math.max(6, bounds?.x0 ?? 6), z: Math.max(6, bounds?.z0 ?? 6) };
     const hi = { x: Math.min(GRID - 6, bounds?.x1 ?? GRID - 6), z: Math.min(GRID - 6, bounds?.z1 ?? GRID - 6) };
     const report: LifeReport = { props: 0, laundry: 0, boats: 0, smoke: 0 };
-    const wallAt = (x: number, z: number): number => {
-      const y = field.topAt(x, z);
-      for (let dy = 0; dy < 4; dy++) {
-        if (field.isSolid(x, y + dy, z) && isAgentMaterial(field.typeAt(x, y + dy, z))) return y + dy;
-      }
-      return -1;
+    // A WALL IS THE TOP OF THE COLUMN NEXT DOOR, not the air above it.
+    // topAt returns the first EMPTY cell, so scanning upward from it checked
+    // the sky and found no wall anywhere in the settlement: the first
+    // measurement came back props 0, laundry 0, boats 0 with a street block
+    // and a gate standing in the frame.
+    //
+    // a neighbour counts as something to lean against when its own surface
+    // is at least two blocks above this ground and the crew built it.
+    const wallAt = (x: number, z: number, ground: number): number => {
+      const top = field.topAt(x, z) - 1;
+      if (top < ground + 1) return -1;
+      return isAgentMaterial(field.typeAt(x, top, z)) ? top : -1;
     };
 
     for (let x = lo.x; x < hi.x; x++) {
@@ -182,9 +188,10 @@ export class SmallLife {
           [1, 0], [-1, 0], [0, 1], [0, -1],
         ] as const;
         let against = false;
-        for (const [dx, dz] of nb) if (wallAt(x + dx, z + dz) >= 0) against = true;
+        const g = field.topAt(x, z);
+        for (const [dx, dz] of nb) if (wallAt(x + dx, z + dz, g) >= 0) against = true;
         if (!against) continue;
-        const y = field.topAt(x, z);
+        const y = g;
         const pick = PROPS[Math.floor(hash2(x * 5.3, z * 2.9) * PROPS.length) % PROPS.length];
         for (const c of pick((x * 31 + z) | 0)) {
           const gx = x + c.dx;
@@ -201,13 +208,18 @@ export class SmallLife {
     for (let x = lo.x + 2; x < hi.x - 2; x += 2) {
       for (let z = lo.z + 2; z < hi.z - 2; z += 2) {
         if (hash2(x * 1.7, z * 9.1) > 0.03) continue;
-        const a = wallAt(x, z);
+        // the ground BETWEEN them, not the wall's own column — passing the
+        // wall its own height makes the "is it tall enough" test trivially
+        // true, and the first run strung 34 lines across the roads at ankle
+        // height because every paving stone counted as a wall.
+        const floor = field.topAt(x + 2, z + 2);
+        const a = wallAt(x, z, floor + 3);
         if (a < 0) continue;
         for (const [dx, dz] of [[1, 0], [0, 1]] as const) {
           for (let gap = 3; gap <= 7; gap++) {
             const bx = x + dx * gap;
             const bz = z + dz * gap;
-            const b = wallAt(bx, bz);
+            const b = wallAt(bx, bz, floor + 3);
             if (b < 0) continue;
             const y = Math.min(a, b) - 1;
             if (y < 2) break;
