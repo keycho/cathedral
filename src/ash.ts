@@ -15,6 +15,26 @@ const FALL_MIN = 0.12; // u/s - seeds hang, they don't fall
 const FALL_VAR = 0.22;
 const SWAY = 0.65; // lateral drift amplitude, u/s - gusts carry them
 
+// one soft dot, shared by every layer. built once: a 32px radial falloff is
+// the difference between a petal and a postage stamp.
+let DOT: THREE.Texture | null = null;
+function softDot(): THREE.Texture {
+  if (DOT) return DOT;
+  const cv = document.createElement("canvas");
+  cv.width = 32;
+  cv.height = 32;
+  const g = cv.getContext("2d")!;
+  const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, "rgba(255,255,255,1)");
+  grad.addColorStop(0.45, "rgba(255,255,255,0.72)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 32, 32);
+  DOT = new THREE.CanvasTexture(cv);
+  DOT.colorSpace = THREE.SRGBColorSpace;
+  return DOT;
+}
+
 export class AshDrift {
   readonly points: THREE.Points;
   private pos: Float32Array;
@@ -37,13 +57,22 @@ export class AshDrift {
     this.geo = new THREE.BufferGeometry();
     this.geo.setAttribute("position", new THREE.BufferAttribute(this.pos, 3));
     this.geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), BOX_W); // recentered each frame
+    // A POINT WITHOUT A MAP IS A SQUARE. these read as large white
+    // rectangles flashing across the sky rather than as anything drifting,
+    // and the shape was the whole of it: an untextured point sprite is a
+    // hard-edged quad, so at any size near the camera it is a card. a soft
+    // radial alpha turns the same particle into something with no edge at
+    // all, which is what lets it be a petal.
     const mat = new THREE.PointsMaterial({
       color,
       size,
+      map: softDot(),
+      alphaMap: softDot(),
       sizeAttenuation: true,
       transparent: true,
       opacity,
       depthWrite: false,
+      blending: THREE.NormalBlending,
     });
     this.points = new THREE.Points(this.geo, mat);
     this.points.frustumCulled = false;

@@ -987,9 +987,14 @@ scene.add(glow);
 // the air is layered: seeds tumbling close by, motes catching the light in
 // the middle distance, faint specks drifting far out over the mass. all
 // three ride the same wind at their own speeds.
-const ashLayers: AshDrift[] = [new AshDrift(scene, wind, 1.0, 0.1, 0.5, SWATCH.petal)];
-if (quality.driftLayers > 1) ashLayers.push(new AshDrift(scene, wind, 0.55, 0.055, 0.34, SWATCH.bloomCream));
-if (quality.driftLayers > 2) ashLayers.push(new AshDrift(scene, wind, 0.3, 0.03, 0.2, SWATCH.haze));
+// SMALLER, PINKER, FAINTER. the near layer was 0.1 across in cream at half
+// opacity, which against a golden sky is a white card — the layer named
+// "petal" was the one reading least like one. the sizes come down, the near
+// layer takes an actual blossom pink, and the opacities drop so the air
+// reads as something drifting through it rather than as objects in it.
+const ashLayers: AshDrift[] = [new AshDrift(scene, wind, 1.0, 0.055, 0.34, 0xefb9c6)];
+if (quality.driftLayers > 1) ashLayers.push(new AshDrift(scene, wind, 0.55, 0.035, 0.22, SWATCH.bloomCream));
+if (quality.driftLayers > 2) ashLayers.push(new AshDrift(scene, wind, 0.3, 0.022, 0.14, SWATCH.haze));
 
 // ---------------------------------------------------------------------------
 // seeing: orbit rig (default) + first-person walker (click to enter)

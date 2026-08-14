@@ -75,14 +75,24 @@ export class Weather {
 
     // the seasonal drift: petals in spring, leaves in autumn. same mesh,
     // different colour, because it is the same motion.
+    // A PETAL IS NOT A CARD. these came back as large white rectangles
+    // flashing across the sky, and every cause was separate:
+    //
+    //  - a fifth of a block square, uniform, is a postcard at ten metres
+    //  - the palette pass desaturated blossom to 0xd6b5b8, and a basic
+    //    material is UNLIT, so that grey-pink renders at full value against
+    //    a golden sky, which is white
+    //  - they spun about the vertical only, so each one swung broadside then
+    //    edge-on twice a second: the flash was the geometry turning
+    //  - 0.9 opacity makes each one an object rather than a drift
     const driftMat = new THREE.MeshBasicMaterial({
-      color: SWATCH.blossom,
+      color: PETAL_SPRING,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.5,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
-    this.drift = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.2, 0.2), driftMat, 420);
+    this.drift = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.09, 0.075), driftMat, 420);
     this.drift.count = 0;
     this.drift.frustumCulled = false;
     scene.add(this.drift);
@@ -183,15 +193,29 @@ export class Weather {
     // autumn whatever the sky is doing
     const drifting = this.season === "spring" || this.season === "autumn";
     const dn = drifting ? 420 : 0;
+    // the unlit colours are chosen for how they land under the grade, not
+    // for how they read on a swatch: the lit swatches go pale and wash out
     (this.drift.material as THREE.MeshBasicMaterial).color.setHex(
-      this.season === "spring" ? SWATCH.blossom : SWATCH.tile
+      this.season === "spring" ? PETAL_SPRING : PETAL_AUTUMN
     );
     for (let i = 0; i < dn; i++) {
       const s0 = this.seed[i * 4];
       const s1 = this.seed[i * 4 + 1];
       const s2 = this.seed[i * 4 + 2];
+      const s3 = this.seed[i * 4 + 3];
       const drop = (this.t * 1.1 + s1 * 24) % 24;
-      this.q.setFromAxisAngle(_up, yaw + this.t * 0.7 + s2 * 6);
+      // a TUMBLE, not a spin. turning about one axis swings a flat quad
+      // broadside then edge-on on a fixed beat, which the eye reads as
+      // blinking; three axes at three rates never repeats and reads as
+      // something light falling.
+      _e.set(
+        this.t * (0.5 + s3) + s0 * 6,
+        yaw + this.t * (0.35 + s1 * 0.6) + s2 * 6,
+        this.t * (0.4 + s2 * 0.8) + s1 * 6
+      );
+      this.q.setFromEuler(_e);
+      // and a spread of sizes: one size for every petal is confetti
+      const sc = 0.55 + s3 * 1.15;
       this.m.compose(
         _t.set(
           this.p.x + (s0 - 0.5) * box + Math.sin(this.t * 0.9 + s2 * 7) * 2.2 + wx * drop * 0.5,
@@ -199,7 +223,7 @@ export class Weather {
           this.p.z + (s2 - 0.5) * box + wz * drop * 0.5
         ),
         this.q,
-        this.v.set(1, 1, 1)
+        this.v.set(sc, sc, sc)
       );
       this.drift.setMatrixAt(i, this.m);
     }
@@ -230,4 +254,10 @@ export class Weather {
 const _up = new THREE.Vector3(0, 1, 0);
 const _t = new THREE.Vector3();
 const _d = new THREE.Vector3();
+const _e = new THREE.Euler();
+// the drift's own two colours. deliberately NOT the lit swatches: this
+// material ignores the light, so a swatch tuned to be lit renders at full
+// value and goes white against a golden sky.
+const PETAL_SPRING = 0xefb9c6; // pale pink, a petal
+const PETAL_AUTUMN = 0xc07a3c; // a turned leaf
 void GRID;
