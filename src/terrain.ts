@@ -18,7 +18,13 @@ import {
   MEADOWPALE,
   MEADOWSAGE,
   MEADOWSHADE,
+  CLAY,
   CLIFF,
+  GRASSDRY,
+  GRAVEL,
+  LICHEN,
+  SAND,
+  SCREE,
   SCARMOSS,
   STILLWATER,
   SWATCH,
@@ -86,9 +92,17 @@ export const CRATERS = [
   { x: CX + 16, z: CZ + 96, r: 13, d: 5 },
 ];
 // stillwater basins: shallow bowls holding water at a fixed level
+// WATER HAS TO BE VISIBLE FROM MORE THAN TWO PLACES. two bowls of twelve
+// and ten blocks across a 256 grid is 0.8% of the surface — from orbit it
+// was a dark speck, and from most of the map there was no water in frame at
+// all. five reaches now, wider, at spread bearings and altitudes, so a wide
+// shot almost always has one catching the sky.
 export const BASINS = [
-  { x: CX - 70, z: CZ + 70, r: 12, wl: 4 },
-  { x: CX + 84, z: CZ - 44, r: 10, wl: 4 },
+  { x: CX - 74, z: CZ + 66, r: 21, wl: 4 },
+  { x: CX + 84, z: CZ - 44, r: 17, wl: 4 },
+  { x: CX + 38, z: CZ + 92, r: 15, wl: 3 },
+  { x: CX - 96, z: CZ - 52, r: 14, wl: 5 },
+  { x: CX + 8, z: CZ - 88, r: 12, wl: 4 },
 ];
 
 // how far into the world's edge a column sits: 0 interior -> 1 at the rim.
@@ -129,15 +143,54 @@ function ridge(x: number, z: number): number {
 // the slope is read off the base fractal directly rather than off
 // neighbouring columns: sampleColumn memoises exactly one column, so asking
 // it about a neighbour mid-computation would thrash it.
-function greenFor(x: number, z: number, h: number, amp: number): number {
-  const at = (px: number, pz: number) => fractal(px * 0.017 + 31, pz * 0.017 + 57) * 9 * amp;
-  const gx = at(x + 2, z) - at(x - 2, z);
-  const gz = at(x, z + 2) - at(x, z - 2);
+// THE SURFACE, not the shade of grass. every rule in the old classifier
+// chose between greens, so whatever the greens were the ground came back
+// four fifths green: a slope steep enough to shed its soil was grassed, a
+// ridge crown was grassed, a cut bank was grassed, a shoreline was grassed.
+//
+// grass is now what is left AFTER the ground has been asked whether it can
+// hold any. the questions are the ones a hillside actually answers —
+// gradient first, then altitude, then water, then aspect — and only a
+// column that survives all four gets to pick a green.
+function surfaceFor(x: number, z: number, h: number, amp: number, nearWater: boolean): number {
+  const at = (px: number, pz: number) => fractal(px * 0.017 + 31, pz * 0.017 + 57) * 21 * amp;
+  // a wide baseline: the height field is rounded to whole blocks, so a
+  // gradient measured across two cells quantises into four values and every
+  // threshold lands either on all of it or none
+  const gx = (at(x + 4, z) - at(x - 4, z)) / 8;
+  const gz = (at(x, z + 4) - at(x, z - 4)) / 8;
+  const slope = Math.hypot(gx, gz);
+  const grain = hash2(x * 0.9 + 3, z * 1.1 + 7);
+  const macro = fractal(x * 0.008 + 917, z * 0.008 + 431);
+
+  // 1. WATER'S EDGE. fine ground where it meets the shore, coarse just up
+  // the bank — the one transition every landscape has and this one had none
+  // of: the meadow ran straight into the jade.
+  if (nearWater) return grain < 0.55 ? SAND : GRAVEL;
+
+  // 2. GRADIENT. past about a third of a block of fall per block of run,
+  // soil does not stay: bare stone high up, loose scree just below a crest,
+  // exposed clay on a lowland cut bank.
+  if (slope > 0.34) return h > 15 ? CLIFF : grain < 0.5 ? CLAY : SCREE;
+  if (slope > 0.22) return h > 17 ? SCREE : grain < 0.4 ? CLAY : GRASSDRY;
+
+  // 3. ALTITUDE. a crown is thin ground whatever its gradient.
+  if (h >= 18) return grain < 0.55 ? SCREE : LICHEN;
+
+  // 4. ASPECT. the sun bakes one side to ochre and leaves the other in the
+  // damp; the north face carries lichen rather than grass.
+  const sun = -gx * 0.8 - gz * 0.3;
+  if (sun > 0.05 && macro > 0.5) return grain < 0.72 ? GRASSDRY : MEADOWSAGE;
+  if (sun < -0.06 && h > 13) return grain < 0.35 ? LICHEN : MEADOWSHADE;
+
+  return greenFor(h, amp, gx, gz, macro, grain);
+}
+
+function greenFor(h: number, amp: number, gx: number, gz: number, macro: number, grain: number): number {
   // the identity light comes from the west and low, so a face with a
   // negative x gradient is the one turned into it
   const sun = -gx * 0.8 - gz * 0.3;
-  const macro = fractal(x * 0.008 + 917, z * 0.008 + 431);
-  const grain = hash2(x * 0.9 + 3, z * 1.1 + 7);
+  void amp;
 
   // THE THRESHOLDS ARE THE MEASURED QUANTILES, not round numbers. the first
   // set was guessed against distributions that were never checked and four
@@ -227,7 +280,14 @@ function computeColumn(x: number, z: number): Sample {
   }
 
   let h = base + ridgeBoost;
-  let top = greenFor(x, z, base, amp);
+  // is this column within a couple of blocks of open water — the basins are
+  // the only standing water in the world and they know their own radius
+  let shore = false;
+  for (const bb of BASINS) {
+    const d = Math.hypot(x - bb.x, z - bb.z);
+    if (d >= bb.r * 0.78 && d < bb.r * 0.78 + 3.5) shore = true;
+  }
+  let top = surfaceFor(x, z, base, amp, shore);
   let water = false;
 
   // craters: a mossy bowl with a raised lip
@@ -259,7 +319,11 @@ function computeColumn(x: number, z: number): Sample {
       } else {
         const t = sstep(core, b.r * 1.6, d);
         h = (b.wl + 2) * (1 - t) + h * t;
-        if (t < 0.5) top = EARTH; // the bank
+        // THE BANK IS THE SHORELINE. it was earth, which overwrote the
+        // sand and gravel the surface classifier had just chosen — the
+        // shore band came back 0% of the map because the basin painted
+        // over it two rules later.
+        if (t < 0.5) top = hash2(x * 2.3, z * 3.1) < 0.55 ? SAND : GRAVEL;
       }
     }
   }
@@ -279,7 +343,7 @@ function computeColumn(x: number, z: number): Sample {
   // the founding plaza: flat ground for the stone and the crew's yard
   const plaza = sstep(14, 26, dGen);
   h = PLAZA_H * (1 - plaza) + h * plaza;
-  if (dGen < 14) top = greenFor(x, z, base, amp);
+  if (dGen < 14) top = surfaceFor(x, z, base, amp, false);
 
   // exposed rock where the crests actually broke through
   if (ridgeBoost > 1.6 && isMeadow(top)) top = CLIFF;

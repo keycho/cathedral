@@ -25,7 +25,12 @@ import { SWATCH } from "./palette";
 
 const GHOST_MAX = 2600; // an ordinary work is well under this
 const SCAFFOLD_MAX = 900;
-const GHOST_MARK = 0.34; // the survey mark's size, in blocks
+const GHOST_MARK = 0.3; // the survey mark's size, in blocks
+// and only every third one is drawn. the marks are for reading a SHAPE at
+// distance, and a shape does not need every cell of a two thousand block
+// hall to be dotted — at full density fourteen hundred of them fill the
+// frame however small and however faint each one is.
+const GHOST_STRIDE = 3;
 
 function box(): THREE.BoxGeometry {
   return new THREE.BoxGeometry(1, 1, 1);
@@ -44,9 +49,13 @@ export class WorkSite {
     // a two thousand block work is a solid mass of lines. a flat translucent
     // shell reads as "a thing that is coming" and stays legible at distance.
     const ghostMat = new THREE.MeshBasicMaterial({
-      color: SWATCH.glasslight,
+      // NOT WHITE AND NOT BRIGHT. a basic material ignores the light, so a
+      // near-white ghost is full-bright against a dark building at golden
+      // hour and blows out whatever it covers. a cool blue-grey reads as
+      // "drawn, not yet built" and sits UNDER the architecture in value.
+      color: SWATCH.bounceShade,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.3,
       depthWrite: false,
       side: THREE.FrontSide,
     });
@@ -114,6 +123,7 @@ export class WorkSite {
         left.has(key(c.x, c.y, c.z + 1)) &&
         left.has(key(c.x, c.y, c.z - 1));
       if (buried) continue;
+      if (i % GHOST_STRIDE !== 0) continue;
       // AND EACH MARK IS SMALL. culling the buried cells barely helped,
       // because a voxel building is mostly shell already — the near wall,
       // the far wall and the roof still stack three deep along the view ray

@@ -24,6 +24,26 @@ export interface WoodsReport {
 
 // a deterministic shuffle of candidate points, so a world's woods are the
 // same woods every boot
+// a smooth field, so "which district" changes slowly across the map rather
+// than per grove. hash2 alone is white noise and white noise cannot cluster.
+function smooth2(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+function value2(x: number, y: number): number {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const u = smooth2(x - xi);
+  const v = smooth2(y - yi);
+  const a = hash2(xi, yi);
+  const b = hash2(xi + 1, yi);
+  const c = hash2(xi, yi + 1);
+  const d = hash2(xi + 1, yi + 1);
+  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
+}
+function fractal2(x: number, y: number): number {
+  return value2(x, y) * 0.65 + value2(x * 2.03, y * 2.03) * 0.35;
+}
+
 function hash2(x: number, y: number): number {
   const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
   return s - Math.floor(s);
@@ -151,9 +171,24 @@ export function plantWoods(
     const green = high
       ? TREES.filter((t) => ["conifer", "cedar", "pine", "ancient"].includes(t.name))
       : TREES.filter((t) => ["broadleaf", "weeping", "pine", "ancient"].includes(t.name));
+    // ACCENT IS A REGION, NOT A DICE ROLL. one grove in eight taken at
+    // random scatters colour evenly across the map, which reads as speckle
+    // however few of them there are — the eye finds no block of anything.
+    // a slow field over the world decides instead: where it runs high the
+    // whole district turns, and a second field decides WHICH way, so one
+    // hillside comes out entirely autumn and one grove entirely blossom
+    // while the rest of the world stays green.
+    //
+    // the share is unchanged. it is the distribution that was wrong.
     const accents = TREES.filter((t) => t.accent);
-    const wantAccent = !high && hash2(g * 5.1, 29) < 0.125;
-    const from = wantAccent ? accents : green;
+    const season = fractal2(sx * 0.011 + 41, sz * 0.011 + 17);
+    const wantAccent = !high && season > 0.615;
+    let from = green;
+    if (wantAccent && accents.length) {
+      // which accent this district is, held steady across the whole of it
+      const which = Math.floor(fractal2(sx * 0.007 + 300, sz * 0.007 + 700) * accents.length * 0.999);
+      from = [accents[Math.min(accents.length - 1, which)]];
+    }
     pick = from[Math.floor(hash2(g * 2.9, 13) * from.length) % from.length];
 
     const count = 6 + Math.floor(hash2(g, 17) * 9);

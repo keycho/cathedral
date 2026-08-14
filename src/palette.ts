@@ -38,6 +38,17 @@ export const SWATCH = {
   meadowShade: 0x35564a, // the cool side of a fold, blue-green
   meadowSage: 0x7c8760, // dry sage on the ridge crowns
   meadowMoss: 0x2e4726, // deep moss in the hollows
+  // THE GROUND IS NOT ALL GRASS. four fifths of the surface came back green
+  // whatever the greens were, because every rule in the classifier chose
+  // between shades of grass — a hillside steep enough to shed soil was
+  // still grassed, a ridge crown was grassed, a cut bank was grassed, a
+  // water's edge was grassed. these are what grass gives way TO.
+  grassDry: 0xa3934f, // sun-baked ochre grass on the dry slopes
+  scree: 0x8d8578, // loose broken stone below a crest
+  gravel: 0x9a9080, // coarse ground at a water's edge
+  sand: 0xbaa884, // fine ground where water meets shore
+  clay: 0x8a6743, // exposed earth on a cut bank
+  lichen: 0x77856a, // grey-green crust on north faces and old stone
   earth: 0x40382a, // damp forest loam under the grass
   // the cliff is pushed further blue than it looks on a swatch card on
   // purpose: the golden hour's sun is strongly orange, and a neutral grey
@@ -47,7 +58,12 @@ export const SWATCH = {
   cliffDeep: 0x475059, // cliff stone in shadow and at depth
   scarmoss: 0x36502c, // old burns, overgrown dark
   emberseam: 0xc2521c, // rare hot crack near a wound. the one warm geology.
-  stillwater: 0x356b5d, // jade water
+  // WATER SHOULD CATCH THE SKY, not sit in the frame as a dark band. at
+  // 0x356b5d the jade was darker than the meadow around it, so a reach read
+  // as a hole in the ground rather than as a surface with something above
+  // it. lifted and pushed toward the sky's own blue-green; the specular the
+  // water shader lays on top now has something to sit on.
+  stillwater: 0x53927f, // jade water
 
   // flora, drawn from the same ground family
   grass: 0x5b7a36,
@@ -310,6 +326,12 @@ export const MATERIALS: Material[] = [
   { id: 63, key: "meadowmoss", name: "meadow", color: SWATCH.meadowMoss },
   { id: 64, key: "meadowpale", name: "meadow", color: SWATCH.meadowPale },
   { id: 65, key: "meadowdeep", name: "meadow", color: SWATCH.meadowDeep },
+  { id: 66, key: "grassdry", name: "dry grass", color: SWATCH.grassDry },
+  { id: 67, key: "scree", name: "scree", color: SWATCH.scree },
+  { id: 68, key: "gravel", name: "gravel", color: SWATCH.gravel },
+  { id: 69, key: "sand", name: "sand", color: SWATCH.sand },
+  { id: 70, key: "clay", name: "clay", color: SWATCH.clay },
+  { id: 71, key: "lichen", name: "lichen", color: SWATCH.lichen },
 ];
 
 export const MEADOW = 1;
@@ -355,6 +377,15 @@ export const MEADOWSAGE = 62;
 export const MEADOWMOSS = 63;
 export const MEADOWPALE = 64;
 export const MEADOWDEEP = 65;
+export const GRASSDRY = 66;
+export const SCREE = 67;
+export const GRAVEL = 68;
+export const SAND = 69;
+export const CLAY = 70;
+export const LICHEN = 71;
+// the ground that is NOT grass. grass gives way to these on steep gradients,
+// ridge crowns, cut banks and water edges.
+export const BARES = [GRASSDRY, SCREE, GRAVEL, SAND, CLAY, LICHEN] as const;
 // every green the ground may be, so the woods and the plan can ask "is this
 // grass" without naming six constants at each call site
 export const MEADOWS = [MEADOW, MEADOWOLIVE, MEADOWSHADE, MEADOWSAGE, MEADOWMOSS, MEADOWPALE, MEADOWDEEP] as const;
@@ -399,7 +430,7 @@ const AGENT = new Set([
   PAINTOX, PAINTMUSTARD, PAINTTEAL, PAINTCOBALT, PAINTPLUM, SHUTTER, ASPHALT,
   NEONPINK, NEONRED, NEONGREEN, SIGNWHITE,
 ]);
-const GROUND = new Set([...MEADOWS, EARTH, SCARMOSS, CLIFF, CLIFFDEEP, EMBERSEAM]);
+const GROUND = new Set([...MEADOWS, ...BARES, EARTH, SCARMOSS, CLIFF, CLIFFDEEP, EMBERSEAM]);
 
 export function isGeology(id: number): boolean {
   return GEOLOGY.has(id);
