@@ -8,11 +8,13 @@
 //
 // five parts, in this order, and the order is the whole design:
 //
-//   1. GRAIN, first, in the grade — so it is pixelated WITH the image rather
-//      than laid over the top of it as a fine haze on chunky pixels. this is
-//      not in this file: it is in the grade pass, which now runs at the
-//      reduced resolution, which is what "before the pixelation" means in a
-//      chain where the pixelation is the render size.
+//   1. NO GRAIN. it used to be first, in the grade, so it would be pixelated
+//      WITH the image rather than dusted over the top of finished chunky
+//      pixels. that was the right place for it and it still read as noise ON
+//      the picture rather than texture IN it, worst across a flat sky and
+//      dark ground. the treatments below are what carry the signature, and a
+//      treatment that has to be turned down to be bearable is carrying
+//      nothing — so it is gone rather than lowered.
 //   2. PIXELATION. the whole scene renders at a fraction of the output and is
 //      blown back up with no smoothing. this is the primary treatment and it
 //      is also the only one that makes the frame CHEAPER: at divisor three
@@ -66,11 +68,33 @@ const ANCHORS: [string, number][] = [
 // twelve now, as two interleaved ladders — warm for the sun side, cool for
 // the haze and the shade, which is the same split-tone the grade carries —
 // weighted so eight of them land above 0.45.
+// ...and the upper half of that ladder was still WRONG, for a reason the
+// first measurement could not see. it counted how many entries served the
+// busy band and not what colour they were: 0xd9ddd4 is four per cent
+// saturated, so a sky with real chroma in it snapped to a grey plate however
+// many greys were on offer. the band that holds most of the frame is the
+// SKY, and it was being served by neutrals.
+//
+// so the ladder splits. neutrals keep the shadow end, where a frame really
+// is close to colourless, and the light end is a sky ladder taken from the
+// sky's own swatch — the golden horizon at half saturation, its paler steps,
+// and the cool upper air.
 const NEUTRALS = [
-  // the cool ladder: shade, haze, horizon
-  0x1e2229, 0x434a52, 0x6f7880, 0x9aa3a6, 0xbcc2bd, 0xd9ddd4,
-  // the warm ladder: earth in shadow up to the sun's own paper
-  0x3a352e, 0x6b6355, 0x968c79, 0xb5a992, 0xcfc3a6, 0xe6dcc2,
+  0x1e2229, // the deepest shadow the grade reaches
+  0x3a352e, // warm earth in shade
+  0x53585c, // cool mid shadow
+  0x6b6355, // warm mid
+  0x968c79, // the last genuinely neutral step before the light
+];
+
+const SKY = [
+  0x8ea3b8, // cool upper air
+  0xaec6d2, // pale cool sky
+  0xc2c8bd, // day horizon, near neutral by nature
+  0xd9a468, // THE GOLDEN HORIZON ITSELF, 52% saturated
+  0xe0bc86, // a step up from it, still 40%
+  0xdcd5bd, // the warm pale band above the burn
+  0xf0d9a4, // the brightest the sky gets, and still gold rather than white
 ];
 
 type RGB = [number, number, number];
@@ -121,11 +145,12 @@ export function buildPalette(steps = 3): RGB[] {
   const out: RGB[] = [];
   for (const [, hex] of ANCHORS) out.push(...ramp(toRGB(hex), Math.max(1, Math.min(5, steps))));
   for (const n of NEUTRALS) out.push(toRGB(n));
+  for (const n of SKY) out.push(toRGB(n));
   return out;
 }
 
 export function paletteSize(steps = 3): number {
-  return ANCHORS.length * Math.max(1, Math.min(5, steps)) + NEUTRALS.length;
+  return ANCHORS.length * Math.max(1, Math.min(5, steps)) + NEUTRALS.length + SKY.length;
 }
 
 // the palette as hex, so a harness can measure how well it actually covers a

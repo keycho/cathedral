@@ -12,7 +12,7 @@
 export interface Config {
   pixelRatio: number;
   bloom: boolean; // emissive halo
-  grade: boolean; // lut + vignette + grain
+  grade: boolean; // lut + vignette + haze
   haze: boolean; // depth scattering, inside the grade pass
   shadowMapSize: number;
   shadowRadius: number;

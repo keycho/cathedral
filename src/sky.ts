@@ -328,12 +328,35 @@ export class Sky {
     const h = this.canvas.height;
     const g = this.canvas.getContext("2d") as CanvasRenderingContext2D;
     const grad = g.createLinearGradient(0, 0, 0, h);
+    // THE HORIZON WAS BEING REPLACED BY THE FOG COLOUR, and the fog colour
+    // is almost achromatic by design — haze is 0xccd0c5, five per cent
+    // saturation. the old stops handed the bottom THIRTY PER CENT of the
+    // dome to it, and a camera at any ordinary polar angle sees almost
+    // nothing else: measured band by band, the sky's saturation fell from
+    // 0.240 at mid height to 0.106 at the horizon while its brightness went
+    // UP, which is the exact signature of a wash-out.
+    //
+    // the horizon keeps its own colour now. the fog is a destination the
+    // gradient leans toward at the very bottom rather than a lid over the
+    // lower half, and even there it only goes most of the way — a sky that
+    // literally becomes the fog colour has no horizon in it at all.
+    // AND THE SATURATED BAND HAS TO BE WHERE THE CAMERA CAN SEE IT. moving
+    // the horizon colour down the texture to make room fixed nothing and
+    // made it worse: a camera at any ordinary polar angle sees the dome from
+    // roughly its equator UP, so everything past about stop 0.6 is behind the
+    // world and the gold was being painted where nobody stands. measured, the
+    // saturation profile flattened to 0.14 across the whole visible sky.
+    //
+    // the band goes back where it was and is HELD below itself rather than
+    // crushed into fog. the fog is still the destination, at the bottom of
+    // the texture, where it is hidden anyway and only matters for a camera
+    // looking down from the sky realm.
     grad.addColorStop(0.0, css(splitHex(k.top)));
     grad.addColorStop(0.34, css(lerpHex(k.top, k.mid, 0.8)));
     grad.addColorStop(0.485, css(lerpHex(k.mid, k.hor, 0.9)));
-    grad.addColorStop(0.56, css(lerpHex(k.hor, k.fog, 0.7)));
-    grad.addColorStop(0.7, css(splitHex(k.fog)));
-    grad.addColorStop(1.0, css(splitHex(k.fog)));
+    grad.addColorStop(0.60, css(splitHex(k.hor)));
+    grad.addColorStop(0.75, css(lerpHex(k.hor, k.fog, 0.45)));
+    grad.addColorStop(1.0, css(lerpHex(k.hor, k.fog, 0.8)));
     g.fillStyle = grad;
     g.fillRect(0, 0, w, h);
     // the sky burns a little hotter around the sun

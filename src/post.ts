@@ -1,6 +1,6 @@
 // cathedral - the post stack. the world is rendered, then graded, in this
 // order: scene, bloom on the emissives, tone mapping, then one grade pass
-// that carries the look (colour lut, depth haze, vignette, grain). the lut
+// that carries the look (colour lut, depth haze, vignette). the lut
 // is where the painterly unification happens: three grades (day, golden
 // hour, night) built from the palette's own temperature and blended across
 // the sky's cycle, so every material is judged THROUGH the grade rather
@@ -42,12 +42,18 @@ interface Grade {
 // show. the shadows lift higher and stay cool, and the contrast comes off
 // enough that the toe is a value rather than a hole. the warmth stays in
 // the gain, which is where it was moved to and where it belongs.
+// AND THE HERO IS A HALL SEEN FROM FURTHER AWAY. the same fault came back at
+// the scale that matters most: the great work measured 21% of its own frame
+// under 0.10 luma with a darkest pixel of #020205, which is not a dark
+// building, it is an absence of one. the toe lifts again — the tower is
+// dark-tiled, tall and backlit at exactly the hour the stream runs on, and
+// that is the recipe for a silhouette however good the material is.
 const GRADE_GOLDEN: Grade = {
-  lift: [0.038, 0.045, 0.062],
+  lift: [0.056, 0.064, 0.084],
   gain: [1.06, 1.005, 0.945],
   gamma: 0.96,
-  sat: 1.08,
-  contrast: 1.04,
+  sat: 1.1,
+  contrast: 1.0,
 };
 const GRADE_DAY: Grade = {
   lift: [0.012, 0.02, 0.038],
@@ -120,7 +126,13 @@ const GradeShader = {
     cameraNear: { value: 0.1 },
     cameraFar: { value: 500 },
     vignette: { value: 0.35 },
-    grain: { value: 0.035 },
+    // NO GRAIN. it was here to kill a sterile plastic read, and the
+    // stylisation stage now does that job properly — pixelation and a
+    // quantised palette are TEXTURE IN the image, where film grain over a
+    // rendered frame is noise ON it. across a flat sky or dark ground the
+    // difference is obvious and it was the noise. removed rather than
+    // lowered: a treatment that has to be turned down to be tolerable is
+    // not carrying anything.
     uTime: { value: 0 },
     // the valley mist. world position is reconstructed from depth against
     // a camera ray basis main hands us each frame, so mist can pool BY
@@ -159,7 +171,7 @@ const GradeShader = {
     uniform sampler2D lutA;
     uniform sampler2D lutB;
     uniform float lutMix, lutStrength, hazeStrength, hazeStart;
-    uniform float cameraNear, cameraFar, vignette, grain, uTime;
+    uniform float cameraNear, cameraFar, vignette, uTime;
     uniform vec3 hazeColor;
     uniform vec3 mistColor, camPos, rayF, rayR, rayU;
     uniform float mistStrength, mistTop, mistDepth;
@@ -260,10 +272,6 @@ const GradeShader = {
       vec2 q = (vUv - 0.5) * 2.0;
       col *= 1.0 - vignette * dot(q, q) * 0.35;
 
-      // film grain: enough to kill the sterile plastic read, no more
-      float n = fract(sin(dot(vUv * (1.0 + fract(uTime)), vec2(12.9898, 78.233))) * 43758.5453);
-      col += (n - 0.5) * grain;
-
       gl_FragColor = vec4(col, src.a);
     }
   `,
@@ -278,7 +286,7 @@ export class Post {
   private fx: { bloom: boolean; grade: boolean; haze: boolean };
   private scene: THREE.Scene;
   // THE STYLISATION. everything upstream of this pass renders at the reduced
-  // resolution — the scene, the bloom, the grade and its grain — and this is
+  // resolution — the scene, the bloom and the grade — and this is
   // the pass that blows it back up. that is what makes the pixelation cost
   // NEGATIVE: at divisor three the renderer shades a ninth of the pixels it
   // used to, so the primary treatment is also the cheapest frame in the

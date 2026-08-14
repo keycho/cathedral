@@ -177,7 +177,9 @@ scene.add(sun.target);
 
 // shadows are violet-grey, never black: a low ambient in the shadow tint
 // fills what the sun cannot reach, so every frame keeps shape in the dark
-const shadowFill = new THREE.AmbientLight(SWATCH.shadowTint, 0.5);
+// raised, because the one surface a directional fill can never reach is the
+// UNDERSIDE OF AN EAVE — and a pagoda is mostly eaves.
+const shadowFill = new THREE.AmbientLight(SWATCH.shadowTint, 0.68);
 scene.add(shadowFill);
 
 // the sun rides a fixed azimuth; the sky's day script raises and lowers it
@@ -191,13 +193,33 @@ const sky = new Sky(scene, SUN_AZ);
 
 // warm bounce: bright sky light over meadow-green ground fill, so shadows
 // stay soft and painterly instead of harsh
-const hemi = new THREE.HemisphereLight(SWATCH.bounceWarm, SWATCH.meadowDeep, 0.62);
+// raised with the toe. an ambient lifts a dark surface and a lit one by the
+// same amount, which puts a floor under the black without giving the tower
+// back any SHAPE; the hemisphere is proportional to how much sky a face can
+// see, so it separates a tier wall from the eave above it — which is what
+// "tile courses read" actually asks for.
+const hemi = new THREE.HemisphereLight(SWATCH.bounceWarm, SWATCH.meadowDeep, 0.88);
 scene.add(hemi);
 
-// a gentle cool fill from the far side for shape in the shade
-const fill = new THREE.DirectionalLight(SWATCH.bounceCool, 0.14);
+// THE ANTI-KEY, and it was neither anti nor a key. a cool fill from "the far
+// side" was pinned to a fixed position while the sun rides the day script, so
+// most of the cycle it was somewhere between a second key and nothing — and
+// at 0.14 it could not have lifted a shadow either way.
+//
+// this matters most for the ONE THING the whole world is arranged around. the
+// great work is tall, dark-tiled and backlit at the hour the stream runs on,
+// which is the exact recipe for a silhouette: measured on the hero frame, 21%
+// of the tower was under 0.10 luma and 10% under 0.05, with a darkest pixel
+// of #020205 — a hero with no material in it at all.
+//
+// the fill now tracks OPPOSITE the sun every frame, lifted above the horizon
+// so it reaches the undersides of eaves rather than raking across them. it
+// casts no shadows: it is there to put a floor under the dark side, not to
+// add a second set of them.
+const fill = new THREE.DirectionalLight(SWATCH.bounceCool, 0.52);
 fill.position.set(120, 60, 90);
 scene.add(fill);
+scene.add(fill.target);
 
 // the viewer's fill, eased right back now the world carries daylight
 const viewFill = new THREE.DirectionalLight(SWATCH.bounceWarm, 0.16);
@@ -1194,6 +1216,7 @@ let frameNo = 0;
 
 const clock = new THREE.Clock();
 const camDir = new THREE.Vector3();
+const _fillLift = new THREE.Vector3();
 let lastAmbient = 0;
 let ambientLevel = 0.15;
 
@@ -1315,6 +1338,15 @@ function frame() {
   // keep the sun's shadow window centered on the view
   sun.target.position.set(camera.position.x, 0, camera.position.z);
   sun.position.copy(sun.target.position).addScaledVector(sky.light.sunDir, SUN_DIST);
+
+  // and the fill stands opposite it, raised. the sun sits low through the
+  // golden hour, so an anti-key that simply mirrored it would be underground
+  // and light nothing — the y term is a floor, not a reflection.
+  fill.target.position.copy(sun.target.position);
+  fill.position
+    .copy(sun.target.position)
+    .addScaledVector(sky.light.sunDir, -SUN_DIST * 0.8)
+    .add(_fillLift.set(0, SUN_DIST * 0.55, 0));
 
   // the viewer fill rides the camera
   camera.getWorldDirection(camDir);
