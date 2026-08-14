@@ -236,6 +236,16 @@ the diagnosis is not.
   reconciliation catches divergence rather than fraud. proving would mean
   shipping the event log to the browser, which is a different product.
 
+## before launch, and deliberately not tonight
+
+- **the world's edge falls into void.** the rim is terrain tapering into
+  nothing, and it reads two ways: acceptably at orbit, where it makes the
+  world a diorama on a table, and badly from ground level near the coast,
+  where everything below the horizon line is a band of empty grade. it
+  needs an ocean or cloud-sea treatment — a sheet the world stands out of,
+  catching the sky the way the basins already do — before anything public.
+  logged as a standing item so the orbit frames do not keep certifying it.
+
 ## other standing calls
 
 - the world boots aged (50 epochs of simulated history and four finished

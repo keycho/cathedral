@@ -57,7 +57,7 @@ function pubkey(i) {
 
 // ---- the stand-in ------------------------------------------------------------
 
-// a stonkfun-shaped token with a life: a launch spike, a drift, and the
+// a pumpfun-shaped token with a life: a launch spike, a drift, and the
 // occasional whale. the shape matters more than the numbers — the world's
 // rules key off net flow, gross volume and single-transaction size, so a
 // stand-in that only ever produced small even trades would exercise the
