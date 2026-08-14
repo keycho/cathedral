@@ -182,7 +182,13 @@ export function plantWoods(
     // the share is unchanged. it is the distribution that was wrong.
     const accents = TREES.filter((t) => t.accent);
     const season = fractal2(sx * 0.011 + 41, sz * 0.011 + 17);
-    const wantAccent = !high && season > 0.615;
+    // MEASURED, NOT GUESSED — again. 0.615 looked like a high threshold and
+    // is the field's MEDIAN: it made 54% of the map an accent district and
+    // the wood came back 69 accent trees out of 111, which is a red world
+    // with some green in it. the field runs 0.62 at p50 and 0.72 at p90.
+    // 0.72 leaves roughly one district in ten turned, which is modest in
+    // share and total in the districts that have it — which was the point.
+    const wantAccent = !high && season > 0.72;
     let from = green;
     if (wantAccent && accents.length) {
       // which accent this district is, held steady across the whole of it

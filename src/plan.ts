@@ -72,6 +72,9 @@ export interface PlannedSite {
 const key = (x: number, z: number) => x * GRID + z;
 
 export class UrbanPlan {
+  // the living layer, so ground the plan makes stops being meadow in every
+  // sense rather than only in its material
+  flora?: { clearAt(x0: number, z0: number, w: number, d: number): void };
   readonly plazaX: number;
   readonly plazaZ: number;
   readonly plazaY: number;
@@ -219,6 +222,7 @@ export class UrbanPlan {
   // lay built ground: level it to its own median and surface it. this is
   // the "never directly on meadow" rule, applied.
   pave(x0: number, z0: number, w: number, d: number, surface = STONE): number {
+    this.flora?.clearAt(x0, z0, w, d);
     const tops: number[] = [];
     for (let x = 0; x < w; x++) for (let z = 0; z < d; z++) tops.push(this.field.topAt(x0 + x, z0 + z));
     if (!tops.length) return 0;

@@ -171,11 +171,20 @@ function surfaceFor(x: number, z: number, h: number, amp: number, nearWater: boo
   // 2. GRADIENT. past about a third of a block of fall per block of run,
   // soil does not stay: bare stone high up, loose scree just below a crest,
   // exposed clay on a lowland cut bank.
-  if (slope > 0.34) return h > 15 ? CLIFF : grain < 0.5 ? CLAY : SCREE;
-  if (slope > 0.22) return h > 17 ? SCREE : grain < 0.4 ? CLAY : GRASSDRY;
+  //
+  // THE THRESHOLD IS DITHERED, and it has to be. a hard cut on a smooth
+  // field bands along that field's level sets — the first version laid its
+  // rock in long blue-grey stripes following the contours, which is the
+  // concentric-terrace fault over again in a different variable. jittering
+  // the slope per column by about a fifth turns a clean edge into a
+  // scatter, so stone gives way to grass the way a real hillside does.
+  const s = slope * (0.8 + grain * 0.4);
+  const hj = h + (grain - 0.5) * 3;
+  if (s > 0.34) return hj > 15 ? CLIFF : grain < 0.5 ? CLAY : SCREE;
+  if (s > 0.22) return hj > 17 ? SCREE : grain < 0.4 ? CLAY : GRASSDRY;
 
   // 3. ALTITUDE. a crown is thin ground whatever its gradient.
-  if (h >= 18) return grain < 0.55 ? SCREE : LICHEN;
+  if (hj >= 18) return grain < 0.55 ? SCREE : LICHEN;
 
   // 4. ASPECT. the sun bakes one side to ochre and leaves the other in the
   // damp; the north face carries lichen rather than grass.

@@ -59,7 +59,27 @@ export class Flora {
   private mossCursor = MOSS_N; // pool region starts after the seeded moss
   private mossQueue: { x: number; y: number; z: number; at: number }[] = [];
   private sheens: { mat: THREE.MeshBasicMaterial; phase: number }[] = [];
+  // GROUND THAT GETS PAVED LOSES ITS GRASS. the scatter runs at boot and
+  // the plan paves afterwards, so the founding plaza came up through its own
+  // tiling and every platform since has had a lawn growing out of it. an
+  // instance cannot be removed from an instanced mesh, so it is scaled to
+  // nothing, which costs one matrix write and no draw call.
+  clearAt(x0: number, z0: number, w: number, d: number) {
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    const touched = new Set<THREE.InstancedMesh>();
+    for (const t of this.at) {
+      if (t.x < x0 || t.x >= x0 + w || t.z < z0 || t.z >= z0 + d) continue;
+      t.mesh.setMatrixAt(t.i, zero);
+      touched.add(t.mesh);
+    }
+    for (const m of touched) m.instanceMatrix.needsUpdate = true;
+  }
+
   private dummy = new THREE.Object3D();
+  // where every instance stands, so ground that is paved LATER can take its
+  // grass with it. flora scatters at boot and the plan paves after, so the
+  // founding plaza came up through its own tiling.
+  private at: { mesh: THREE.InstancedMesh; i: number; x: number; z: number }[] = [];
   private color = new THREE.Color();
 
   constructor(scene: THREE.Scene, field: VoxelField, private wind: Wind) {
@@ -138,6 +158,7 @@ export class Flora {
       this.color.offsetHSL((rand() - 0.5) * hslJitter, 0, (rand() - 0.5) * 0.08);
       this.color.multiplyScalar(shade(x, z));
       mesh.setColorAt(i, this.color);
+      this.at.push({ mesh, i, x, z });
       mesh.count = i + 1;
     };
 
@@ -149,12 +170,16 @@ export class Flora {
     const cell = () => 2 + Math.floor(rand() * (GRID - 4));
 
     // grass: everywhere the meadow is
-    const grass = makeMesh(crossGeometry(0.55, 0.7), GRASS_N, 0.05);
+    // A TUFT IS ANKLE HEIGHT. at 0.7 with a scale up to 1.3 the grass stood
+    // most of a metre tall, which was invisible until the crew stopped being
+    // pillars and became figures to measure it against — then the meadow was
+    // chest high on a mason.
+    const grass = makeMesh(crossGeometry(0.5, 0.42), GRASS_N, 0.05);
     for (let tries = 0; tries < GRASS_N * 4 && grass.count < GRASS_N; tries++) {
       const x = cell();
       const z = cell();
       if (!isMeadow(topType(x, z))) continue;
-      place(grass, x, z, topOf(x, z), 0.7 + rand() * 0.6, SWATCH.grass, 0.05);
+      place(grass, x, z, topOf(x, z), 0.6 + rand() * 0.5, SWATCH.grass, 0.05);
     }
 
     // wildflowers: drifts, not confetti - clusters seeded on the meadow

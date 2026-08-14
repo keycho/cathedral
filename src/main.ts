@@ -454,6 +454,8 @@ const mason = new Mason(
 // into a settlement; without it each work is sited on the emptiest field it
 // can find, which is precisely how they end up scattered.
 const plan = new UrbanPlan(field, GENESIS_CELL, genesisY);
+// the plan takes the grass with it when it paves
+plan.flora = flora;
 plan.found();
 
 // THE WILD IS WOODED BEFORE THE SETTLEMENT IS. a world where trees exist
