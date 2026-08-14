@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { GRID, MAXY } from "./config";
 import { CREAM, SWATCH } from "./palette";
 import type { Strata } from "./strata";
+import { CrewSprite, type Role } from "./sprites";
 import type { VoxelField } from "./voxels";
 
 export type AgentName = "surveyor" | "architect" | "mason" | "keeper";
@@ -74,28 +75,32 @@ function makeNameSprite(name: string, colorHex: number): NameSprite {
 
 export class Avatar {
   readonly group = new THREE.Group();
-  private body: THREE.Mesh;
-  private head: THREE.Mesh;
+  private sprite: CrewSprite;
   private label: NameSprite;
+  private working = false;
 
-  constructor(name: string, role: AgentName = "mason") {
+  // THE CREW WERE TWO BOXES EACH. a body and a head in the role's colour,
+  // which at any distance reads as a coloured pillar — the world had four
+  // agents in it and no inhabitants. they are drawn figures now: a robe, a
+  // hood, and the tool of the job, told apart in silhouette before they are
+  // told apart by colour.
+  constructor(name: string, role: AgentName = "mason", seed = 0) {
     const color = AGENT_COLORS[role];
-    // a brighter silhouette: slight emissive so the crew reads against dusk
-    const mat = new THREE.MeshStandardMaterial({
-      color,
-      emissive: color,
-      emissiveIntensity: 0.28,
-      roughness: 0.7,
-    });
-    this.body = new THREE.Mesh(new THREE.BoxGeometry(0.56, 1.12, 0.34), mat);
-    this.body.position.y = 0.56;
-    this.body.castShadow = true;
-    this.head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 0.42), mat);
-    this.head.position.y = 1.36;
-    this.head.castShadow = true;
+    this.sprite = new CrewSprite(role as Role, seed);
     this.label = makeNameSprite(name, color);
     this.label.position.y = 2.05;
-    this.group.add(this.body, this.head, this.label);
+    this.group.add(this.sprite.mesh, this.label);
+  }
+
+  // the mason is the only one with a working pose, and only it knows when
+  setWorking(on: boolean) {
+    this.working = on;
+  }
+
+  // billboarding needs the camera, which the body does not have: main hands
+  // it down once a frame
+  face(dt: number, moving: boolean, camera: THREE.Camera) {
+    this.sprite.update(dt, moving, this.working, camera);
   }
 
   // a capture plate is a photograph of the world, and a name tag floating
@@ -110,11 +115,12 @@ export class Avatar {
     this.label.setName?.(n);
   }
 
+  // the bob stays, gently: a drawn figure with a two frame walk still wants
+  // a little vertical or it slides rather than steps
   bob(t: number, moving: boolean) {
-    const amp = moving ? 0.07 : 0.02;
+    const amp = moving ? 0.05 : 0.015;
     const rate = moving ? 9 : 1.6;
-    this.body.position.y = 0.56 + Math.abs(Math.sin(t * rate)) * amp;
-    this.head.position.y = 1.36 + Math.abs(Math.sin(t * rate + 0.4)) * amp;
+    this.sprite.mesh.position.y = 0.9 + Math.abs(Math.sin(t * rate)) * amp;
   }
 }
 
@@ -227,7 +233,7 @@ export class AgentBody {
     this.path.length = 0;
   }
 
-  update(dt: number, t: number) {
+  update(dt: number, t: number, camera?: THREE.Camera) {
     if (this.path.length) {
       const next = this.path[0];
       const wx = next.x - GRID / 2 + 0.5;
@@ -243,13 +249,18 @@ export class AgentBody {
       } else {
         this.x += (dx / d) * step;
         this.z += (dz / d) * step;
-        this.avatar.group.rotation.y = Math.atan2(dx, dz);
+        // NOT THE GROUP. a drawn figure has no facing to turn — it is
+        // always looking at the camera — and rotating its parent turns the
+        // billboard off its own axis, so the crew walked sideways into the
+        // view. the walk direction is no longer a rotation at all.
+        void 0;
       }
       const floor = this.field.surfaceBelow(this.x, this.z, this.y + 2.5);
       this.y += (floor - this.y) * Math.min(1, dt * 12);
     }
     this.avatar.group.position.set(this.x, this.y, this.z);
     this.avatar.bob(t, this.moving);
+    if (camera) this.avatar.face(dt, this.moving, camera);
   }
 }
 

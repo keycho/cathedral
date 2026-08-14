@@ -1136,9 +1136,9 @@ function frame() {
   hollows.update(t);
   scars.update(now);
   surveyor.update(dt, now);
-  surveyor.body.update(dt, t);
+  surveyor.body.update(dt, t, camera);
   keeper.update(dt, now);
-  keeper.body.update(dt, t);
+  keeper.body.update(dt, t, camera);
   vitality.update(strata.epoch);
   if (mourningUntil && now > mourningUntil) {
     mourningUntil = 0;
@@ -1157,8 +1157,8 @@ function frame() {
     }).catch(() => undefined);
   }
   mason.update(now);
-  mason.body.update(dt, t);
-  architect.body.update(dt, t);
+  mason.body.update(dt, t, camera);
+  architect.body.update(dt, t, camera);
   candles.update();
   glyphs.update(dt);
   audio.update(now);

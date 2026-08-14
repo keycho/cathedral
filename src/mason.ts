@@ -217,6 +217,7 @@ export class Mason {
 
   update(now: number) {
     const c = this.nextCell();
+    this.body.avatar.setWorking(!!c);
     if (!c) return;
 
     if (this.inReach(c)) {
