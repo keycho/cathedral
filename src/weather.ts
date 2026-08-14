@@ -54,10 +54,10 @@ export class Weather {
     const rainMat = new THREE.MeshBasicMaterial({
       color: SWATCH.mist,
       transparent: true,
-      opacity: 0.34,
+      opacity: 0.42,
       depthWrite: false,
     });
-    this.rain = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.045, 1.5), rainMat, DROPS);
+    this.rain = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.05, 2.2), rainMat, DROPS);
     this.rain.count = 0;
     this.rain.frustumCulled = false;
     scene.add(this.rain);
@@ -135,6 +135,8 @@ export class Weather {
     const wx = wind.dirX * (0.6 + wind.gust);
     const wz = wind.dirZ * (0.6 + wind.gust);
     camera.getWorldPosition(this.p);
+    camera.getWorldDirection(_d);
+    const yaw = Math.atan2(-_d.x, -_d.z);
 
     // rain and snow fall in a COLUMN AROUND THE CAMERA rather than over the
     // world: a field of drops covering a 256 grid is a quarter of a million
@@ -155,7 +157,12 @@ export class Weather {
       const drop = (this.t * fall * (0.7 + s3 * 0.6) + s1 * span) % span;
       const y = this.p.y + 16 - drop;
       const sway = this.state === "snow" ? Math.sin(this.t * 1.4 + s2 * 9) * 1.4 : 0;
-      this.q.setFromAxisAngle(_up, Math.atan2(camera.position.x - this.p.x, 1));
+      // FACING THE CAMERA, which this was not: the yaw was computed from the
+      // camera's position minus the camera's own position, which is zero
+      // forever, so every drop faced due north and a streak seen edge-on is
+      // a floating speck. one yaw serves them all — they are within twenty
+      // blocks of the lens.
+      this.q.setFromAxisAngle(_up, yaw);
       this.v.set(1, 1, 1);
       this.m.compose(
         _t.set(
@@ -184,7 +191,7 @@ export class Weather {
       const s1 = this.seed[i * 4 + 1];
       const s2 = this.seed[i * 4 + 2];
       const drop = (this.t * 1.1 + s1 * 24) % 24;
-      this.q.setFromAxisAngle(_up, this.t * 0.7 + s2 * 6);
+      this.q.setFromAxisAngle(_up, yaw + this.t * 0.7 + s2 * 6);
       this.m.compose(
         _t.set(
           this.p.x + (s0 - 0.5) * box + Math.sin(this.t * 0.9 + s2 * 7) * 2.2 + wx * drop * 0.5,
@@ -222,4 +229,5 @@ export class Weather {
 
 const _up = new THREE.Vector3(0, 1, 0);
 const _t = new THREE.Vector3();
+const _d = new THREE.Vector3();
 void GRID;
