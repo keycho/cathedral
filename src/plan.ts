@@ -171,6 +171,18 @@ export class UrbanPlan {
   // to extend and the rule that it must extend one is unsatisfiable.
   found(): number {
     let laid = 0;
+    // AN AVENUE HAS SOMETHING AT THE END OF IT. the pilgrim way ran to the
+    // middle of the precinct, which is a coordinate rather than a thing —
+    // so walking it terminated on whatever building happened to have been
+    // sited near the centre, and usually on grass. it now aims at the great
+    // work, which means the pagoda is at the end of the road, growing, for
+    // the whole length of the walk. this is the cheapest framing device
+    // there is and it is the one that changes the most.
+    if (this.greatWorkAt) {
+      this.routes[0].bx = this.greatWorkAt.x;
+      this.routes[0].bz = this.greatWorkAt.z;
+      this.routes[0].name = "the pilgrim way, plaza to the great work";
+    }
     laid += this.pave(this.plazaX - 6, this.plazaZ - 6, 13, 13, STONE);
     for (const r of this.routes) laid += this.road(r.ax, r.az, r.bx, r.bz);
     // the precinct's own wall line and the quarter's kerb are laid as the
@@ -554,14 +566,25 @@ export class UrbanPlan {
   // which slot the next work takes. the great work is claimed by the plan
   // itself at founding; notable slots are handed out to the first few sites
   // that are far enough apart to read as separate landmarks.
-  claimSlot(x: number, z: number): Slot {
+  //
+  // THIS IS A QUERY, NOT A CLAIM. a site is proposed several times before
+  // anything is built on it — the review harness snapshots one, a cycle
+  // picks one and the endpoint refuses the design, the mason's yard is full
+  // and the cycle returns — and a decrement on every proposal spends all
+  // four notable slots on works that were never drawn. the count comes down
+  // in record(), where a building actually exists.
+  proposeSlot(x: number, z: number): Slot {
     if (this.notableLeft <= 0) return "ordinary";
+    // and they have to be far enough apart to read as separate landmarks
+    // rather than as one big lump with three heads
     for (const p of this.parcels) {
       if (p.slot !== "notable") continue;
       if (Math.hypot(p.x + p.w / 2 - x, p.z + p.d / 2 - z) < 34) return "ordinary";
     }
-    this.notableLeft--;
     return "notable";
+  }
+  get notableRemaining(): number {
+    return this.notableLeft;
   }
 
   // ---- reading the plan ----------------------------------------------------
@@ -650,6 +673,8 @@ export class UrbanPlan {
 
   record(p: Parcel) {
     this.parcels.push(p);
+    // a notable slot is spent when a notable building EXISTS, which is here
+    if (p.slot === "notable" && this.notableLeft > 0) this.notableLeft--;
   }
 
   // THE STREET, IN THE PATCH'S OWN COORDINATES. "there is a street nearby"

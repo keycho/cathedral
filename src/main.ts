@@ -84,6 +84,7 @@ import { Flora } from "./flora";
 import { UrbanPlan } from "./plan";
 import { plantWoods } from "./woods";
 import { greatWorkPagoda } from "./components/greatwork";
+import { Motif } from "./threshold";
 import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
 import { buildVoidFloor, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
@@ -462,13 +463,15 @@ const mason = new Mason(
 const plan = new UrbanPlan(field, GENESIS_CELL, genesisY);
 // the plan takes the grass with it when it paves
 plan.flora = flora;
+
+// THE HERO IS SITED BEFORE THE ROADS ARE LAID. it was sited after, which
+// meant the pilgrim way had already been paved to the middle of the precinct
+// and could not be aimed at the one thing in the world worth aiming a road
+// at. the siting reads the land and the plaza only — it does not need the
+// fabric — so it can come first, and then the avenue terminates on it.
+const greatSite = plan.siteGreatWork();
 plan.found();
 
-// THE HERO GOES UP FIRST. the world had a hundred buildings of one size and
-// nothing to navigate by; this is the thing every view is arranged around,
-// and it is sited before anything else so the sightlines are reserved before
-// the wood is planted or a single work is placed.
-const greatSite = plan.siteGreatWork();
 const greatWork = greatWorkPagoda(7, 21, 3);
 {
   const gx = greatSite.x - Math.floor(greatWork.footprint / 2);
@@ -487,6 +490,15 @@ const greatWork = greatWorkPagoda(7, 21, 3);
     quarter: "precinct", planId: "great-work", title: "the great work", epoch: 0, slot: "great",
   });
 }
+
+// THE MOTIF, AND THE THREE DEVICES. a vermilion gate at every threshold in
+// the world — the plaza's four ways in, the length of each route, the head of
+// each street, the mouth of each reserved view — plus a flight on the
+// steepest pitch and a deck over the deepest gap. this is what stops the
+// world reading as generated: not more detail, but a small number of things
+// put in specific places for reasons that are about the picture.
+const motif = new Motif();
+motif.raise(field, plan);
 
 // THE WILD IS WOODED BEFORE THE SETTLEMENT IS. a world where trees exist
 // only where a building was designed is a world of landscaped plots in a
@@ -661,6 +673,11 @@ ticks.onEpoch = (epoch) => {
   strata.advanceEpoch();
   surveyor.onEpoch(epoch);
   architect.onEpoch(epoch);
+  // the motif follows the settlement. a gate goes up wherever a new
+  // threshold has appeared since the last epoch — the quarter's streets when
+  // they are first laid, a notable work when one is finished — and nothing
+  // that already stands is built twice.
+  motif.raise(field, plan);
 };
 
 // r2b: the mass settles one block; the founding stone's sanctity, glow and
@@ -1407,6 +1424,7 @@ declare global {
       weather: Weather;
       photo: Photo;
       framings: typeof FRAMINGS;
+      motif: Motif;
     };
   }
 }
@@ -1505,6 +1523,7 @@ if (DEV_TOOLS) window.cathedral = {
     return photo!;
   },
   framings: FRAMINGS,
+  motif,
   plan,
   woods,
   settle,

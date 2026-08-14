@@ -177,7 +177,7 @@ export default async function handler(req, res) {
   lastCall = now;
 
   try {
-    const { zone, palette, register, catalogue, scale, plan, named, budget, patch, heights, blocked, notes, aggregates, epoch } = req.body ?? {};
+    const { zone, palette, register, catalogue, scale, standing, plan, named, budget, patch, heights, blocked, notes, aggregates, epoch } = req.body ?? {};
     // THE CATALOGUE TRAVELS WITH THE REQUEST. it is generated from the same
     // registry that expands the parts, so the vocabulary the architect is
     // told about is the vocabulary that exists — there is no second copy
@@ -208,6 +208,12 @@ ${catalogue}`
       // was told 600, so it designed 600 and the raise bought nothing.
       `epoch ${epoch}. block budget: ${budget ?? 0}.`,
       ...(scale ? [scale] : []),
+      // THE HIERARCHY. an allowance alone does not produce a landmark: a
+      // bigger number spent sideways is a bigger shed. the standing says
+      // what this building is FOR in the settlement's composition and
+      // quotes the height band it has to land in, because height is the
+      // only property legible from across a valley.
+      ...(standing ? [standing] : []),
       // the settlement's existing names. a repeat is not a style, it is a
       // collision: three works called "the lantern row" in one run.
       ...(Array.isArray(named) && named.length

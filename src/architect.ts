@@ -32,7 +32,8 @@ import {
   TEAL,
 } from "./palette";
 import { catalogueText, scaleText, expandCall, readCall } from "./components/catalogue";
-import type { PlannedSite, UrbanPlan } from "./plan";
+import { SLOTS } from "./plan";
+import type { PlannedSite, Slot, UrbanPlan } from "./plan";
 import { Build } from "./components/kit";
 import { RULES } from "./rules";
 import type { Islands } from "./islands";
@@ -48,6 +49,34 @@ const PLATFORM_PAD = 3;
 const API_TIMEOUT_MS = 45_000;
 const SKY_Y = 40; // above this is the sky realm: no wedge claims it
 
+// WHAT STANDING THIS WORK HAS, in words. a settlement reads as designed when
+// its buildings are OBVIOUSLY of different importance — one great work, three
+// or four you navigate a district by, and everything else deferring to them.
+// left to itself the interface produces one size: every site gets the same
+// brief, the same allowance and the same catalogue, so the model reaches for
+// the same answer, and a hundred correct answers make one texture.
+//
+// the height band is quoted as a hard requirement rather than a suggestion
+// because height is the only property of a building that is legible from
+// across a valley, which is where the hierarchy has to read from.
+function standingText(slot: Slot, minH: number, maxH: number): string {
+  if (slot === "notable") {
+    return [
+      "",
+      "STANDING: this is a NOTABLE work — one of only four in the settlement.",
+      `it must finish between ${minH} and ${maxH} blocks tall, and it is meant to be picked out from the far side of the valley: a district navigates by it.`,
+      "give it something in the silhouette that nothing ordinary has — a tower, a belfry, a raised double roof, a gate tall enough to see over the roofs around it.",
+      "it defers to the great pagoda on the high ground and to nothing else.",
+    ].join("\n");
+  }
+  return [
+    "",
+    "STANDING: this is an ORDINARY work — a neighbour, not a landmark.",
+    `keep it between ${minH} and ${maxH} blocks tall. it belongs to the street or the terrace it stands on and it must not compete with the pagoda on the high ground or with the notable works around it.`,
+    "spend the allowance sideways rather than upward: depth, grounds, frontage, a courtyard, the parts of a building nobody photographs and every real place has.",
+  ].join("\n");
+}
+
 const ZONES: ZoneName[] = ["architect", "surveyor", "mason"];
 const ZONE_PALETTES: Record<ZoneName, string> = {
   surveyor: "creamwarm, lantern, timber (cairns, waymark lines, observatory perches above the meadow)",
@@ -62,6 +91,12 @@ interface Site {
   groundY: number; // y=0 of the blueprint frame
   heights: number[][]; // [z][x] surface height relative to groundY
   blocked: number[][]; // 1 = geology / hollow / off-zone: never build here
+  // WHAT STANDING THIS WORK HAS. every site used to be handed the same
+  // allowance and the same brief, so every building came back roughly one
+  // size — a hundred plausible decisions that added up to one texture. the
+  // plan decides whether this is a landmark or a neighbour BEFORE the
+  // design is drawn, because a budget arrives too late to change a shape.
+  slot: Slot;
 }
 
 export class Architect {
@@ -350,7 +385,8 @@ export class Architect {
       heights.push(hr);
       blocked.push(br);
     }
-    return { zone, anchorX: best.x, anchorZ: best.z, groundY, heights, blocked };
+    const slot = this.plan.proposeSlot(best.x + PATCH / 2, best.z + PATCH / 2);
+    return { zone, anchorX: best.x, anchorZ: best.z, groundY, heights, blocked, slot };
   }
 
   // ---- the claude call -----------------------------------------------------
@@ -450,6 +486,7 @@ export class Architect {
       planId,
       title,
       epoch,
+      slot: site.slot,
     });
     // AND NOW THE COURT IS CUT TO THE BUILDING. the platform was laid to the
     // whole site before the design existed, because the architect needs
@@ -784,9 +821,14 @@ export class Architect {
   }
 
   // a street gets a bigger allowance than a hall, because it is a bigger
-  // object made of smaller parts
+  // object made of smaller parts — and a NOTABLE work gets more than either,
+  // because the hierarchy has to be paid for. an allowance is the only lever
+  // in this interface that reliably changes a building's size: the brief can
+  // ask for a landmark all it likes, but a landmark costs more stone than a
+  // shop and the ceiling is what decides whether it gets built.
   private capFor(site: Site): number {
-    return this.registerOf(site) === "town" ? RULES.crewBudgetTownMax : RULES.crewBudgetMax;
+    const base = this.registerOf(site) === "town" ? RULES.crewBudgetTownMax : RULES.crewBudgetMax;
+    return Math.round(base * SLOTS[site.slot].budgetScale);
   }
 
   // everything the brain is told about a site, in ONE place.
@@ -796,7 +838,17 @@ export class Architect {
     // the temple is everything that climbs away from them. the architect is
     // handed one vocabulary, not both, so it cannot mix them in one work.
     const register = this.registerOf(site);
-    const budget = Math.min(funded, this.capFor(site));
+    // THE SCALE MULTIPLIES BOTH ENDS OR IT MULTIPLIES NOTHING. capFor is a
+    // ceiling and funded is already clamped to the same ceiling upstream, so
+    // scaling only the cap moved a number that was never the binding one and
+    // every notable work would have come back exactly the size of an
+    // ordinary one. the settlement concentrates: it spends more on the four
+    // buildings that are meant to be seen across a district than an even
+    // split of the same market would ever allow, and it pays for that by
+    // drawing them rarely.
+    const scale = SLOTS[site.slot].budgetScale;
+    const budget = Math.min(Math.round(funded * scale), this.capFor(site));
+    const band = SLOTS[site.slot];
     return {
       zone: site.zone,
       palette: ZONE_PALETTES[site.zone],
@@ -809,6 +861,12 @@ export class Architect {
       // catalogue is the same text every call and can be cached, the number
       // is not
       scale: scaleText(register, budget),
+      // WHAT STANDING THIS WORK HAS IN THE SETTLEMENT, and the height band
+      // that goes with it. without this every site is the same brief and the
+      // model answers it the same way — which is exactly what a hundred
+      // plausible buildings of one size look like.
+      standing: standingText(site.slot, band.minHeight, band.maxHeight),
+      slot: site.slot,
       // the names already standing, so a new work is named against the
       // settlement rather than against the brief alone
       named: this.plan.titles(),
