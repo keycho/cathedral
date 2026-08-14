@@ -110,8 +110,13 @@ const GradeShader = {
     lutMix: { value: 0 },
     lutStrength: { value: 0.7 },
     hazeColor: { value: new THREE.Color(0xccd0c5) },
-    hazeStrength: { value: 0.44 },
-    hazeStart: { value: 0.26 }, // fraction of the far plane where haze begins
+    // THE HAZE IS THE SECOND ONE. the scene carries a linear fog as well, and
+    // the two compound — measured together they took nearly half the
+    // contrast out of the middle ground before the grade ran. this one now
+    // begins past the far side of the world rather than at the next ridge,
+    // so the settlement reads and only the hills beyond it dissolve.
+    hazeStrength: { value: 0.30 },
+    hazeStart: { value: 0.44 }, // fraction of the far plane where haze begins
     cameraNear: { value: 0.1 },
     cameraFar: { value: 500 },
     vignette: { value: 0.35 },
@@ -434,7 +439,7 @@ export class Post {
     // the grade and the stylisation are NOT composer passes. they are driven
     // by hand in render() so the grade can always write into its own
     // depth-free target — see the note on `tail`.
-    this.grade.uniforms.hazeStrength.value = this.fx.haze ? 0.44 : 0;
+    this.grade.uniforms.hazeStrength.value = this.fx.haze ? 0.30 : 0;
   }
 
   // the resolution the scene is actually rendered at, which is the output

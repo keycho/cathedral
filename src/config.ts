@@ -27,8 +27,16 @@ export const HAZE = 0xccd0c5; // fog colour: mountain mist, not darkness
 // but a fold of hill at a hundred blocks has to survive as a FOLD: layered
 // ridges receding into air is the whole picture in this tradition, and mist
 // that begins at the middle ground flattens them into one wall.
-export const FOG_NEAR = 85;
-export const FOG_FAR = 370;
+//
+// AND THERE ARE TWO OF THEM. this linear scene fog and the post stack's
+// depth haze both run, and they compound: at two hundred blocks — which on a
+// 256 grid is the middle ground, the settlement seen from the next ridge —
+// they measured 0.40 and 0.10, so nearly half the picture's contrast was
+// gone before the grade had touched it. the far hills are supposed to
+// recede; the town is not. pushed out so the fog does not begin until past
+// anything a frame is composed on.
+export const FOG_NEAR = 170;
+export const FOG_FAR = 560;
 
 // multiplayer transport (place layer, phase 1e). DORMANT: while false the
 // net module never connects and the app is fully single-visitor.

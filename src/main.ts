@@ -1139,7 +1139,13 @@ const post = new Post(renderer, scene, camera, quality);
 // as well — ?style=strong picks a preset, &px=4&quant=0.8 overrides inside it.
 {
   const q = new URLSearchParams(location.search);
-  const mode = q.get("style");
+  // THE DEFAULT IS THE LOOK. the stylisation is not an option the world
+  // boots without — it is the processing signature, and a visitor who has to
+  // ask for it never sees it. subtle is the shipped one: half resolution,
+  // a partial snap to the world's own palette and enough dither to weave a
+  // sky, which reads as a treatment without turning the buildings into
+  // heraldry. ?style=off is the comparison, ?style=strong the full one.
+  const mode = q.get("style") ?? "subtle";
   if (mode === "off" || mode === "subtle" || mode === "strong") post.setStyle(mode);
   const num = (k: string) => (q.has(k) ? Number(q.get(k)) : undefined);
   const over: Record<string, number | undefined> = {

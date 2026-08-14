@@ -57,10 +57,14 @@ export const FRAMINGS: Record<string, Framing> = {
   // buildings run away from the eye and the near one frames the shot. the
   // near clip comes in because at this range the old 0.1 was letting the
   // camera sit inside a wall.
+  // seventeen blocks at head height in a town is arm's length from a
+  // shopfront: the frame came back as one wall with a strip of sky. far
+  // enough back that a building fits in the lens, and the search below turns
+  // rather than climbs when even that is blocked.
   street: {
     name: "street",
     note: "head height, in the street, looking along it",
-    radius: 17, polar: 0.045, azimuth: 0.72, lift: 2, fov: 62, dof: "subtle",
+    radius: 26, polar: 0.07, azimuth: 0.72, lift: 3, fov: 62, dof: "subtle",
   },
   gate: {
     name: "gate",
@@ -102,17 +106,42 @@ export class Photo {
     // of not at all. the azimuth is left alone: turning would point the
     // camera at something other than its subject, and rising will not.
     this.rig.polar = f.polar;
-    // and it gives up rather than climbing forever. the first version rose
-    // in twenty-six steps until it cleared and ended level with the sky
-    // islands, because it asked topAt whether the eye was above the ground
-    // and topAt answers with the highest solid in the column — which under
-    // an island is the island. a camera fifty blocks up is not a street
-    // shot; a slightly awkward one is.
-    for (let step = 0; step < 9 && !this.clear(this.rig.radius, this.rig.polar); step++) {
-      this.rig.polar += 0.05;
-      // a low framing would rather come CLOSER than rise: pulling in keeps
-      // the eye in the street, lifting takes it out of one
-      if (step >= 4 && f.polar < 0.25) this.rig.radius *= 0.88;
+    // AIR AT THE EYE IS NOT A SHOT. the old search asked one question — is
+    // there stone where the camera is standing — and a one block gap between
+    // two buildings answers yes. so the street preset kept coming back
+    // technically clear and compositionally a wall: the eye had air, and
+    // everything in front of it was a shopfront a metre away.
+    //
+    // the test is now whether the SUBJECT IS VISIBLE, which is what a framing
+    // is actually asking for, and the search turns before it climbs. turning
+    // is free on an orbit rig — the camera looks at its target from wherever
+    // it stands, so walking round the subject keeps the subject centred and
+    // only changes what is between the two. climbing leaves the street
+    // altogether, so it is the last resort rather than the first.
+    const baseAz = this.rig.azimuth;
+    let placed = this.standable();
+    if (!placed) {
+      // round the subject, alternating either way, so the shot stays as near
+      // the intended angle as the obstruction allows
+      for (let i = 1; i <= 10 && !placed; i++) {
+        for (const dir of [1, -1]) {
+          this.rig.azimuth = baseAz + dir * i * 0.32;
+          if (this.standable()) { placed = true; break; }
+        }
+      }
+    }
+    if (!placed) {
+      // then, and only then, back off and rise. it gives up rather than
+      // climbing forever: the first version rose in twenty-six steps and
+      // ended level with the sky islands, because it asked topAt whether the
+      // eye was above the ground and topAt answers with the highest solid in
+      // the column — which under an island is the island.
+      this.rig.azimuth = baseAz;
+      for (let step = 0; step < 9 && !placed; step++) {
+        this.rig.polar += 0.055;
+        if (step >= 3) this.rig.radius *= 1.1;
+        placed = this.standable();
+      }
     }
     if (this.camera.fov !== f.fov) {
       this.camera.fov = f.fov;
@@ -123,6 +152,45 @@ export class Photo {
     }
     this.post.dof(f.dof);
     return f;
+  }
+
+  // A PLACE TO STAND is air at the eye AND a view of the subject from it.
+  // the second half is the one that was missing, and it is the half that
+  // decides whether there is a picture.
+  private standable(): boolean {
+    if (!this.clear(this.rig.radius, this.rig.polar)) return false;
+    return this.sees();
+  }
+
+  // march from the eye toward the target. the subject does not have to be
+  // fully unobstructed — something in the near corner of a street shot is
+  // what makes it a street shot — but the LAST stretch has to be open, or
+  // the frame is whatever is standing in the way.
+  private sees(): boolean {
+    const ch = Math.cos(this.rig.polar) * this.rig.radius;
+    const ex = this.rig.target.x + Math.cos(this.rig.azimuth) * ch;
+    const ey = this.rig.target.y + Math.sin(this.rig.polar) * this.rig.radius;
+    const ez = this.rig.target.z + Math.sin(this.rig.azimuth) * ch;
+    const steps = Math.max(8, Math.round(this.rig.radius * 2));
+    let blocked = 0;
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const x = Math.round(ex + (this.rig.target.x - ex) * t + 128 - 0.5);
+      const y = Math.round(ey + (this.rig.target.y - ey) * t);
+      const z = Math.round(ez + (this.rig.target.z - ez) * t + 128 - 0.5);
+      if (y < 1) return false;
+      if (this.field.isSolid(x, y, z)) {
+        blocked++;
+        // a solid in the first quarter of the ray is a wall against the lens
+        if (t < 0.25) return false;
+      }
+    }
+    // AND THE TOLERANCE HAS TO BE SMALL. a third of the ray blocked let a
+    // whole column stand dead centre of the frame and still call the shot
+    // clear: the ray IS the line to the subject, so anything sitting on it
+    // is sitting on the subject. eight per cent is a railing or a lantern
+    // post, which is foreground; more than that is an obstruction.
+    return blocked / steps < 0.08;
   }
 
   // is there air where this radius and polar would put the eye — and a
