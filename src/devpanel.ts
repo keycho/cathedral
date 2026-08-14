@@ -4,6 +4,7 @@
 // mode for judging strata, live counters and the event log. built
 // imperatively into #panel; ` or the header collapses it.
 
+import { DEV_TOOLS } from "./config";
 import type { Feed, FeedEvent } from "./feed";
 import type { Growth } from "./growth";
 import { RULES } from "./rules";
@@ -43,15 +44,17 @@ export class DevPanel {
   // as a visitor control)
   onLife?: (mode: "none" | "starve" | "feed") => void;
 
-  private root: HTMLElement;
-  private body: HTMLElement;
-  private rateOut: HTMLElement;
-  private biasOut: HTMLElement;
-  private clockOut: HTMLElement;
-  private fastBtn: HTMLElement;
-  private stormBtn: HTMLElement;
-  private statsOut: HTMLElement;
-  private logList: HTMLElement;
+  private root!: HTMLElement;
+  // set when the panel never built itself: every method returns early
+  private disabled = false;
+  private body!: HTMLElement;
+  private rateOut!: HTMLElement;
+  private biasOut!: HTMLElement;
+  private clockOut!: HTMLElement;
+  private fastBtn!: HTMLElement;
+  private stormBtn!: HTMLElement;
+  private statsOut!: HTMLElement;
+  private logList!: HTMLElement;
   private lastUpdate = 0;
   private lastLogged: FeedEvent | null = null;
   private fast = false;
@@ -63,6 +66,16 @@ export class DevPanel {
     private ticks: TickEngine
   ) {
     this.root = document.getElementById("panel") as HTMLElement;
+    // GATED. the panel is phase 1 tooling and it is also the loudest tell in
+    // the build: sliders for event rate and buy bias, and buttons marked
+    // whale, burn, storm and starve. a visitor who sees those has been told
+    // the market is synthetic before they have looked at the world once. off
+    // unless this session asked for it — see DEV_TOOLS.
+    if (!DEV_TOOLS) {
+      this.root.remove();
+      this.disabled = true;
+      return;
+    }
     const head = el("div", "pn-head", this.root);
     el("span", "pn-title", head, "market feed");
     el("span", "pn-fold", head, "–");
@@ -169,6 +182,7 @@ export class DevPanel {
   }
 
   update(now: number) {
+    if (this.disabled) return;
     if (now - this.lastUpdate < UPDATE_MS) return;
     this.lastUpdate = now;
 

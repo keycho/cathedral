@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { AshDrift } from "./ash";
 import {
   DEV_EDIT,
+  DEV_TOOLS,
   FOG_FAR,
   FOG_NEAR,
   GRID,
@@ -1458,7 +1459,12 @@ const settle = (n = 12) => {
   return { made, parcels: plan.parcels.length };
 };
 
-window.cathedral = {
+// THE CONSOLE HANDLE IS THE SAME TELL, QUIETER. it hands out the feed, the
+// tick engine and the growth queue by name, so anyone who opens a console on
+// a public build reads the whole mechanism off one object. it is also what
+// every capture harness drives, so it stays on wherever the panel does —
+// localhost, a dev server, or an explicit ?dev — and nowhere else.
+if (DEV_TOOLS) window.cathedral = {
   captureMode,
   get workSite() {
     return workSite!;

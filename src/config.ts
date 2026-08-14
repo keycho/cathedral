@@ -37,3 +37,25 @@ export const NET_ENABLED = false;
 // dev-only in-world edit probe (break / damage / place). dev builds only;
 // dead code in production bundles.
 export const DEV_EDIT = import.meta.env.DEV;
+
+// THE MARKET CONTROLS ARE A TELL. the dev panel drives the synthetic feed —
+// event-rate and buy/bias sliders, manual buy, sell, whale and burn, a
+// storm button, starve and feed. on a public launch that panel is a sign
+// over the door reading "the market is simulated", and no visitor needs to
+// be told that in the first second.
+//
+// three ways in, all of them deliberate:
+//   - a vite dev server (npm run dev)
+//   - ?dev on the url
+//   - a localhost origin, which is what the capture harnesses run against
+//
+// a deployed build served from anywhere else has no panel and no console
+// handle, and the world is the only thing in the frame.
+function devToolsOn(): boolean {
+  if (import.meta.env.DEV) return true;
+  if (typeof location === "undefined") return false;
+  if (new URLSearchParams(location.search).has("dev")) return true;
+  const h = location.hostname;
+  return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+}
+export const DEV_TOOLS = devToolsOn();
