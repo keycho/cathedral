@@ -17,6 +17,8 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 import type { Config } from "./quality";
+import { STYLE_PRESETS, StyliseShader, buildPaletteLUT, paletteSize } from "./stylise";
+import type { StyleMode, StyleParams } from "./stylise";
 
 const LUT_SIZE = 16; // tiled 2d lut: 256x16, bilinear across slices
 
@@ -270,6 +272,35 @@ export class Post {
   private luts: { day: THREE.DataTexture; golden: THREE.DataTexture; night: THREE.DataTexture };
   private fx: { bloom: boolean; grade: boolean; haze: boolean };
   private scene: THREE.Scene;
+  // THE STYLISATION. everything upstream of this pass renders at the reduced
+  // resolution — the scene, the bloom, the grade and its grain — and this is
+  // the pass that blows it back up. that is what makes the pixelation cost
+  // NEGATIVE: at divisor three the renderer shades a ninth of the pixels it
+  // used to, so the primary treatment is also the cheapest frame in the
+  // project.
+  private stylise: ShaderPass;
+  private style: StyleParams = { ...STYLE_PRESETS.off };
+  private styleMode: StyleMode | "custom" = "off";
+  private paletteSteps = -1;
+  // A DEPTH-FREE TARGET FOR THE GRADE TO LAND IN, and the reason it exists is
+  // the sharpest lesson this pass had to teach.
+  //
+  // both of the composer's ping-pong buffers carry the SAME depth texture on
+  // purpose: the number of buffer swaps in a frame can be odd, so the scene
+  // lands in a different buffer on alternate frames, and sharing the depth is
+  // what lets the grade find it either way. that was fine while the grade was
+  // the last pass, because the last pass renders to the SCREEN — no
+  // framebuffer, nothing to collide with.
+  //
+  // putting the stylisation after it made the grade write into a buffer
+  // instead, and that buffer has the depth texture the grade is sampling
+  // bound to it. the driver calls that a feedback loop and drops the draw
+  // call: measured as three completely black frames, with the reason sitting
+  // in the webgl log the whole time.
+  //
+  // so the grade writes here — its own target, colour only — and the
+  // stylisation reads it. no parity to reason about and nothing shared.
+  private tail: THREE.WebGLRenderTarget;
 
   constructor(
     private renderer: THREE.WebGLRenderer,
@@ -306,7 +337,77 @@ export class Post {
     this.grade.uniforms.cameraNear.value = camera.near;
     this.grade.uniforms.cameraFar.value = camera.far;
 
+    this.tail = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: false });
+
+    this.stylise = new ShaderPass(StyliseShader);
+    this.stylise.material.depthTest = false;
+    this.stylise.material.depthWrite = false;
+    this.setStyle("off");
+
     this.build();
+  }
+
+  // ---- the stylisation seam ------------------------------------------------
+
+  // the three strengths, and every parameter behind them. the presets are
+  // where to start; the setters are there because the only way to pick a
+  // strength is to look at the same frame at several of them.
+  setStyle(mode: StyleMode) {
+    this.tune({ ...STYLE_PRESETS[mode] });
+    // after the tune, not before: tune marks the state "custom" and a preset
+    // is not custom
+    this.styleMode = mode;
+  }
+
+  tune(p: Partial<StyleParams>) {
+    Object.assign(this.style, p);
+    this.style.divisor = Math.max(1, Math.min(8, Math.round(this.style.divisor)));
+    if (p.rampSteps !== undefined || this.paletteSteps < 0) {
+      // rebuilding the cube is a third of a millisecond, but it is still
+      // pointless to do it on every slider drag
+      if (this.style.rampSteps !== this.paletteSteps) {
+        this.paletteSteps = this.style.rampSteps;
+        (this.stylise.uniforms.tPalette.value as THREE.DataTexture | null)?.dispose();
+        this.stylise.uniforms.tPalette.value = buildPaletteLUT(this.style.rampSteps);
+      }
+    }
+    const u = this.stylise.uniforms;
+    u.paletteMix.value = this.style.paletteMix;
+    u.ditherAmount.value = this.style.ditherAmount;
+    u.chroma.value = this.style.chroma;
+    u.chromaEdge.value = this.style.chromaEdge;
+    if (Object.keys(p).length && this.styleMode !== "off") this.styleMode = "custom";
+    // the divisor changes the size of every buffer in the chain, so it has
+    // to go all the way back through setSize rather than being a uniform
+    const size = this.renderer.getSize(new THREE.Vector2());
+    this.setSize(size.x, size.y);
+    this.applyDofScale();
+    this.build();
+  }
+
+  get styleParams(): StyleParams & { mode: string; colours: number; renderedAt: string } {
+    const size = this.renderer.getSize(new THREE.Vector2());
+    const pr = this.renderer.getPixelRatio();
+    const d = this.style.divisor;
+    return {
+      ...this.style,
+      mode: this.styleMode,
+      colours: paletteSize(this.style.rampSteps),
+      renderedAt: `${Math.max(1, Math.floor((size.x * pr) / d))}x${Math.max(1, Math.floor((size.y * pr) / d))}`,
+    };
+  }
+
+  // DITHER COUNTS. it was left out of this test, so ?dither=0.08 on its own
+  // never put the pass in the chain at all and came back looking exactly like
+  // an untouched frame — which is indistinguishable from "the dither does
+  // nothing", and is how a working stage gets mistaken for a broken one.
+  private get styling(): boolean {
+    return (
+      this.style.divisor > 1 ||
+      this.style.paletteMix > 0.001 ||
+      this.style.chroma > 0.001 ||
+      this.style.ditherAmount > 0.0001
+    );
   }
 
   // (re)assemble the chain for the current effect set. a pass that is off
@@ -330,11 +431,21 @@ export class Post {
     }
 
     this.composer.addPass(new OutputPass());
+    // the grade and the stylisation are NOT composer passes. they are driven
+    // by hand in render() so the grade can always write into its own
+    // depth-free target — see the note on `tail`.
+    this.grade.uniforms.hazeStrength.value = this.fx.haze ? 0.44 : 0;
+  }
 
-    if (this.fx.grade) {
-      this.grade.uniforms.hazeStrength.value = this.fx.haze ? 0.44 : 0;
-      this.composer.addPass(this.grade);
-    }
+  // the resolution the scene is actually rendered at, which is the output
+  // divided by the stylisation's divisor
+  private lowSize(w: number, h: number): { lw: number; lh: number } {
+    const pr = this.renderer.getPixelRatio();
+    const d = this.style.divisor;
+    return {
+      lw: Math.max(1, Math.floor((w * pr) / d)),
+      lh: Math.max(1, Math.floor((h * pr) / d)),
+    };
   }
 
   // FOCUS ON A POINT IN THE WORLD, not on a depth number. every caller
@@ -347,17 +458,28 @@ export class Post {
     this.grade.uniforms.dofFocus.value = lin;
     if (opts.strength !== undefined) this.grade.uniforms.dofStrength.value = opts.strength;
     if (opts.range !== undefined) this.grade.uniforms.dofRange.value = opts.range;
-    if (opts.maxPx !== undefined) this.grade.uniforms.dofMaxPx.value = opts.maxPx;
+    if (opts.maxPx !== undefined) { this.dofBasePx = opts.maxPx; this.applyDofScale(); }
   }
 
   // the two presets. subtle is what the world runs on — enough to separate
   // a foreground tree from the hall behind it and no more; diorama is the
   // photo-mode setting, where the miniature read is the whole point.
+  private dofBasePx = 0;
   dof(mode: "off" | "subtle" | "diorama") {
     const u = this.grade.uniforms;
-    if (mode === "off") u.dofStrength.value = 0;
-    else if (mode === "subtle") { u.dofStrength.value = 0.55; u.dofRange.value = 0.075; u.dofMaxPx.value = 2.6; }
-    else { u.dofStrength.value = 1.0; u.dofRange.value = 0.03; u.dofMaxPx.value = 5.4; }
+    if (mode === "off") { u.dofStrength.value = 0; this.dofBasePx = 0; }
+    else if (mode === "subtle") { u.dofStrength.value = 0.55; u.dofRange.value = 0.075; this.dofBasePx = 2.6; }
+    else { u.dofStrength.value = 1.0; u.dofRange.value = 0.03; this.dofBasePx = 5.4; }
+    this.applyDofScale();
+  }
+
+  // THE BLUR RADIUS IS IN PIXELS, AND THE PIXELS GOT BIGGER. the defocus runs
+  // inside the grade, which now renders at the reduced resolution — so a
+  // radius tuned by eye at native scale covers three times as much of the
+  // frame at divisor three. it is divided back down, which is also the only
+  // way "subtle" means the same thing at every strength.
+  private applyDofScale() {
+    this.grade.uniforms.dofMaxPx.value = this.dofBasePx / this.style.divisor;
   }
 
   get dofMode(): number {
@@ -374,9 +496,11 @@ export class Post {
   }
 
   // nothing on top of the scene render: main draws straight to the screen
-  // and skips the composer's buffers entirely
+  // and skips the composer's buffers entirely. the stylisation counts — it is
+  // the one pass that changes the SIZE of the render, so bypassing it does
+  // not merely drop an effect, it silently un-pixelates the world.
   get bypass(): boolean {
-    return !this.fx.bloom && !this.fx.grade;
+    return !this.fx.bloom && !this.fx.grade && !this.styling;
   }
 
   // the sky hands the grade its phase and its air colour every frame
@@ -449,19 +573,62 @@ export class Post {
   }
 
   setSize(w: number, h: number) {
-    const pr = this.renderer.getPixelRatio();
-    this.grade.uniforms.texel.value.set(1 / Math.max(1, w * pr), 1 / Math.max(1, h * pr));
-    this.composer.setSize(w, h);
-    this.depth.image.width = Math.floor(w * pr);
-    this.depth.image.height = Math.floor(h * pr);
+    // EVERY BUFFER IN THE CHAIN IS THE LOW SIZE, not the canvas size. this is
+    // the difference between a pixelation that costs a full-resolution render
+    // plus a downsample, and one that never renders the pixels at all. the
+    // depth texture, the bloom's mip chain and the depth-of-field's texel all
+    // follow it, and the depth-of-field's blur radius is in PIXELS — so a
+    // radius tuned at native resolution would be three times too wide at
+    // divisor three if it were left alone.
+    const { lw, lh } = this.lowSize(w, h);
+    this.grade.uniforms.texel.value.set(1 / lw, 1 / lh);
+    // THE COMPOSER APPLIES THE PIXEL RATIO ITSELF. it multiplies whatever it
+    // is given by the ratio it read from the renderer at construction, so
+    // handing it numbers that already carry the ratio squares it — invisible
+    // at ratio one, and a quarter-resolution world on any retina display.
+    this.composer.setSize(Math.max(1, Math.floor(w / this.style.divisor)), Math.max(1, Math.floor(h / this.style.divisor)));
+    this.tail.setSize(lw, lh);
+    this.depth.image.width = lw;
+    this.depth.image.height = lh;
     this.depth.needsUpdate = true;
-    this.bloom?.setSize(w, h);
+    this.bloom?.setSize(lw, lh);
+    (this.stylise.uniforms.lowRes.value as THREE.Vector2).set(lw, lh);
     this.grade.uniforms.cameraNear.value = this.camera.near;
     this.grade.uniforms.cameraFar.value = this.camera.far;
   }
 
+  // THE TAIL IS DRIVEN BY HAND. the composer runs the scene, the bloom and
+  // the tone map; the grade and the stylisation are stepped explicitly after
+  // it so the grade always lands in a target that does not carry the depth
+  // texture it is reading. a ShaderPass only ever touches `.texture` on the
+  // buffer it is handed, so a bare wrapper is a legitimate source.
   render() {
+    const styling = this.styling;
+    const grading = this.fx.grade;
+    // when there is no tail at all the composer goes straight to the screen,
+    // exactly as it used to
+    this.composer.renderToScreen = !grading && !styling;
     this.composer.render();
+    if (!grading && !styling) return;
+
+    // every swapping pass leaves its result in readBuffer, so this is the
+    // composer's output whatever the parity worked out to be
+    let src: THREE.Texture = this.composer.readBuffer.texture;
+    if (grading) {
+      this.grade.renderToScreen = !styling;
+      this.grade.render(this.renderer, this.tail, { texture: src } as unknown as THREE.WebGLRenderTarget, 0, false);
+      src = this.tail.texture;
+    }
+    if (styling) {
+      this.stylise.renderToScreen = true;
+      this.stylise.render(
+        this.renderer,
+        null as unknown as THREE.WebGLRenderTarget,
+        { texture: src } as unknown as THREE.WebGLRenderTarget,
+        0,
+        false
+      );
+    }
   }
 }
 

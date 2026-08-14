@@ -85,6 +85,7 @@ import { UrbanPlan } from "./plan";
 import { plantWoods } from "./woods";
 import { greatWorkPagoda } from "./components/greatwork";
 import { Motif } from "./threshold";
+import { paletteHex } from "./stylise";
 import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
 import { buildVoidFloor, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
@@ -1050,6 +1051,7 @@ rig.target.copy(genesis);
 const director = new Director(rig);
 director.enabled = !new URLSearchParams(location.search).has("nodirector");
 
+
 // spawn a few steps out from the stone, facing it
 const spawnX = genesis.x + 9;
 const spawnZ = genesis.z + 9;
@@ -1130,6 +1132,26 @@ const stPos = document.getElementById("st-pos");
 // ---------------------------------------------------------------------------
 // the post stack, built from the one configuration
 const post = new Post(renderer, scene, camera, quality);
+
+// THE STYLISATION IS A URL PARAM, because the only way to choose a strength
+// is to look at the same frame at several of them, and reloading a page is
+// faster than opening a console. every individual parameter is on the handle
+// as well — ?style=strong picks a preset, &px=4&quant=0.8 overrides inside it.
+{
+  const q = new URLSearchParams(location.search);
+  const mode = q.get("style");
+  if (mode === "off" || mode === "subtle" || mode === "strong") post.setStyle(mode);
+  const num = (k: string) => (q.has(k) ? Number(q.get(k)) : undefined);
+  const over: Record<string, number | undefined> = {
+    divisor: num("px"),
+    paletteMix: num("quant"),
+    ditherAmount: num("dither"),
+    chroma: num("chroma"),
+    rampSteps: num("ramp"),
+  };
+  const tuned = Object.fromEntries(Object.entries(over).filter(([, v]) => v !== undefined && !Number.isNaN(v)));
+  if (Object.keys(tuned).length) post.tune(tuned);
+}
 
 // the silent ladder: if the frame slips, the world gives something up and
 // never says so. it only ever steps down.
@@ -1425,6 +1447,7 @@ declare global {
       photo: Photo;
       framings: typeof FRAMINGS;
       motif: Motif;
+      paletteHex: typeof paletteHex;
     };
   }
 }
@@ -1524,6 +1547,7 @@ if (DEV_TOOLS) window.cathedral = {
   },
   framings: FRAMINGS,
   motif,
+  paletteHex,
   plan,
   woods,
   settle,
