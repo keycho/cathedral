@@ -31,6 +31,7 @@ import { Net } from "./net";
 import { OrbitRig } from "./orbitcam";
 import { Post } from "./post";
 import { WorkSite } from "./site";
+import { SmallLife } from "./life";
 import { FRAMINGS, Photo } from "./photo";
 import { PerfHud } from "./perfhud";
 import { AutoQuality, configAt, startStep, type Config } from "./quality";
@@ -126,6 +127,7 @@ const dofAim = new THREE.Vector3();
 let photo: Photo | undefined;
 // same story as photo: built late, called from the loop's first frame
 let workSite: WorkSite | undefined;
+let life: SmallLife | undefined;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(HAZE);
@@ -1276,6 +1278,7 @@ function frame() {
     const onSite = mason.current;
     workSite.show(onSite.bp, onSite.cursor);
   }
+  life?.update(dt, wind, camera);
   // the one moment the drawing buffer is guaranteed to hold a picture
   photo?.afterRender(renderer);
   perf.update(dt);
@@ -1355,6 +1358,8 @@ declare global {
       woods: { planted: number; blocks: number; bySpecies: Record<string, number> };
       settle: (n?: number) => { made: number; parcels: number };
       workSite: WorkSite;
+      life: { props: number; laundry: number; boats: number; smoke: number };
+      lifeScatter: () => { props: number; laundry: number; boats: number; smoke: number };
       photo: Photo;
       framings: typeof FRAMINGS;
     };
@@ -1381,6 +1386,8 @@ const captureMode = (on: boolean) => {
   // a plate of the settlement wants the settlement, not the scaffolding
   // around the half of it that happens to be going up this hour
   workSite?.setVisible(!on);
+  // the birds and the smoke STAY in a plate: they are the world being
+  // inhabited, not the interface talking
 };
 
 photo = new Photo(camera, rig, post, field, captureMode);
@@ -1389,6 +1396,29 @@ photo = new Photo(camera, rig, post, field, captureMode);
 // appearing a block at a time never read as construction: the ghost shows
 // what is coming, the staging shows what is rising.
 workSite = new WorkSite(scene);
+
+// SMALL LIFE. the settlement was architecture and nothing else — every
+// object in it had been designed, so every object in it was a building or a
+// part of one. this is the stuff nobody designed.
+life = new SmallLife(scene);
+const lifeReport = life.scatter(field, plan);
+// and again whenever a work finishes: the rules all look for a wall to lean
+// against, and a wall is exactly what a finished work has just added
+mason.onFinished = ((prev) => (bp: { cells: { x: number; z: number }[] }) => {
+  prev?.(bp as never);
+  let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9;
+  for (const c of bp.cells) {
+    if (c.x < x0) x0 = c.x;
+    if (c.x > x1) x1 = c.x;
+    if (c.z < z0) z0 = c.z;
+    if (c.z > z1) z1 = c.z;
+  }
+  const r = life!.scatter(field, plan, { x0: x0 - 3, z0: z0 - 3, x1: x1 + 4, z1: z1 + 4 });
+  lifeReport.props += r.props;
+  lifeReport.laundry += r.laundry;
+  lifeReport.boats += r.boats;
+  lifeReport.smoke = r.smoke;
+})(mason.onFinished);
 
 // age the settlement: N works sited by the plan, laid whole. the capture
 // lever for looking at a TOWN rather than at one building.
@@ -1408,6 +1438,10 @@ window.cathedral = {
   get workSite() {
     return workSite!;
   },
+  life: lifeReport,
+  // a capture rig builds its walls with placeInstant, which never goes
+  // through the mason and so never fires the finish hook
+  lifeScatter: () => life!.scatter(field, plan),
   get photo() {
     return photo!;
   },
