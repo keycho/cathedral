@@ -83,6 +83,7 @@ import { Strata } from "./strata";
 import { Flora } from "./flora";
 import { UrbanPlan } from "./plan";
 import { plantWoods } from "./woods";
+import { greatWorkPagoda } from "./components/greatwork";
 import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
 import { buildVoidFloor, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
@@ -462,6 +463,30 @@ const plan = new UrbanPlan(field, GENESIS_CELL, genesisY);
 // the plan takes the grass with it when it paves
 plan.flora = flora;
 plan.found();
+
+// THE HERO GOES UP FIRST. the world had a hundred buildings of one size and
+// nothing to navigate by; this is the thing every view is arranged around,
+// and it is sited before anything else so the sightlines are reserved before
+// the wood is planted or a single work is placed.
+const greatSite = plan.siteGreatWork();
+const greatWork = greatWorkPagoda(7, 21, 3);
+{
+  const gx = greatSite.x - Math.floor(greatWork.footprint / 2);
+  const gz = greatSite.z - Math.floor(greatWork.footprint / 2);
+  plan.platform(gx, gz, greatWork.footprint, greatWork.footprint, "precinct");
+  const gy = field.topAt(greatSite.x, greatSite.z);
+  const cells = greatWork.build.ordered.map((c) => ({
+    x: gx + c.dx,
+    y: gy + c.dy,
+    z: gz + c.dz,
+    material: c.m,
+  }));
+  mason.placeInstant({ planId: "great-work", title: "the great work", zone: "architect", cells });
+  plan.record({
+    x: gx, z: gz, w: greatWork.footprint, d: greatWork.footprint,
+    quarter: "precinct", planId: "great-work", title: "the great work", epoch: 0, slot: "great",
+  });
+}
 
 // THE WILD IS WOODED BEFORE THE SETTLEMENT IS. a world where trees exist
 // only where a building was designed is a world of landscaped plots in a

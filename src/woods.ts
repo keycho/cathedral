@@ -54,6 +54,11 @@ function hash2(x: number, y: number): number {
 function plantable(field: VoxelField, plan: UrbanPlan | null, x: number, z: number): boolean {
   if (x < 10 || x >= GRID - 10 || z < 10 || z >= GRID - 10) return false;
   if (plan?.isBuiltGround(x, z)) return false;
+  // NOTHING GROWS IN A RESERVED VIEW. the corridors from the great work to
+  // the plaza, the quarter and its own approach are the only composed views
+  // in the world, and a wood planted at boot would close all three before
+  // the first building went up.
+  if (plan?.inSightline(x, z)) return false;
   // THE SETTLEMENT GETS AIR. keeping off the paving was not enough — a wood
   // planted right up to a platform's skirt hides the works it is supposed
   // to frame. the civic core is cleared, and the ring beyond it is thinned

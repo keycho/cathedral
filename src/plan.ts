@@ -35,6 +35,33 @@ function hash2(x: number, y: number): number {
 
 export type Quarter = "plaza" | "precinct" | "quarter";
 
+// THE HIERARCHY, DECLARED. every work was medium because nothing in the plan
+// said otherwise: the site score picked flat reachable ground and the budget
+// picked a size, and a hundred correct decisions made one texture. a place
+// reads because ONE thing is obviously more important than everything else
+// and the rest is arranged with respect to it.
+export type Slot = "great" | "notable" | "ordinary";
+
+export interface SlotSpec {
+  kind: Slot;
+  // the band a work taken from this slot must land in, in blocks of height
+  minHeight: number;
+  maxHeight: number;
+  // and roughly what it may spend
+  budgetScale: number;
+}
+
+export const SLOTS: Record<Slot, SlotSpec> = {
+  // one. four to five times an ordinary hall, and the thing every view is
+  // arranged around.
+  great: { kind: "great", minHeight: 48, maxHeight: 90, budgetScale: 3.0 },
+  // three or four: a gate, a hall, a bridge, a tower. tall enough to be
+  // landmarks at district scale, nowhere near the great work.
+  notable: { kind: "notable", minHeight: 18, maxHeight: 32, budgetScale: 1.6 },
+  // everything else, and most of the world by count
+  ordinary: { kind: "ordinary", minHeight: 5, maxHeight: 16, budgetScale: 1.0 },
+};
+
 export interface Street {
   name: string;
   ax: number; // centreline, cells
@@ -50,6 +77,7 @@ export interface Parcel {
   z: number;
   w: number;
   d: number;
+  slot?: Slot;
   quarter: Quarter;
   planId: string;
   title: string;
@@ -94,6 +122,13 @@ export class UrbanPlan {
   // a centreline, a width, two frontage lines, and a name, and a work in the
   // quarter is sited against a frontage rather than on open ground.
   readonly streets: Street[] = [];
+  // where the great work stands, and the corridors kept clear so it can be
+  // seen from the places that matter
+  greatWorkAt: { x: number; z: number; y: number; r: number } | null = null;
+  readonly sightlines: { ax: number; az: number; bx: number; bz: number; w: number }[] = [];
+  // how many notable slots are still unfilled. the plan hands them out
+  // rather than letting the site score decide everything is medium.
+  private notableLeft = 4;
   private streetsLaid = false;
 
   constructor(private field: VoxelField, genesis: { x: number; z: number }, flatsY: number) {
@@ -447,6 +482,86 @@ export class UrbanPlan {
     let n = 0;
     for (const [t, k] of tally) if (k > n) { best = t; n = k; }
     return best;
+  }
+
+  // WHERE THE GREAT WORK GOES, and the corridors that keep it visible.
+  // called once, at founding: the highest workable ground in the precinct,
+  // which is also the ground the precinct was chosen for.
+  siteGreatWork(): { x: number; z: number; y: number; r: number } {
+    // the fallback is the precinct's own centre at its REAL height. the
+    // first version seeded y at -1 and every candidate failed the roughness
+    // gate, so the great work was sited at y = -1 and the whole tower was
+    // built from below the ground.
+    let best = { x: this.precinct.x, z: this.precinct.z, y: this.field.topAt(this.precinct.x, this.precinct.z), rough: 1e9 };
+    for (let a = 0; a < 64; a++) {
+      const ang = (a / 64) * Math.PI * 2;
+      for (const r of [0, 5, 9, 13]) {
+        const x = Math.round(this.precinct.x + Math.cos(ang) * r);
+        const z = Math.round(this.precinct.z + Math.sin(ang) * r);
+        if (x < 30 || x > GRID - 30 || z < 30 || z > GRID - 30) continue;
+        const y = this.field.topAt(x, z);
+        const under = this.field.typeAt(x, y - 1, z);
+        if (isGeology(under)) continue;
+        // it needs a flat enough shoulder to stand a 30 block footprint on
+        let rough = 0;
+        for (let dx = -12; dx <= 12; dx += 6) {
+          for (let dz = -12; dz <= 12; dz += 6) rough += Math.abs(this.field.topAt(x + dx, z + dz) - y);
+        }
+        // roughness is a PREFERENCE, not a gate. at the raised terrain
+        // amplitude a hard cut at 26 rejected every candidate in the
+        // precinct, which is how the fallback came to be used at all. the
+        // flattest high shoulder wins; if they are all rough, the best of
+        // them still wins.
+        const score = y - rough * 0.35;
+        const bestScore = best.y - Math.min(best.rough, 60) * 0.35;
+        if (score > bestScore) best = { x, z, y, rough };
+      }
+    }
+    this.greatWorkAt = { x: best.x, z: best.z, y: best.y, r: 20 };
+
+    // SIGHTLINES. a hero nobody can see is not a hero. three corridors are
+    // reserved from the great work outward — to the plaza, to the quarter,
+    // and back down its own approach — and nothing plants or sites inside
+    // them. this is the cheapest possible version of the idea and it is the
+    // one that matters: it stops the wood and the next twenty buildings
+    // closing the only views that were ever going to be composed.
+    this.sightlines.push(
+      { ax: best.x, az: best.z, bx: this.plazaX, bz: this.plazaZ, w: 7 },
+      { ax: best.x, az: best.z, bx: this.quarter.x, bz: this.quarter.z, w: 6 },
+      { ax: best.x, az: best.z, bx: best.x, bz: best.z + 46, w: 8 }
+    );
+    return this.greatWorkAt;
+  }
+
+  // is this column inside a reserved corridor. the test is distance to the
+  // segment rather than to its endpoints, or the corridor would only be
+  // reserved at its two ends.
+  inSightline(x: number, z: number): boolean {
+    for (const l of this.sightlines) {
+      const vx = l.bx - l.ax;
+      const vz = l.bz - l.az;
+      const len2 = vx * vx + vz * vz;
+      if (len2 < 1) continue;
+      let t = ((x - l.ax) * vx + (z - l.az) * vz) / len2;
+      t = Math.max(0, Math.min(1, t));
+      const px = l.ax + vx * t;
+      const pz = l.az + vz * t;
+      if (Math.hypot(x - px, z - pz) <= l.w) return true;
+    }
+    return false;
+  }
+
+  // which slot the next work takes. the great work is claimed by the plan
+  // itself at founding; notable slots are handed out to the first few sites
+  // that are far enough apart to read as separate landmarks.
+  claimSlot(x: number, z: number): Slot {
+    if (this.notableLeft <= 0) return "ordinary";
+    for (const p of this.parcels) {
+      if (p.slot !== "notable") continue;
+      if (Math.hypot(p.x + p.w / 2 - x, p.z + p.d / 2 - z) < 34) return "ordinary";
+    }
+    this.notableLeft--;
+    return "notable";
   }
 
   // ---- reading the plan ----------------------------------------------------
