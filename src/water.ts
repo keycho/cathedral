@@ -395,6 +395,14 @@ export interface WetEmitter {
 export class WetPaving {
   readonly group = new THREE.Group();
   readonly mat: THREE.ShaderMaterial;
+  // RAIN IS THE ONE THING THAT MAKES A WET STREET HONEST. the film was
+  // always at full wetness because the town is always at night; in the rain
+  // it goes further, and in the dry it can back off, which is what makes the
+  // rain read as a change rather than as more of the same.
+  set rainWetness(v: number) {
+    this.mat.uniforms.wetness.value = 0.72 + v * 0.5;
+    this.mat.uniforms.gain.value = 1.45 + v * 0.9;
+  }
 
   constructor() {
     const pos: THREE.Vector4[] = [];

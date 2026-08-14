@@ -32,6 +32,7 @@ import { OrbitRig } from "./orbitcam";
 import { Post } from "./post";
 import { WorkSite } from "./site";
 import { SmallLife } from "./life";
+import { Weather } from "./weather";
 import { FRAMINGS, Photo } from "./photo";
 import { PerfHud } from "./perfhud";
 import { AutoQuality, configAt, startStep, type Config } from "./quality";
@@ -128,6 +129,7 @@ let photo: Photo | undefined;
 // same story as photo: built late, called from the loop's first frame
 let workSite: WorkSite | undefined;
 let life: SmallLife | undefined;
+let weather: Weather | undefined;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(HAZE);
@@ -1279,6 +1281,17 @@ function frame() {
     workSite.show(onSite.bp, onSite.cursor);
   }
   life?.update(dt, wind, camera);
+  if (weather) {
+    // the pressure is the trailing net flow turned negative-side-up: a red
+    // hour is a storm and a quiet one is clear air
+    const recent = ticks.history.slice(-6);
+    const net = recent.reduce((a, x) => a + x.netFlowUsd, 0) / Math.max(1, recent.length);
+    weather.drive(dt, sky.phase01(t), Math.max(0, Math.min(1, -net / 4000)), strata.epoch);
+    weather.update(dt, camera, wind);
+    // the town's wet film thickens in the rain, which is the one place the
+    // weather touches something already built
+    wet.rainWetness = weather.wetness;
+  }
   // the one moment the drawing buffer is guaranteed to hold a picture
   photo?.afterRender(renderer);
   perf.update(dt);
@@ -1360,6 +1373,7 @@ declare global {
       workSite: WorkSite;
       life: { props: number; laundry: number; boats: number; smoke: number };
       lifeScatter: () => { props: number; laundry: number; boats: number; smoke: number };
+      weather: Weather;
       photo: Photo;
       framings: typeof FRAMINGS;
     };
@@ -1386,6 +1400,7 @@ const captureMode = (on: boolean) => {
   // a plate of the settlement wants the settlement, not the scaffolding
   // around the half of it that happens to be going up this hour
   workSite?.setVisible(!on);
+  // weather STAYS in a plate: rain is the world, not the interface
   // the birds and the smoke STAY in a plate: they are the world being
   // inhabited, not the interface talking
 };
@@ -1401,6 +1416,11 @@ workSite = new WorkSite(scene);
 // object in it had been designed, so every object in it was a building or a
 // part of one. this is the stuff nobody designed.
 life = new SmallLife(scene);
+
+// WEATHER, ON A CLOCK, WITH THE MARKET'S TEMPER. the state comes off the
+// day so the sky has a shape whatever the tape does; how hard it comes down
+// is the selling pressure.
+weather = new Weather(scene);
 const lifeReport = life.scatter(field, plan);
 // and again whenever a work finishes: the rules all look for a wall to lean
 // against, and a wall is exactly what a finished work has just added
@@ -1442,6 +1462,9 @@ window.cathedral = {
   // a capture rig builds its walls with placeInstant, which never goes
   // through the mason and so never fires the finish hook
   lifeScatter: () => life!.scatter(field, plan),
+  get weather() {
+    return weather!;
+  },
   get photo() {
     return photo!;
   },
