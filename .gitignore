@@ -5,3 +5,6 @@ dist/
 !.env.example
 *.local
 .DS_Store
+
+# the market service keeps its log here when supabase is not configured
+.cathedral/

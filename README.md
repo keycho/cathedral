@@ -84,7 +84,22 @@ otherwise) and builds, embodied and watchable, including the architect's
 standing ascent into the sky. the world wakes aged, with fifty epochs of
 strata and four finished works standing; ?young boots the empty meadow.
 plaques answer for every block, and the shrine of epochs replays the
-whole history in light. no chain yet; the indexer is next.
+whole history in light.
+
+phase 2 groundwork is in: a market service (`server/`) that indexes trades
+into a durable log, closes ticks off that log rather than off a timer, and
+serves the history to the browser, which follows it instead of running its
+own clock. the schema, the reconciliation and the repair path are all
+exercised end to end by `npm run market:test`. the token is a STAND-IN —
+the service says so on every start — and the live chain adapter plugs into
+the same one-method interface the stand-in implements.
+
+```
+npm run market:test                       # the pipeline, end to end
+npm run market                            # the service on :8787
+CATHEDRAL_GENESIS=-45m npm run market     # ...with a past to look at
+npm run dev -- --open '/?market=http://127.0.0.1:8787'
+```
 
 ## license
 

@@ -80,11 +80,30 @@ export class TickEngine {
     return ticksLeft * this.tickMs + this.msToNextTick(now);
   }
 
+  // WHEN THE CLOCK IS SOMEWHERE ELSE. once a server is closing ticks off a
+  // real chain, this engine must stop rolling its own: two visitors watching
+  // the same token cannot each be summarising their own local event stream
+  // and expect the same hall to go up. it keeps doing everything else — the
+  // rules, the epochs, the subsidence run — driven by summaries handed to it
+  // rather than by ones it computed.
+  external = false;
+
   update(now: number) {
+    if (this.external) return;
     while (now - this.lastClose >= this.tickMs) {
       this.lastClose += this.tickMs;
       this.close();
     }
+  }
+
+  // an authoritative summary, from the market service. it takes exactly the
+  // same path a locally closed tick takes — the rules must not be able to
+  // tell where a tick came from, or a world grown from the chain would
+  // differ from one grown from the feed by more than its numbers.
+  applyExternal(s: TickSummary) {
+    if (s.n <= this.tick) return; // already applied; the wire repeats itself
+    this.tick = s.n;
+    this.settle(s);
   }
 
   private close() {
@@ -101,6 +120,11 @@ export class TickEngine {
       buys: a.buys,
       sells: a.sells,
     };
+    this.settle(s);
+  }
+
+  // everything a closed tick does, whoever closed it
+  private settle(s: TickSummary) {
     this.history.push(s);
     // deep enough to cover the crew's funding window even under 10x
     // compression (the budget reads real minutes, not tick counts)

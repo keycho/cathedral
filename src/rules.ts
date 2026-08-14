@@ -4,10 +4,15 @@
 // application) lands here in phase 1d; until then the synthetic feed
 // drives the geology primitives directly through these same constants.
 
+// THE CADENCE LIVES IN THE SHARED LAW. the server has to agree with the
+// browser about what a tick is, and the only way two things agree about a
+// number forever is for there to be one of it.
+import { TIMING } from "./market/law.js";
+
 export const RULES = {
   // time
-  tickMs: 30_000, // a tick is 30 seconds
-  ticksPerEpoch: 20, // an epoch is 20 ticks (10 minutes)
+  tickMs: TIMING.tickMs, // a tick is 30 seconds
+  ticksPerEpoch: TIMING.ticksPerEpoch, // an epoch is 20 ticks (10 minutes)
 
   // r1 accretion / r2 collapse
   usdPerBlock: 50, // floor(|netFlowUsd| / 50) blocks per tick

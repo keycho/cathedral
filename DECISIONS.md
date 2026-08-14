@@ -173,6 +173,69 @@ poured concrete. the crest boost now fades with the same rim term that
 flattens the land, so the rock and the height go together. a palette change
 is a good way to find out what your geometry was getting away with.
 
+## the clock left the browser
+
+phase 1 ran a synthetic feed and a tick engine inside every browser, so
+every visitor was watching a different world and none of them could be
+wrong about it. that is fine for a world nobody shares and it is not what
+this is: two people watching the same token have to see the same hall go
+up. the tick engine now accepts an authoritative summary
+(`applyExternal`) and takes exactly the same path a locally closed tick
+takes — the rules must not be able to tell where a tick came from.
+
+## a tick is derived, not accumulated
+
+the browser engine summed events as they arrived and closed on a timer,
+which works exactly until the process restarts: the accumulator is empty
+and the half-finished tick is gone. the server closes tick n by asking the
+log what happened between two timestamps, so a restart recomputes it, a
+late trade corrects it, and running the ticker twice writes the same row.
+that one property is what makes every other guarantee possible —
+reconciliation, repair, and a client that can check itself.
+
+## the transaction id is the whole deduplication strategy
+
+the indexer's windows OVERLAP on purpose. a cursor that only moves
+forward loses whatever arrived late or out of order, and a chain does
+both. the overlap costs duplicate rows, and the duplicates are eaten by a
+primary key on the transaction the chain minted rather than by application
+logic that has to be right every time. this is also why the phase-1
+synthetic feed has carried a `tx` on every event since the beginning: so
+that when the real one arrived, nothing downstream had to change.
+
+## the law is one file, in plain javascript
+
+`src/market/law.js` is imported by the vite app through a sibling
+declaration and read off disk by the node service. it is not typescript
+and not in the app's type graph, because every other way of sharing it —
+a copy in the server, a build step, a package — ends with the two sides
+disagreeing about what a tick is. `src/rules.ts` imports the cadence from
+it rather than restating it.
+
+## a gap is not drift
+
+a missing tick means the ticker was down for that window and the log can
+be replayed into it. a differing tick means two parties computed different
+answers from the same events, and something is actually wrong. the audit
+reports them as separate lists, because the repair is the same call but
+the diagnosis is not.
+
+## known limits of the phase 2 groundwork
+
+- **the token is a stand-in.** `STANDIN_MINT` is deliberately unmistakable
+  rather than plausible, and the service says so on every start. the real
+  adapter (`HttpSource`) is written against the same one-method interface
+  the stand-in implements, so swapping it is a line in `openSource`.
+- **a new visitor replays rather than loads a snapshot.** the client pulls
+  the tick log from 1 and applies it in batches of 200 per poll, which is
+  correct but gets slower as the world ages. the fix is a snapshot
+  endpoint — the voxel field plus the tick it was taken at — with replay
+  as the fallback for the tail. that is the next piece, not this one.
+- **the client trusts the server's arithmetic, and checks it.** it cannot
+  prove a summary from the log itself (it does not hold the events), so
+  reconciliation catches divergence rather than fraud. proving would mean
+  shipping the event log to the browser, which is a different product.
+
 ## other standing calls
 
 - the world boots aged (50 epochs of simulated history and four finished

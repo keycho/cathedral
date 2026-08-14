@@ -85,6 +85,8 @@ import { UrbanPlan } from "./plan";
 import { plantWoods } from "./woods";
 import { greatWorkPagoda } from "./components/greatwork";
 import { Motif } from "./threshold";
+import { connectChain } from "./chain";
+import type { ChainFeed } from "./chain";
 import { paletteHex } from "./stylise";
 import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
@@ -1376,6 +1378,29 @@ function frame() {
 auto.begin(performance.now());
 frame();
 
+// THE CLOCK, IF THERE IS A SERVER TO TAKE IT. with no market service
+// configured this returns null instantly and the world runs exactly as it
+// always has, on the synthetic feed — which is the shipped state, because the
+// token is still a stand-in and a world that silently switched to following a
+// placeholder would be worse than one that admits it is synthetic.
+//
+// point it at one with ?market=http://127.0.0.1:8787 or VITE_MARKET_URL, and
+// the tick engine stops rolling its own and follows the log instead. nothing
+// downstream knows the difference: the rules read a TickSummary either way.
+let chain: ChainFeed | null = null;
+void connectChain(ticks, (st) => {
+  journal.add(
+    "keeper",
+    ticks.epoch,
+    st.standIn
+      ? `the ledger is being read, but the token is a stand-in. tick ${st.lastTick}.`
+      : `the ledger is being read. ${st.mint.slice(0, 8)}… at tick ${st.lastTick}.`
+  );
+}).then((c) => {
+  chain = c;
+  if (c) console.info("[cathedral] following the market service; local ticks stood down");
+});
+
 // a small debug/stream handle (the director module will drive cameras
 // through this later)
 declare global {
@@ -1454,6 +1479,7 @@ declare global {
       framings: typeof FRAMINGS;
       motif: Motif;
       paletteHex: typeof paletteHex;
+      chain: ChainFeed | null;
     };
   }
 }
@@ -1554,6 +1580,9 @@ if (DEV_TOOLS) window.cathedral = {
   framings: FRAMINGS,
   motif,
   paletteHex,
+  get chain() {
+    return chain;
+  },
   plan,
   woods,
   settle,
