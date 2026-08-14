@@ -178,10 +178,18 @@ function surfaceFor(x: number, z: number, h: number, amp: number, nearWater: boo
   // concentric-terrace fault over again in a different variable. jittering
   // the slope per column by about a fifth turns a clean edge into a
   // scatter, so stone gives way to grass the way a real hillside does.
-  const s = slope * (0.8 + grain * 0.4);
+  // and the THRESHOLD wanders, not just the value. dithering the slope per
+  // column scatters the boundary by one cell, which the eye integrates
+  // straight back into a stripe — slope is derived from the same fractal as
+  // the height, so its level sets run parallel to the contours and a fixed
+  // cut draws them. a coherent noise on the threshold itself moves the whole
+  // boundary in twenty block lobes, which reads as one outcrop ending and
+  // another starting rather than as a band drawn round the hill.
+  const wander = (fractal(x * 0.045 + 511, z * 0.045 + 733) - 0.5) * 0.17;
+  const s = slope * (0.86 + grain * 0.28);
   const hj = h + (grain - 0.5) * 3;
-  if (s > 0.34) return hj > 15 ? CLIFF : grain < 0.5 ? CLAY : SCREE;
-  if (s > 0.22) return hj > 17 ? SCREE : grain < 0.4 ? CLAY : GRASSDRY;
+  if (s > 0.34 + wander) return hj > 15 ? CLIFF : grain < 0.5 ? CLAY : SCREE;
+  if (s > 0.22 + wander * 0.8) return hj > 17 ? SCREE : grain < 0.4 ? CLAY : GRASSDRY;
 
   // 3. ALTITUDE. a crown is thin ground whatever its gradient.
   if (hj >= 18) return grain < 0.55 ? SCREE : LICHEN;
