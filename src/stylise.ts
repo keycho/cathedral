@@ -350,7 +350,15 @@ export const StyliseShader = {
 // ---- the three strengths -----------------------------------------------------
 
 export interface StyleParams {
-  divisor: number; // integer render divisor. 1 = native, 3 = about 480p at 1440
+  // THE CHUNK SIZE, IN CSS PIXELS. the knob used to be an absolute buffer
+  // divisor, and an absolute divisor is a different picture on every
+  // display: the quality ladder caps the renderer's pixel ratio per tier,
+  // so on a capped retina screen a divisor-2 chunk covered four-plus
+  // device pixels and churned like noise — far coarser than the rig it
+  // was tuned on. a chunk defined in CSS pixels is the same visual size
+  // everywhere; the integer buffer divisor is DERIVED from it against the
+  // live pixel ratio at resize time. 0 = native, no pixelation.
+  pxCss: number;
   paletteMix: number;
   ditherAmount: number;
   chroma: number;
@@ -370,8 +378,14 @@ export type StyleMode = "off" | "subtle" | "strong";
 // ?dither= remains as an experiment flag (it runs in the grade, gated by
 // the same local-contrast test, so even the experiment cannot regrow grain
 // across the sky). ramp 3 (48 colours) per the coverage measurements.
+//
+// subtle ships at ONE css pixel — a crisp voxel render with a hint of
+// chunk, nothing near PS1 — pending the strength pick on real hardware;
+// it may end at 0.5 or 0 with the quantisation carrying the style alone.
+// ?px= takes the css chunk size directly (2 = the old default's look,
+// 1 = half, 0.5 = quarter-to-off depending on display).
 export const STYLE_PRESETS: Record<StyleMode, StyleParams> = {
-  off: { divisor: 1, paletteMix: 0, ditherAmount: 0, chroma: 0, chromaEdge: 0.16, rampSteps: 3 },
-  subtle: { divisor: 2, paletteMix: 0.55, ditherAmount: 0, chroma: 0.6, chromaEdge: 0.2, rampSteps: 3 },
-  strong: { divisor: 3, paletteMix: 1.0, ditherAmount: 0, chroma: 1.0, chromaEdge: 0.13, rampSteps: 3 },
+  off: { pxCss: 0, paletteMix: 0, ditherAmount: 0, chroma: 0, chromaEdge: 0.16, rampSteps: 3 },
+  subtle: { pxCss: 1, paletteMix: 0.55, ditherAmount: 0, chroma: 0.6, chromaEdge: 0.2, rampSteps: 3 },
+  strong: { pxCss: 2, paletteMix: 1.0, ditherAmount: 0, chroma: 1.0, chromaEdge: 0.13, rampSteps: 3 },
 };

@@ -432,7 +432,7 @@ export class Post {
 
   tune(p: Partial<StyleParams>) {
     Object.assign(this.style, p);
-    this.style.divisor = Math.max(1, Math.min(8, Math.round(this.style.divisor)));
+    this.style.pxCss = Math.max(0, Math.min(8, this.style.pxCss));
     if (p.rampSteps !== undefined || this.paletteSteps < 0) {
       // rebuilding the cube is a third of a millisecond, but it is still
       // pointless to do it on every slider drag
@@ -461,12 +461,13 @@ export class Post {
     this.grade.uniforms.debugSky.value = v;
   }
 
-  get styleParams(): StyleParams & { mode: string; colours: number; renderedAt: string } {
+  get styleParams(): StyleParams & { divisor: number; mode: string; colours: number; renderedAt: string } {
     const size = this.renderer.getSize(new THREE.Vector2());
     const pr = this.renderer.getPixelRatio();
-    const d = this.style.divisor;
+    const d = this.divisor;
     return {
       ...this.style,
+      divisor: d,
       mode: this.styleMode,
       colours: paletteSize(this.style.rampSteps),
       renderedAt: `${Math.max(1, Math.floor((size.x * pr) / d))}x${Math.max(1, Math.floor((size.y * pr) / d))}`,
@@ -476,7 +477,7 @@ export class Post {
   // whether the upscale pass is needed at all. the dither does not force
   // it: the dither is applied by the grade, which is in the chain anyway.
   private get styling(): boolean {
-    return this.style.divisor > 1 || this.style.paletteMix > 0.001 || this.style.chroma > 0.001;
+    return this.divisor > 1 || this.style.paletteMix > 0.001 || this.style.chroma > 0.001;
   }
 
   // (re)assemble the chain for the current effect set. a pass that is off
@@ -521,11 +522,22 @@ export class Post {
     this.grade.uniforms.hazeStrength.value = this.fx.haze ? 0.30 : 0;
   }
 
+  // THE BUFFER DIVISOR, derived from the css chunk against the LIVE pixel
+  // ratio — the ladder can change the ratio mid-session, and a divisor
+  // computed once against the boot ratio would change the chunk's visual
+  // size the moment it did. rounded to an integer: a fractional upscale
+  // gives some output pixels two source pixels and others three, and the
+  // eye reads that as moiré on every straight edge.
+  private get divisor(): number {
+    if (this.style.pxCss <= 0) return 1;
+    return Math.max(1, Math.round(this.style.pxCss * this.renderer.getPixelRatio()));
+  }
+
   // the resolution the scene is actually rendered at, which is the output
   // divided by the stylisation's divisor
   private lowSize(w: number, h: number): { lw: number; lh: number } {
     const pr = this.renderer.getPixelRatio();
-    const d = this.style.divisor;
+    const d = this.divisor;
     return {
       lw: Math.max(1, Math.floor((w * pr) / d)),
       lh: Math.max(1, Math.floor((h * pr) / d)),
@@ -563,7 +575,7 @@ export class Post {
   // frame at divisor three. it is divided back down, which is also the only
   // way "subtle" means the same thing at every strength.
   private applyDofScale() {
-    this.grade.uniforms.dofMaxPx.value = this.dofBasePx / this.style.divisor;
+    this.grade.uniforms.dofMaxPx.value = this.dofBasePx / this.divisor;
   }
 
   get dofMode(): number {
@@ -572,6 +584,11 @@ export class Post {
 
   apply(cfg: Config) {
     this.fx = { bloom: cfg.bloom, grade: cfg.grade, haze: cfg.haze };
+    // the ladder changes the pixel ratio in the same breath, and the chunk
+    // is defined in css pixels — the buffers must re-derive or the chunk
+    // grows on every downgrade
+    const size = this.renderer.getSize(new THREE.Vector2());
+    this.setSize(size.x, size.y);
     this.build();
   }
 
@@ -667,10 +684,12 @@ export class Post {
     const { lw, lh } = this.lowSize(w, h);
     this.grade.uniforms.texel.value.set(1 / lw, 1 / lh);
     // THE COMPOSER APPLIES THE PIXEL RATIO ITSELF. it multiplies whatever it
-    // is given by the ratio it read from the renderer at construction, so
-    // handing it numbers that already carry the ratio squares it — invisible
-    // at ratio one, and a quarter-resolution world on any retina display.
-    this.composer.setSize(Math.max(1, Math.floor(w / this.style.divisor)), Math.max(1, Math.floor(h / this.style.divisor)));
+    // is given by the ratio it read from the renderer — refreshed here,
+    // because the ladder changes the ratio mid-session. handing it numbers
+    // that already carry the ratio would square it: invisible at ratio one,
+    // a quarter-resolution world on any retina display.
+    this.composer.setPixelRatio(this.renderer.getPixelRatio());
+    this.composer.setSize(Math.max(1, Math.floor(w / this.divisor)), Math.max(1, Math.floor(h / this.divisor)));
     this.tail.setSize(lw, lh);
     this.depth.image.width = lw;
     this.depth.image.height = lh;

@@ -321,7 +321,7 @@ export class Sky {
     this.glowMat.opacity = Math.min(1, k.glow * 2.2);
     for (const m of this.cloudMats) {
       m.color.setHex(k.cloud);
-      m.opacity = k.cloudA;
+      m.opacity = k.cloudA * this.cloudFade;
     }
     // the glow rides the sun direction at the dome's shell
     this.glowSprite.position.copy(this.light.sunDir).multiplyScalar(DOME_R - 30);
@@ -394,8 +394,17 @@ export class Sky {
     this.tex.needsUpdate = true;
   }
 
+  // THE CLOUDS BELONG UNDER THE CAMERA'S EYE-LINE, NOT OVER ITS LENS. the
+  // carousel floats at 120-190; the full-map orbit climbs past two hundred,
+  // and from up there every sprite sits between the camera and the world as
+  // a smear across the one frame that is supposed to show everything. they
+  // fade as the camera climbs through their band and are gone above it.
+  private cloudFade = 1;
+
   update(dt: number, t: number, camPos: THREE.Vector3, windX = 1, windZ = 0, gust = 0.5) {
     const p = this.phase01(t);
+    const above = (camPos.y - 110) / 60;
+    this.cloudFade = 1 - Math.max(0, Math.min(1, above));
     this.applyPhase(p);
     this.follow.position.copy(camPos);
     // the clouds walk with the world's wind, not on a private clock

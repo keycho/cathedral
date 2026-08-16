@@ -14,7 +14,11 @@ const VDRIFT_HIGH = 0.72;
 const DRAG_SENS = 0.005;
 const ZOOM_SENS = 0.0012;
 const R_MIN = 6;
-const R_MAX = 90;
+// FAR ENOUGH TO FRAME THE WHOLE WORLD WITH SKY AROUND IT. ninety kept the
+// camera inside the bowl, and the full-map shot — the marketing frame — was
+// simply impossible. at 70 degrees of fov the 256-cell world needs about
+// three hundred; a little more buys the margin of air the frame wants.
+const R_MAX = 340;
 const POLAR_MIN = 0.12; // rad above the horizon
 const POLAR_MAX = 1.35;
 

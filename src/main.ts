@@ -141,11 +141,14 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(HAZE);
 scene.fog = new THREE.Fog(HAZE, FOG_NEAR, FOG_FAR);
 
+// the far plane covers the full-map orbit: at the new maximum radius the
+// far rim sits around seven hundred units out, and a plane that used to
+// end at five hundred would slice the world's own corner off the frame
 const camera = new THREE.PerspectiveCamera(
   70,
   window.innerWidth / window.innerHeight,
   0.1,
-  500
+  760
 );
 scene.add(camera);
 
@@ -1173,7 +1176,10 @@ const post = new Post(renderer, scene, camera, quality);
   if (mode === "off" || mode === "subtle" || mode === "strong") post.setStyle(mode);
   const num = (k: string) => (q.has(k) ? Number(q.get(k)) : undefined);
   const over: Record<string, number | undefined> = {
-    divisor: num("px"),
+    // ?px= is the chunk size in CSS PIXELS (2 = the old default's look,
+    // 1 = the shipped subtle, 0.5 = quarter, 0 = off) — display-relative,
+    // so the number means the same thing on a retina panel and a 1x one
+    pxCss: num("px"),
     paletteMix: num("quant"),
     ditherAmount: num("dither"),
     chroma: num("chroma"),
@@ -1335,8 +1341,35 @@ function frame() {
   frameNo++;
   renderer.shadowMap.needsUpdate = frameNo % quality.shadowEvery === 0;
 
-  // keep the sun's shadow window centered on the view
+  // THE FOG FOLLOWS THE ORBIT OUT. the scene fog is tuned for the composed
+  // mid-range views — at 170/560 a full-map orbit would drown the whole
+  // world in it, since every block sits 200-700 out at that radius. pulled
+  // back proportionally past the composed range, so zooming out reveals
+  // the world rather than a wall of haze; walking never touches it.
+  {
+    const zoomOut = walking ? 0 : Math.max(0, rig.radius - 120);
+    const f = scene.fog as THREE.Fog;
+    f.near = FOG_NEAR + zoomOut * 1.2;
+    f.far = FOG_FAR + zoomOut * 1.6;
+  }
+
+  // keep the sun's shadow window centered on the view — and WIDEN it as the
+  // orbit pulls back, or the full-map frame is lit-but-shadowless outside a
+  // box around the centre. the map spreads over a larger area, so shadows
+  // soften at full zoom; at that range they are tone, not detail.
   sun.target.position.set(camera.position.x, 0, camera.position.z);
+  {
+    const spread = walking ? 1 : Math.max(1, Math.min(2.4, rig.radius / 140));
+    const ext = SH * spread;
+    if (Math.abs(sun.shadow.camera.right - ext) > 1) {
+      sun.shadow.camera.left = -ext;
+      sun.shadow.camera.right = ext;
+      sun.shadow.camera.top = ext;
+      sun.shadow.camera.bottom = -ext;
+      sun.shadow.camera.updateProjectionMatrix();
+      renderer.shadowMap.needsUpdate = true;
+    }
+  }
   sun.position.copy(sun.target.position).addScaledVector(sky.light.sunDir, SUN_DIST);
 
   // and the fill stands opposite it, raised. the sun sits low through the
