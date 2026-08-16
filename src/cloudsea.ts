@@ -28,10 +28,9 @@ import { SWATCH } from "./palette";
 import type { SkyLight } from "./sky";
 import type { VoxelField } from "./voxels";
 
-// the sea's surface sits below the slab's underside; the skirt reaches a
-// little past it so the two always overlap and no sliver of void survives
-const SEA_Y = -11;
-const SKIRT_FOOT = -16;
+// the sea's surface sits below the slab's lip; the underside keel reaches
+// well past it, so the deepest teeth hang into the cloud and vanish there
+const SEA_Y = -14;
 
 // ---- the sea -----------------------------------------------------------------
 
@@ -175,7 +174,7 @@ export class CloudSea {
   }
 }
 
-// ---- the skirt ---------------------------------------------------------------
+// ---- the underside -----------------------------------------------------------
 
 const C_GRASS = new THREE.Color(SWATCH.meadowDeep);
 const C_EARTH = new THREE.Color(SWATCH.earth);
@@ -185,109 +184,223 @@ const C_CLIFF = new THREE.Color(SWATCH.cliff);
 const C_DEEP = new THREE.Color(SWATCH.cliffDeep);
 const C_BED = new THREE.Color(0x2e3238);
 const C_ROOT = new THREE.Color(0x2f2418);
+const C_EMBER = new THREE.Color(0xc2521c);
 
 function hash1(n: number): number {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return s - Math.floor(s);
 }
+function vn1(n: number): number {
+  const i = Math.floor(n);
+  const f = n - i;
+  const u = f * f * (3 - 2 * f);
+  return hash1(i) * (1 - u) + hash1(i + 1) * u;
+}
 
-// which stratum a world height belongs to, banded from the lip down. the
-// boundaries jitter per column so the bands read as geology rather than
-// as wallpaper.
-function strataColor(y: number, top: number, col: number, root: boolean): THREE.Color {
+// the strata, banded from the lip down and jittered per column so the cut
+// reads as geology rather than wallpaper. deep rock picks up the sky
+// islands' language: their keels glow with ember seams, and the world's
+// keel — the piece they were all torn from — carries the same warm cracks.
+function strataColor(depth: number, col: number, root: boolean): THREE.Color {
   const j = (hash1(col * 3.7) - 0.5) * 2.2;
   const out = new THREE.Color();
-  if (root && y > top - 6 && hash1(col * 9.1 + Math.floor(y)) < 0.6) {
-    // a hanging root: a dark streak through the topsoil and clay
-    out.copy(C_ROOT);
-  } else if (y > top - 1.2) out.copy(C_GRASS);
-  else if (y > top - 3.4 + j * 0.4) out.copy(C_EARTH);
-  else if (y > top - 7 + j) out.copy(C_CLAY);
-  else if (y > top - 10 + j) out.copy(C_STONE);
-  else if (y > 1 + j) out.copy(C_CLIFF);
-  else if (y > -6 + j) out.copy(C_DEEP);
+  if (root && depth < 6 && hash1(col * 9.1 + Math.floor(depth)) < 0.6) out.copy(C_ROOT);
+  else if (depth < 1.2) out.copy(C_GRASS);
+  else if (depth < 3.4 + j * 0.4) out.copy(C_EARTH);
+  else if (depth < 7 + j) out.copy(C_CLAY);
+  else if (depth < 10 + j) out.copy(C_STONE);
+  else if (depth < 16 + j) out.copy(C_CLIFF);
+  else if (depth < 24 + j) out.copy(C_DEEP);
   else out.copy(C_BED);
-  // per-column tone jitter, so adjacent columns never match exactly
+  if (depth > 18 && hash1(col * 13.7 + Math.floor(depth * 0.6)) < 0.055) out.copy(C_EMBER);
   out.multiplyScalar(0.92 + hash1(col * 1.3 + 7) * 0.16);
+  // the keel darkens toward its teeth — an underside is in its own shadow,
+  // and without this the deep rock caught the hemisphere light and read as
+  // a pale boat hull rather than torn earth
+  out.multiplyScalar(1 - Math.min(depth, 34) / 34 * 0.3);
   return out;
 }
 
-// THE CUT SIDE OF THE SLAB, built once from the terrain's own edge. the
-// geometry walks each border column at its real genesis height, so the lip
-// follows the coast's rises and falls; below it the face steps through the
-// strata to bedrock and into the cloud sea. accretion can add stone at the
-// rim later — the skirt sits a hair outside the voxel shell, so new growth
-// simply stands on top of it.
-export function buildSkirt(field: VoxelField, scene: THREE.Scene): THREE.Mesh {
-  const pos: number[] = [];
-  const col: number[] = [];
-  const nrm: number[] = [];
-  const half = GRID / 2;
-  // more rows near the lip, where the bands are thin
-  const ROWS = [0, 1.5, 3.5, 6, 9, 14, 22, 34];
+// A TORN-OUT PIECE OF EARTH, NOT A PLATE. the first cut was a vertical wall
+// to a flat foot, which is a plinth; a floating island's silhouette is a
+// TAPER — the ground narrowing through strata into hanging rock teeth, the
+// same keel shape the sky islands already carry (theirs run to more than
+// half their radius deep). the perimeter walks the terrain's own edge
+// heights; every boundary point carries its own keel depth, so between a
+// shallow point and a deep one the shell pinches into a tooth on its own.
+const ROWS = [0, 1.5, 3.5, 6, 9, 13, 18, 24, 31, 39, 48];
+const KEEL_REACH = 46; // the deepest tooth, below the terrain lip
 
-  // walk one edge; ax/az choose the axis, s the fixed side
-  const edge = (axis: "x" | "z", side: 0 | 1) => {
-    const fixed = side === 0 ? -half : half;
-    const nx = axis === "x" ? 0 : side === 0 ? -1 : 1;
-    const nz = axis === "z" ? 0 : side === 0 ? -1 : 1;
-    for (let c = 0; c < GRID - 1; c++) {
-      const cellA = c;
-      const cellB = c + 1;
-      const topA = topOf(axis, side, cellA);
-      const topB = topOf(axis, side, cellB);
-      const root = hash1(c * 5.77) < 0.07;
-      for (let r = 0; r < ROWS.length - 1; r++) {
-        const ya0 = topA - ROWS[r];
-        const ya1 = Math.max(topA - ROWS[r + 1], SKIRT_FOOT);
-        const yb0 = topB - ROWS[r];
-        const yb1 = Math.max(topB - ROWS[r + 1], SKIRT_FOOT);
-        if (ya0 <= SKIRT_FOOT && yb0 <= SKIRT_FOOT) continue;
-        const wa = axis === "x" ? [cellA - half, fixed] : [fixed, cellA - half];
-        const wb = axis === "x" ? [cellB - half, fixed] : [fixed, cellB - half];
-        const ca0 = strataColor(ya0, topA, c, root);
-        const ca1 = strataColor(ya1, topA, c, root);
-        const cb0 = strataColor(yb0, topB, c + 1, root);
-        const cb1 = strataColor(yb1, topB, c + 1, root);
-        // two triangles, wound to face outward on every side
-        const quad =
-          (axis === "x" ? side === 1 : side === 0)
-            ? [wa, ya0, ca0, wb, yb0, cb0, wa, ya1, ca1, wb, yb0, cb0, wb, yb1, cb1, wa, ya1, ca1]
-            : [wb, yb0, cb0, wa, ya0, ca0, wb, yb1, cb1, wa, ya0, ca0, wa, ya1, ca1, wb, yb1, cb1];
-        for (let k = 0; k < quad.length; k += 3) {
-          const w = quad[k] as number[];
-          const y = quad[k + 1] as number;
-          const cc = quad[k + 2] as THREE.Color;
-          pos.push(w[0], y, w[1]);
-          col.push(cc.r, cc.g, cc.b);
-          nrm.push(nx, 0, nz);
+export class Underside {
+  private falls: THREE.ShaderMaterial[] = [];
+  // where the water pours, for cameras that want to look at it
+  readonly fallSpots: { x: number; z: number; top: number }[] = [];
+
+  constructor(field: VoxelField, scene: THREE.Scene) {
+    const pos: number[] = [];
+    const col: number[] = [];
+    const half = GRID / 2;
+
+    // per-boundary keel depth and inward reach, indexed by a running
+    // perimeter coordinate so all four edges share one noise field
+    const depthAt = (perim: number) => {
+      let d = 15 + vn1(perim * 0.11) * 20;
+      if (hash1(perim * 7.3) < 0.11) d += 12 + hash1(perim * 2.9) * 16; // a tooth
+      return Math.min(d, KEEL_REACH);
+    };
+    const reachAt = (perim: number) => 16 + vn1(perim * 0.07 + 51) * 20;
+
+    const edge = (axis: "x" | "z", side: 0 | 1, perim0: number) => {
+      const fixed = side === 0 ? -half : half;
+      const fixedCell = side === 0 ? 0 : GRID - 1;
+      const inwardSign = side === 0 ? 1 : -1;
+      for (let c = 0; c < GRID - 1; c++) {
+        const pa = perim0 + c;
+        const pb = perim0 + c + 1;
+        const topA = axis === "x" ? field.topAt(c, fixedCell) : field.topAt(fixedCell, c);
+        const topB = axis === "x" ? field.topAt(c + 1, fixedCell) : field.topAt(fixedCell, c + 1);
+        const dA = depthAt(pa);
+        const dB = depthAt(pb);
+        const rA = reachAt(pa);
+        const rB = reachAt(pb);
+        const root = hash1(pa * 5.77) < 0.07;
+        for (let r = 0; r < ROWS.length - 1; r++) {
+          const put = (
+            cell: number, top: number, D: number, reach: number, perim: number, row: number
+          ): [number, number, number, THREE.Color] => {
+            const nominal = ROWS[row];
+            const depth = Math.min(nominal, D);
+            const y = top - depth;
+            // the taper: lateral pull toward the centre grows with depth,
+            // so the wall becomes a keel rather than a plinth. it is tuned
+            // against the band the SEA leaves VISIBLE — the first version
+            // saved its slope for depths the cloud swallows, and from the
+            // full-map orbit the slab still read flat-bottomed.
+            const inward = Math.min(46, Math.pow(depth / 30, 1.3) * reach);
+            const along = cell - half;
+            const wx = axis === "x" ? along : fixed + inwardSign * inward;
+            const wz = axis === "x" ? fixed + inwardSign * inward : along;
+            return [wx, y, wz, strataColor(depth, perim, root)];
+          };
+          const a0 = put(c, topA, dA, rA, pa, r);
+          const a1 = put(c, topA, dA, rA, pa, r + 1);
+          const b0 = put(c + 1, topB, dB, rB, pb, r);
+          const b1 = put(c + 1, topB, dB, rB, pb, r + 1);
+          // frozen rows collapse to zero-area quads and vanish on their own
+          const tri = (v0: typeof a0, v1: typeof a0, v2: typeof a0) => {
+            pos.push(v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
+            col.push(v0[3].r, v0[3].g, v0[3].b, v1[3].r, v1[3].g, v1[3].b, v2[3].r, v2[3].g, v2[3].b);
+          };
+          if (axis === "x" ? side === 1 : side === 0) {
+            tri(a0, b0, a1);
+            tri(b0, b1, a1);
+          } else {
+            tri(b0, a0, b1);
+            tri(a0, a1, b1);
+          }
         }
       }
+    };
+
+    edge("x", 0, 0);
+    edge("x", 1, GRID);
+    edge("z", 0, GRID * 2);
+    edge("z", 1, GRID * 3);
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+
+    this.buildFalls(field, scene);
+  }
+
+  // ONE OR TWO WATERFALLS off the edge, pouring into the cloud. the spots
+  // are found, not chosen: the highest border columns on two different
+  // sides, which is where a stream would actually spill.
+  private buildFalls(field: VoxelField, scene: THREE.Scene) {
+    const half = GRID / 2;
+    const spots: { x: number; z: number; top: number; nx: number; nz: number }[] = [];
+    const consider = (x: number, z: number, nx: number, nz: number) => {
+      const top = field.topAt(x, z);
+      spots.push({ x, z, top, nx, nz });
+    };
+    for (let c = 24; c < GRID - 24; c += 4) {
+      consider(c, 0, 0, -1);
+      consider(c, GRID - 1, 0, 1);
+      consider(0, c, -1, 0);
+      consider(GRID - 1, c, 1, 0);
     }
-  };
+    spots.sort((a, b) => b.top - a.top);
+    const picked: typeof spots = [];
+    for (const sp of spots) {
+      if (picked.length >= 2) break;
+      if (picked.some((q) => Math.hypot(q.x - sp.x, q.z - sp.z) < 140)) continue;
+      picked.push(sp);
+    }
 
-  const topOf = (axis: "x" | "z", side: 0 | 1, c: number) => {
-    const cell = Math.max(0, Math.min(GRID - 1, c));
-    const fixedCell = side === 0 ? 0 : GRID - 1;
-    return axis === "x" ? field.topAt(cell, fixedCell) : field.topAt(fixedCell, cell);
-  };
+    const FallShader = {
+      uniforms: { uTime: { value: 0 }, uTint: { value: new THREE.Color(0xdfe8e6) } },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uTime;
+        uniform vec3 uTint;
+        varying vec2 vUv;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float vnoise(vec2 p) {
+          vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                     mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+        }
+        void main() {
+          // long streaks falling fast; the fall thins at the edges and
+          // dissolves at the foot, where it enters the cloud
+          float streak = vnoise(vec2(vUv.x * 6.0, vUv.y * 3.0 - uTime * 1.6));
+          streak = smoothstep(0.35, 0.9, streak);
+          float edge = smoothstep(0.0, 0.22, vUv.x) * smoothstep(1.0, 0.78, vUv.x);
+          float foot = smoothstep(0.0, 0.28, vUv.y);
+          float a = (0.22 + streak * 0.6) * edge * foot;
+          gl_FragColor = vec4(uTint, a);
+        }
+      `,
+    };
 
-  edge("x", 0);
-  edge("x", 1);
-  edge("z", 0);
-  edge("z", 1);
+    for (const sp of picked) {
+      this.fallSpots.push({ x: sp.x, z: sp.z, top: sp.top });
+      const mat = new THREE.ShaderMaterial({
+        uniforms: THREE.UniformsUtils.clone(FallShader.uniforms),
+        vertexShader: FallShader.vertexShader,
+        fragmentShader: FallShader.fragmentShader,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      this.falls.push(mat);
+      const w = 5;
+      const topY = sp.top - 0.4;
+      const geo = new THREE.PlaneGeometry(w, topY - (SEA_Y + 3), 1, 8);
+      const mesh = new THREE.Mesh(geo, mat);
+      const wx = sp.x - half + 0.5;
+      const wz = sp.z - half + 0.5;
+      // stand just off the rim face, leaning slightly outward as it falls
+      mesh.position.set(wx + sp.nx * 1.4, (topY + SEA_Y + 3) / 2, wz + sp.nz * 1.4);
+      if (sp.nx !== 0) mesh.rotation.y = Math.PI / 2;
+      mesh.rotation.x = (sp.nz !== 0 ? sp.nz : sp.nx) * -0.045 * (sp.nx !== 0 ? -1 : 1);
+      scene.add(mesh);
+    }
+  }
 
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3));
-  const mat = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    roughness: 1,
-    metalness: 0,
-  });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.receiveShadow = true;
-  scene.add(mesh);
-  return mesh;
+  update(t: number) {
+    for (const m of this.falls) m.uniforms.uTime.value = t;
+  }
 }

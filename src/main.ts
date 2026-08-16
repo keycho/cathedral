@@ -85,7 +85,7 @@ import { UrbanPlan } from "./plan";
 import { plantWoods } from "./woods";
 import { greatWorkPagoda } from "./components/greatwork";
 import { Motif } from "./threshold";
-import { CloudSea, buildSkirt } from "./cloudsea";
+import { CloudSea, Underside } from "./cloudsea";
 import { connectChain } from "./chain";
 import type { ChainFeed } from "./chain";
 import { paletteHex } from "./stylise";
@@ -524,9 +524,8 @@ const greatWork = greatWorkPagoda(7, 21, 3);
 // beneath it — the full-map orbit frames a world floating on cloud rather
 // than in void, and the coast at ground level ends at a cliff instead of
 // at nothing.
-const skirt = buildSkirt(field, scene);
+const underside = new Underside(field, scene);
 const cloudSea = new CloudSea(scene);
-void skirt;
 
 // THE MOTIF, AND THE THREE DEVICES. a vermilion gate at every threshold in
 // the world — the plaza's four ways in, the length of each route, the head of
@@ -1246,6 +1245,7 @@ function frame() {
   probe?.update();
   sky.update(dt, t, camera.position, wind.dirX, wind.dirZ, wind.gust);
   cloudSea.update(t, camera.position, sky.light, scene.fog as THREE.Fog);
+  underside.update(t);
   flora.update(t);
   wind.update(dt, t);
   water.update(dt, t);
@@ -1554,6 +1554,7 @@ declare global {
       framings: typeof FRAMINGS;
       motif: Motif;
       paletteHex: typeof paletteHex;
+      underside: Underside;
       chain: ChainFeed | null;
     };
   }
@@ -1655,6 +1656,7 @@ if (DEV_TOOLS) window.cathedral = {
   framings: FRAMINGS,
   motif,
   paletteHex,
+  underside,
   get chain() {
     return chain;
   },
