@@ -315,9 +315,32 @@ export const StyliseShader = {
       // in the sky the moment the horizon dropped.
 
 
-      // and the snap, mixed rather than absolute, so the strength is one
-      // number the whole way from off to full
-      if (paletteMix > 0.001) col = mix(col, snap(col), paletteMix);
+      // and the snap — GATED BY LOCAL CONTRAST, so the world quantises and
+      // the sky never does. banding on geometry reads as style; banding on
+      // a gradient reads as error, and the sky is the world's one great
+      // gradient. the gate is the measured statement of that rule rather
+      // than a mask that has to know where the sky is: a region that steps
+      // between cells has geometry in it and takes the snap, a region that
+      // measures smooth — the dome, a water sheet, the far haze — renders
+      // through untouched. (a depth-based sky mask is not available: the
+      // depth texture reads as its clear value from this pass — see the
+      // grade's dither note and DECISIONS.md.)
+      if (paletteMix > 0.001) {
+        float lc = luma(tap(vec2(0.0)));
+        float dmax = 0.0;
+        dmax = max(dmax, abs(luma(tap(vec2(1.0, 0.0))) - lc));
+        dmax = max(dmax, abs(luma(tap(vec2(-1.0, 0.0))) - lc));
+        dmax = max(dmax, abs(luma(tap(vec2(0.0, 1.0))) - lc));
+        dmax = max(dmax, abs(luma(tap(vec2(0.0, -1.0))) - lc));
+        // a second ring two cells out, so the flat middle of a nearby wall
+        // stays inside its own building's gate instead of dropping out
+        dmax = max(dmax, abs(luma(tap(vec2(2.0, 0.0))) - lc));
+        dmax = max(dmax, abs(luma(tap(vec2(-2.0, 0.0))) - lc));
+        dmax = max(dmax, abs(luma(tap(vec2(0.0, 2.0))) - lc));
+        dmax = max(dmax, abs(luma(tap(vec2(0.0, -2.0))) - lc));
+        float detail = smoothstep(0.010, 0.042, dmax);
+        col = mix(col, snap(col), paletteMix * detail);
+      }
 
       gl_FragColor = vec4(col, 1.0);
     }
@@ -340,13 +363,15 @@ export type StyleMode = "off" | "subtle" | "strong";
 // the divisor is an INTEGER on purpose: a fractional upscale gives some
 // output pixels two source pixels and others three, and the eye reads the
 // unevenness as a moiré crawling over every straight edge in the world.
-// THE DITHER HAS TO CLEAR THE GAP IT IS CROSSING. measured against three real
-// frames, the three entries carrying the sky sit about 0.10 of luma apart —
-// so a dither amplitude well under that cannot reach the next colour and the
-// band stays a band. ramp 3 (48 colours) is the setting: ramp 4 costs twelve
-// more entries and measured the same error, with more of them never selected.
+// DITHER SHIPS OFF, at every strength. with the sky exempt from the snap
+// there is no gradient left that needs a weave to cross it, and on real
+// hardware at retina pixel ratios the weave itself reads as grain — which
+// the software-rasterised captures cannot show and therefore cannot clear.
+// ?dither= remains as an experiment flag (it runs in the grade, gated by
+// the same local-contrast test, so even the experiment cannot regrow grain
+// across the sky). ramp 3 (48 colours) per the coverage measurements.
 export const STYLE_PRESETS: Record<StyleMode, StyleParams> = {
   off: { divisor: 1, paletteMix: 0, ditherAmount: 0, chroma: 0, chromaEdge: 0.16, rampSteps: 3 },
-  subtle: { divisor: 2, paletteMix: 0.55, ditherAmount: 0.055, chroma: 0.6, chromaEdge: 0.2, rampSteps: 3 },
-  strong: { divisor: 3, paletteMix: 1.0, ditherAmount: 0.105, chroma: 1.0, chromaEdge: 0.13, rampSteps: 3 },
+  subtle: { divisor: 2, paletteMix: 0.55, ditherAmount: 0, chroma: 0.6, chromaEdge: 0.2, rampSteps: 3 },
+  strong: { divisor: 3, paletteMix: 1.0, ditherAmount: 0, chroma: 1.0, chromaEdge: 0.13, rampSteps: 3 },
 };

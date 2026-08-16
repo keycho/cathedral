@@ -189,10 +189,16 @@ export class Sky {
     gc.width = 128;
     gc.height = 128;
     const gg = gc.getContext("2d") as CanvasRenderingContext2D;
-    const grad = gg.createRadialGradient(64, 64, 4, 64, 64, 62);
-    grad.addColorStop(0, "rgba(255, 244, 220, 1)");
-    grad.addColorStop(0.18, "rgba(255, 226, 176, 0.9)");
-    grad.addColorStop(0.5, "rgba(255, 200, 130, 0.28)");
+    // A SUN IS A DISC, NOT A REGION. the old falloff held 28% opacity out
+    // to half the sprite and the sprite was 118 across — a near-white blob
+    // eating half the dome, and the first thing any quantisation found to
+    // band. golden-hour photography: a small intense core, a halo that
+    // dies within a couple of diameters, and the SKY carrying the warmth.
+    const grad = gg.createRadialGradient(64, 64, 3, 64, 64, 62);
+    grad.addColorStop(0, "rgba(255, 248, 228, 1)");
+    grad.addColorStop(0.1, "rgba(255, 238, 198, 0.95)");
+    grad.addColorStop(0.22, "rgba(255, 212, 142, 0.34)");
+    grad.addColorStop(0.45, "rgba(255, 196, 126, 0.07)");
     grad.addColorStop(1, "rgba(255, 190, 120, 0)");
     gg.fillStyle = grad;
     gg.fillRect(0, 0, 128, 128);
@@ -207,7 +213,7 @@ export class Sky {
       fog: false,
     });
     this.glowSprite = new THREE.Sprite(this.glowMat);
-    this.glowSprite.scale.set(118, 118, 1);
+    this.glowSprite.scale.set(36, 36, 1);
     this.glowSprite.renderOrder = -1;
     this.follow.add(this.glowSprite);
 
@@ -309,7 +315,10 @@ export class Sky {
     setColor(this.light.mid, splitHex(k.mid));
     setColor(this.light.horizon, splitHex(k.hor));
     this.starMat.opacity = k.stars * 0.9;
-    this.glowMat.opacity = k.glow;
+    // the keyed glow values were tuned for the old 118-wide blob, where
+    // energy came from area; a 36-wide disc needs its intensity back or the
+    // sun reads as a moon
+    this.glowMat.opacity = Math.min(1, k.glow * 2.2);
     for (const m of this.cloudMats) {
       m.color.setHex(k.cloud);
       m.opacity = k.cloudA;
@@ -340,30 +349,39 @@ export class Sky {
     // gradient leans toward at the very bottom rather than a lid over the
     // lower half, and even there it only goes most of the way — a sky that
     // literally becomes the fog colour has no horizon in it at all.
-    // AND THE SATURATED BAND HAS TO BE WHERE THE CAMERA CAN SEE IT. moving
-    // the horizon colour down the texture to make room fixed nothing and
-    // made it worse: a camera at any ordinary polar angle sees the dome from
-    // roughly its equator UP, so everything past about stop 0.6 is behind the
-    // world and the gold was being painted where nobody stands. measured, the
-    // saturation profile flattened to 0.14 across the whole visible sky.
-    //
-    // the band goes back where it was and is HELD below itself rather than
-    // crushed into fog. the fog is still the destination, at the bottom of
-    // the texture, where it is hidden anyway and only matters for a camera
-    // looking down from the sky realm.
+    // THE GRADIENT IS MAPPED TO THE SKY A PHOTOGRAPH SHOWS. the dome's
+    // texture runs v=0 at the zenith, v=0.5 at the horizon line, and a
+    // camera sees roughly the equator up — so the visible sky is the top
+    // half of this ramp. golden-hour photography holds BLUE well down from
+    // the zenith, warms through the mids, and confines the gold to the
+    // lowest band against the horizon; the wash-out this replaces let the
+    // warm colours climb most of the dome, which is what left the sky one
+    // flat cream and gave the quantiser a whole dome of near-identical
+    // values to band. (an earlier fix moved the gold DOWN the texture to
+    // make room and painted it below the equator, where nobody stands —
+    // saturation measured flat 0.14 across the visible sky. the mapping
+    // above is the one that matters: 0.5 IS the horizon.)
     grad.addColorStop(0.0, css(splitHex(k.top)));
-    grad.addColorStop(0.34, css(lerpHex(k.top, k.mid, 0.8)));
-    grad.addColorStop(0.485, css(lerpHex(k.mid, k.hor, 0.9)));
-    grad.addColorStop(0.60, css(splitHex(k.hor)));
-    grad.addColorStop(0.75, css(lerpHex(k.hor, k.fog, 0.45)));
-    grad.addColorStop(1.0, css(lerpHex(k.hor, k.fog, 0.8)));
+    grad.addColorStop(0.26, css(lerpHex(k.top, k.mid, 0.35)));
+    grad.addColorStop(0.38, css(lerpHex(k.top, k.mid, 0.85)));
+    grad.addColorStop(0.46, css(lerpHex(k.mid, k.hor, 0.6)));
+    grad.addColorStop(0.52, css(splitHex(k.hor)));
+    // and the gold HOLDS below the horizon line: the sun sets INTO the
+    // brightest band, and a camera looking slightly down sees exactly this
+    // stretch of dome between the eye line and the land. blending it to fog
+    // one stop later turned the widest visible band of the sunset grey.
+    grad.addColorStop(0.62, css(lerpHex(k.hor, k.fog, 0.12)));
+    grad.addColorStop(0.76, css(lerpHex(k.hor, k.fog, 0.6)));
+    grad.addColorStop(1.0, css(lerpHex(k.hor, k.fog, 0.85)));
     g.fillStyle = grad;
     g.fillRect(0, 0, w, h);
     // the sky burns a little hotter around the sun
     if (k.glow > 0.01) {
       const cx = w / 2;
       const cy = h * (0.5 - k.sunE * 0.28);
-      const blob = g.createRadialGradient(cx, cy, 6, cx, cy, w * 0.42);
+      // the burn around the sun stays LOCAL: at 0.42 of the canvas it was
+      // warming half the dome, which is the sky doing the sprite's job
+      const blob = g.createRadialGradient(cx, cy, 4, cx, cy, w * 0.17);
       const sc = lerpHex(k.sun, 0xffffff, 0.2);
       blob.addColorStop(0, `rgba(${Math.round(sc.r)}, ${Math.round(sc.g)}, ${Math.round(sc.b)}, ${0.5 * k.glow})`);
       blob.addColorStop(0.5, `rgba(${Math.round(sc.r)}, ${Math.round(sc.g)}, ${Math.round(sc.b)}, ${0.18 * k.glow})`);
