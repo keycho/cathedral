@@ -1245,7 +1245,7 @@ function frame() {
   probe?.update();
   sky.update(dt, t, camera.position, wind.dirX, wind.dirZ, wind.gust);
   cloudSea.update(t, camera.position, sky.light, scene.fog as THREE.Fog);
-  underside.update(t);
+  underside.update(t, sky.light, scene.fog as THREE.Fog);
   flora.update(t);
   wind.update(dt, t);
   water.update(dt, t);

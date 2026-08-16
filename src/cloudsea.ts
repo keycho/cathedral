@@ -15,12 +15,16 @@
 //              shape in it. the scene fog eats it toward the horizon, which
 //              is what joins it to the dome without a seam.
 //
-//   THE SKIRT  the slab's cut side, dressed as carved earth: topsoil and
-//              hanging roots at the lip, a clay band under that, then
-//              cliff-grey strata stepping down into bedrock dark. built
-//              once from the genesis terrain's own edge heights, per
-//              column, with the bands jittered so the cut reads as ground
-//              that was carved rather than a wall that was extruded.
+//   THE KEEL   the slab's underside as a single torn mass: widest at the
+//              surface and narrowing from the first courses down — grass
+//              lip, dark topsoil, a broad pale sandstone band, warm
+//              red-brown rock, then deep stone pulling in to four heavy
+//              points. the strata are banded per-FRAGMENT from depth, not
+//              per-vertex, so the geology stays crisp at any distance;
+//              and the keel carries its own light model — sky ambient,
+//              sun graze, and a bounce term standing in for the cloud
+//              sea's reflected light — because an underside lit only by
+//              physically-honest lights is a silhouette.
 
 import * as THREE from "three";
 import { GRID } from "./config";
@@ -29,11 +33,11 @@ import type { SkyLight } from "./sky";
 import type { VoxelField } from "./voxels";
 
 // THE SEA SITS WELL BELOW THE LIP. at -14 it lapped the coast and swallowed
-// the entire keel, which is how the underside could be reworked twice
-// without the silhouette changing: the work was underwater. at -46 the
-// visible keel is as deep as the terrain above is tall, the belly rounds
-// into the cloud, and only the teeth pierce it.
-const SEA_Y = -46;
+// the entire keel — the work was underwater. at -46 it still ate the
+// belly's central sag and every tooth. at -54 the bowl bottoms out in the
+// air, the four teeth carry a hand's length of visible spear, and the
+// cloud laps at the hanging points — which is where the references put it.
+const SEA_Y = -54;
 
 // ---- the sea -----------------------------------------------------------------
 
@@ -179,16 +183,6 @@ export class CloudSea {
 
 // ---- the underside -----------------------------------------------------------
 
-const C_GRASS = new THREE.Color(SWATCH.meadowDeep);
-const C_EARTH = new THREE.Color(SWATCH.earth);
-const C_CLAY = new THREE.Color(SWATCH.clay);
-const C_STONE = new THREE.Color(SWATCH.stoneDark);
-const C_CLIFF = new THREE.Color(SWATCH.cliff);
-const C_DEEP = new THREE.Color(SWATCH.cliffDeep);
-const C_BED = new THREE.Color(0x2e3238);
-const C_ROOT = new THREE.Color(0x2f2418);
-const C_EMBER = new THREE.Color(0xc2521c);
-
 function hash1(n: number): number {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return s - Math.floor(s);
@@ -214,145 +208,465 @@ function fbm2(x: number, z: number): number {
   return (0.5 * vn2(x, z) + 0.25 * vn2(x * 2.03 + 17, z * 2.03 + 17) + 0.125 * vn2(x * 4.1 + 43, z * 4.1 + 43)) / 0.875;
 }
 
-// the strata, banded by depth below the local lip. the deep rock speaks the
-// sky islands' language — their keels glow with ember seams, and the
-// world's keel, the piece they were all torn from, carries the same cracks.
-function strataColor(depth: number, seed: number, root: boolean): THREE.Color {
-  const j = (hash1(seed * 3.7) - 0.5) * 2.4;
-  const out = new THREE.Color();
-  if (root && depth < 6 && hash1(seed * 9.1 + Math.floor(depth)) < 0.6) out.copy(C_ROOT);
-  else if (depth < 1.2) out.copy(C_GRASS);
-  else if (depth < 3.4 + j * 0.4) out.copy(C_EARTH);
-  else if (depth < 7 + j) out.copy(C_CLAY);
-  else if (depth < 11 + j) out.copy(C_STONE);
-  else if (depth < 19 + j * 1.5) out.copy(C_CLIFF);
-  else if (depth < 32 + j * 2) out.copy(C_DEEP);
-  else out.copy(C_BED);
-  // EMBERS ARE VEINS, NOT A RASH. at five per cent per vertex the keel came
-  // back measled with orange — vertex interpolation smears every hit into a
-  // glowing blob. they now need a coarse cluster band to be eligible at
-  // all, then a rare hit inside it, and they render as cooling rock rather
-  // than as lamps.
-  if (
-    depth > 30 &&
-    hash1(Math.floor(seed / 520) * 3.1) < 0.22 &&
-    hash1(seed * 13.7 + Math.floor(depth * 0.4)) < 0.03
-  ) {
-    out.copy(C_EMBER).multiplyScalar(0.78);
-  }
-  out.multiplyScalar(0.92 + hash1(seed * 1.3 + 7) * 0.16);
-  // an underside is in its own shadow: the rock darkens toward the teeth
-  out.multiplyScalar(1 - Math.min(depth, 80) / 80 * 0.34);
-  return out;
-}
+// THE GEOLOGY IS DRAWN BY THE FRAGMENT, NOT THE VERTEX. the first strata
+// were vertex colours, and across the steep courses at the rim — ten units
+// of drop on a single face — four bands smeared into one brown blur: a
+// heightfield's vertices can never out-resolve its own slope. the bands are
+// now a function of interpolated depth, evaluated per pixel, so the
+// topsoil line, the broad sandstone band and the red-brown rock under it
+// stay crisp from the coast path and from the full-map orbit alike.
+//
+// the material is also its own light model. an underside faces down; the
+// scene's honest lights leave it a silhouette, which is physically right
+// and visually wrong. three terms fix it: sky ambient (the mid sky),
+// a sun graze (the low sun does rake the flanks at the golden hours), and
+// a bounce term fed from the same colour the cloud sea's bright tops use —
+// the cloud is a floor of lit vapour, and a floor that bright throws light
+// back up.
+const UndersideShader = {
+  uniforms: {
+    // 0 normal · 1 unlit albedo · 2 magenta coverage — the keel is judged
+    // in captures, and a wash-out and a culled face look identical until
+    // one of these strips the question down to geometry
+    uDebug: { value: 0 },
+    uSunDir: { value: new THREE.Vector3(0, 0.34, -1) },
+    uSunColor: { value: new THREE.Color(0xf7c07a) },
+    uAmbient: { value: new THREE.Color(0xe8cba4) },
+    uBounce: { value: new THREE.Color(0xd9c9a6) },
+    uFogColor: { value: new THREE.Color(0xccd0c5) },
+    uFogNear: { value: 170 },
+    uFogFar: { value: 560 },
+    uGrass: { value: new THREE.Color(SWATCH.meadowDeep) },
+    uSoil: { value: new THREE.Color(SWATCH.earth) },
+    uRoot: { value: new THREE.Color(0x2f2418) },
+    uCream: { value: new THREE.Color(SWATCH.creamWarm).multiplyScalar(1.1) },
+    uSand: { value: new THREE.Color(SWATCH.sand) },
+    uRust: { value: new THREE.Color(SWATCH.clay).lerp(new THREE.Color(0xb0542e), 0.55).multiplyScalar(0.9) },
+    uStone: { value: new THREE.Color(SWATCH.stoneDark) },
+    uCliff: { value: new THREE.Color(SWATCH.cliff) },
+    uDeep: { value: new THREE.Color(SWATCH.cliffDeep) },
+    uBed: { value: new THREE.Color(0x2e3238) },
+    uEmber: { value: new THREE.Color(0xc2521c) },
+  },
+  vertexShader: /* glsl */ `
+    attribute float depth;
+    varying vec3 vWorld;
+    varying vec3 vN;
+    varying float vDepth;
+    void main() {
+      vDepth = depth;
+      // the mesh sits untransformed at the origin, so object space IS
+      // world space and the flat face normals come through unrotated
+      vN = normal;
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vWorld = wp.xyz;
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }
+  `,
+  fragmentShader: /* glsl */ `
+    uniform float uDebug;
+    uniform vec3 uSunDir, uSunColor, uAmbient, uBounce;
+    uniform vec3 uFogColor;
+    uniform float uFogNear, uFogFar;
+    uniform vec3 uGrass, uSoil, uRoot, uCream, uSand, uRust, uStone, uCliff, uDeep, uBed, uEmber;
+    varying vec3 vWorld;
+    varying vec3 vN;
+    varying float vDepth;
 
-// A MOUNTAIN TORN OUT OF THE GROUND. the first underside was a perimeter
-// curtain — a thin plate with icicle teeth, which is exactly what it looked
-// like from the eye line. this is a full under-SURFACE: a downward
-// heightfield spanning the whole footprint, with a carved cliff band at the
-// rim, broad shoulders of rock rounding into a belly deeper than the
-// terrain above is tall, and FOUR heavy teeth — not many thin ones —
-// hanging well into the cloud. the silhouette between teeth is curved rock,
-// never flat slab, because the belly is a surface and not a curtain's foot.
-const RES = 96; // grid cells across the footprint
-const CLIFF_BAND = 13; // the near-vertical carved rim, in units of depth
-const BELLY_DEPTH = 58; // the broad body below the cliff band
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float vnoise(vec2 p) {
+      vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                 mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+    }
+    float fbm(vec2 p) {
+      float v = 0.5 * vnoise(p);
+      v += 0.25 * vnoise(p * 2.03 + 17.0);
+      v += 0.125 * vnoise(p * 4.11 + 43.0);
+      return v / 0.875;
+    }
+
+    void main() {
+      if (uDebug > 1.5) { gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0); return; }
+      vec2 cw = vWorld.xz;
+
+      // the grass and topsoil hug the torn lip; below them the strata run
+      // LEVEL, the way sediment does, so a tooth shows dipped horizontal
+      // bands rather than rings around its own point
+      float dLevel = 6.0 - vWorld.y;
+      float d = mix(vDepth, dLevel, smoothstep(2.0, 9.0, vDepth));
+      // per-column jitter on every boundary: torn ground, not ruled lines
+      d += (fbm(cw * 0.045) - 0.5) * 5.0 * smoothstep(1.0, 5.0, d);
+      // and the paint is QUANTISED to whole courses, one colour per
+      // block, so the strata read as stacked voxels rather than as a
+      // gradient wrapped over the terraces
+      d = floor(d) + 0.5;
+
+      // the broad pale band carries thin sediment seams, each layer its own
+      // slight cream-to-sand lean
+      vec3 cream = mix(uCream, uSand,
+        0.2 + 0.5 * vnoise(vec2(dot(cw, vec2(0.021, 0.017)), floor(d * 0.8) * 3.7)));
+
+      vec3 alb = uGrass;
+      alb = mix(alb, uSoil, smoothstep(0.9, 1.5, d));
+      alb = mix(alb, cream, smoothstep(3.9, 4.8, d));
+      alb = mix(alb, uRust, smoothstep(16.2, 17.8, d));
+      alb = mix(alb, uStone, smoothstep(24.8, 26.6, d));
+      alb = mix(alb, uCliff, smoothstep(30.0, 33.5, d));
+      alb = mix(alb, uDeep, smoothstep(38.0, 45.0, d));
+      alb = mix(alb, uBed, smoothstep(52.0, 72.0, d));
+
+      // roots reach out of the topsoil a short way down the cut
+      float rs = vnoise(vec2(dot(cw, vec2(0.31, 0.27)), 11.0));
+      alb = mix(alb, uRoot,
+        smoothstep(0.66, 0.8, rs) * (1.0 - smoothstep(2.5, 7.5, d)) * smoothstep(1.1, 1.7, d));
+
+      // sediment striations through the sandstone and rust bands only
+      float zone = smoothstep(4.5, 5.4, d) * (1.0 - smoothstep(23.5, 25.5, d));
+      float layer = fract(d * 0.5 + fbm(cw * 0.018) * 1.6);
+      alb *= 1.0 - (1.0 - smoothstep(0.03, 0.15, abs(layer - 0.5))) * 0.22 * zone;
+
+      // grain per BLOCK, not per fragment, and the dark of depth — but
+      // only BELOW the strata band, so the geology keeps its colour and
+      // the keel keeps its weight
+      alb *= 0.93 + 0.14 * vnoise(floor(cw) * 0.6 + vec2(d * 0.9, -d * 0.7));
+      alb *= 1.0 - clamp((d - 26.0) / 90.0, 0.0, 1.0) * 0.45;
+
+      // ember seams in the deep rock: coarse cluster, then a rare vein
+      vec3 emb = vec3(0.0);
+      if (d > 36.0) {
+        float cl = vnoise(cw * 0.021 + 7.0);
+        float vein = vnoise(vec2(dot(floor(cw), vec2(0.33, 0.29)), d * 0.5));
+        emb = uEmber * smoothstep(0.74, 0.82, cl) * smoothstep(0.84, 0.94, vein) * 0.55;
+      }
+
+      // NEVER normalize a vector that might be zero: a degenerate face's
+      // normal is (0,0,0), normalize() of it is NaN, and one NaN fragment
+      // fed to the bloom blur blacks the whole frame
+      float nl = length(vN);
+      vec3 N = nl > 0.0001 ? vN / nl : vec3(0.0, -1.0, 0.0);
+      float sun = max(0.0, dot(N, normalize(uSunDir)));
+      float down = clamp(-N.y, 0.0, 1.0);
+      vec3 li = uAmbient * 0.36
+              + uSunColor * sun * 1.15
+              + uBounce * (0.32 + 0.30 * down);
+      // A STEPPED UNDERSIDE SHADOWS ITS OWN FLOORS: every course's
+      // ceiling is boxed in by the course outside it, so the down-facing
+      // faces get almost none of the cloud's bounce. leaving them lit
+      // painted every floor sea-gold, and the keel read as shredded
+      // plates with bright water between — the mass dissolved into the
+      // cloud it was supposed to tower over.
+      li *= 1.0 - down * 0.72;
+      // AND THE KEEL DARKENS WITH DEPTH into its own shadow: the strata
+      // band stays lit and legible, the belly's contour courses fall
+      // toward silhouette, and the mountain reads as a dark mass against
+      // the bright cloud — which is how the references carry their
+      // weight. lit pale stone at the centre read as a floating pavilion.
+      li *= 1.0 - smoothstep(26.0, 46.0, d) * 0.62;
+      vec3 col = alb * li + emb;
+      if (uDebug > 0.5) col = alb;
+
+      // HALF FOG ONLY. the keel spans a couple of hundred units front to
+      // back, and at full strength the scene fog turned its far half into
+      // an unbanded sheet of fog colour — the geology erased at exactly
+      // the eye-line the island is judged from. the keel hangs below the
+      // haze layer the fog models, so it earns a thinner air.
+      float fd = length(vWorld - cameraPosition);
+      col = mix(col, uFogColor, smoothstep(uFogNear, uFogFar, fd) * 0.55);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+};
+
+// A MOUNTAIN TORN OUT OF THE GROUND, IN THE WORLD'S OWN LANGUAGE. the
+// underside is built as TERRACES: one flat block-quantised floor per cell
+// with vertical risers between neighbours, because a smooth heightfield —
+// however well banded — read as plastic next to a voxel world. the mass is
+// CENTRAL: the belly descends from the rim band to its deepest line at the
+// island's middle, kissing the cloud, and the four heavy teeth hang from
+// that deep zone and spear on through. the earlier build had this
+// backwards — teeth toward the corners, and a centre so deep the cloud
+// swallowed it, which from the side read as a missing middle.
+const RES = 128; // terrace cells across the footprint (2 world units each)
+const BAND_DEPTH = 26; // the sheer strata face: as tall as the terrain above
+// THE VISIBLE WINDOW IS THE LAW. everything below the cloud's crest line
+// simply does not exist in a frame, so the whole mountain-read — band,
+// sag, teeth — must happen between the lip and the swell tops, and the
+// belly bottoms out a hand above them: deep enough that the crests lap
+// the central slabs in the troughs' rhythm, never so deep that the
+// silhouette flattens into a ship's hull at the crest line.
+const BODY_DEPTH = 42;
 const ROCK_VAR = 11;
 
 export class Underside {
   private falls: THREE.ShaderMaterial[] = [];
+  private mat: THREE.ShaderMaterial;
   readonly fallSpots: { x: number; z: number; top: number }[] = [];
 
   constructor(field: VoxelField, scene: THREE.Scene) {
     const half = GRID / 2;
+    const CS = GRID / RES; // cell size in world units
 
-    // the four teeth: heavy cones at deterministic spots partway between
-    // the centre and the rim, spaced by angle so no side is bare
+    // the four teeth: heavy cones clustered in the CENTRAL deep zone —
+    // the mountain's root — spread by angle so the points read separately
     const teeth: { x: number; z: number; depth: number; r: number }[] = [];
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + 0.55 + (hash1(i * 7.1) - 0.5) * 0.7;
-      const rad = (0.30 + hash1(i * 3.3) * 0.14) * GRID * 0.5;
+      // clustered around the deep centre, but far enough out that each
+      // cone's upper shoulders attach ABOVE the swell tops and show
+      // before the spear vanishes into the cloud
+      const rad = (0.12 + hash1(i * 3.3) * 0.16) * GRID * 0.5;
       teeth.push({
         x: GRID / 2 + Math.cos(a) * rad,
         z: GRID / 2 + Math.sin(a) * rad,
-        depth: 30 + hash1(i * 11.7) * 16,
-        r: 34 + hash1(i * 5.9) * 14,
+        depth: 38 + hash1(i * 11.7) * 18,
+        // slim enough that each cone crosses the cloud's surface steeply
+        // and reads as its own spear — broad cones fattened the whole
+        // central dish into the swell band and fed the shredding
+        r: 26 + hash1(i * 5.9) * 10,
       });
     }
 
-    // the under-surface, vertex by vertex
-    const vert = (ix: number, iz: number): { y: number; depth: number; lip: number } => {
-      const cx = (ix / RES) * (GRID - 1);
-      const cz = (iz / RES) * (GRID - 1);
-      // distance from the border, 0 at the rim, 1 at the centre lines
-      const e = Math.min(ix, RES - ix, iz, RES - iz) / (RES / 2);
-      // the rim ring sits exactly on the terrain's own edge heights, so the
-      // surface seals to the voxel shell; inward, the lip stops mattering
-      const bx = Math.max(0, Math.min(GRID - 1, Math.round(cx)));
-      const bz = Math.max(0, Math.min(GRID - 1, Math.round(cz)));
-      const edgeTop = field.topAt(
-        Math.min(ix, RES - ix) <= Math.min(iz, RES - iz) ? (ix < RES / 2 ? 0 : GRID - 1) : bx,
-        Math.min(iz, RES - iz) < Math.min(ix, RES - ix) ? (iz < RES / 2 ? 0 : GRID - 1) : bz
-      );
-      const lip = e < 0.06 ? edgeTop : 6;
-      // the carved rim: nearly vertical for the first band of depth
-      const cliff = Math.min(1, e / 0.045) * CLIFF_BAND;
-      // the belly: broad shoulders rounding into a deep body — sin^0.8
-      // drops fast off the shoulder and flattens into a curve, which is
-      // what keeps the silhouette between teeth round rather than flat
-      const belly = Math.pow(Math.sin(Math.min(e * 1.45, 1) * Math.PI * 0.5), 0.8) * BELLY_DEPTH;
-      const rock = (fbm2(cx * 0.028, cz * 0.028) - 0.5) * 2 * ROCK_VAR * Math.min(1, e * 6);
+    // depth of the under-surface below the local lip, at any plan point
+    const profile = (px: number, pz: number): number => {
+      const edge = Math.max(0, Math.min(px, GRID - px, pz, GRID - pz));
+      const e = edge / (GRID / 2);
+      // TWO REGIMES, ONE MASS. the strata band falls sheer — narrowing,
+      // but slowly — for its whole height; below it the belly takes over
+      // and deepens all the way to the centre lines, so the deepest rock
+      // hangs under the island's middle like a root, not at its corners.
+      const tear = (fbm2(px * 0.021 + 9, pz * 0.021 + 9) - 0.5) * 0.34;
+      const eBand = 0.037 * (1 + tear * 0.6);
+      let body: number;
+      if (e < eBand) {
+        body = (e / eBand) * BAND_DEPTH;
+      } else {
+        // a MONOTONE bowl with the sag FRONT-LOADED (pow below one): from
+        // a grazing eye the rim wall occludes whatever happens far
+        // inside, so a back-loaded curve reads as a flat hull no matter
+        // how deep the centre goes. most of the descent lands by
+        // mid-radius, where the sight-line over the band bottom can still
+        // catch it, and the belly line visibly bows down toward the
+        // middle before the cloud takes it.
+        const s = Math.min(1, (e - eBand) / (1 - eBand));
+        body = BAND_DEPTH + (BODY_DEPTH - BAND_DEPTH) * Math.pow(s, 0.58);
+      }
+      // full-amplitude tearing at the rim and cheek; nearly flat inside.
+      // interior noise at course scale fragments the belly's contour
+      // steps into scattered shards — the belly wants REGULAR concentric
+      // courses descending to the centre, the way a voxel mountain wears
+      // its contours, and the tearing belongs to the torn edge alone.
+      const rock =
+        (fbm2(px * 0.028, pz * 0.028) - 0.5) * 2 * ROCK_VAR *
+        Math.min(1, e * 6) * (0.15 + 0.85 * Math.max(0, 1 - e / 0.25));
       let tooth = 0;
       for (const t of teeth) {
-        const d = Math.hypot(cx - t.x, cz - t.z) / t.r;
-        if (d < 1) tooth = Math.max(tooth, t.depth * Math.pow(1 - d, 1.6));
+        const dd = Math.hypot(px - t.x, pz - t.z) / t.r;
+        if (dd < 1) tooth = Math.max(tooth, t.depth * Math.pow(1 - dd, 1.6));
       }
-      const depth = cliff + belly + rock + tooth;
-      return { y: lip - depth, depth, lip };
+      return Math.max(0, body + rock + tooth);
     };
 
-    const pos: number[] = [];
-    const col: number[] = [];
-    const grid: { y: number; depth: number; lip: number }[][] = [];
-    for (let iz = 0; iz <= RES; iz++) {
-      const row: { y: number; depth: number; lip: number }[] = [];
-      for (let ix = 0; ix <= RES; ix++) row.push(vert(ix, iz));
-      grid.push(row);
+    // per cell: the lip it hangs from, its block-quantised floor height,
+    // and its block-quantised radial push (the torn cheek — the band leans
+    // proud of the rim, because from an eye slightly above the lip an
+    // inward-sloping face is hidden, and the geology must show frontally)
+    type Cell = { y: number; lip: number; ox: number; oz: number };
+    const cells: Cell[][] = [];
+    for (let iz = 0; iz < RES; iz++) {
+      const row: Cell[] = [];
+      for (let ix = 0; ix < RES; ix++) {
+        const px = (ix + 0.5) * CS;
+        const pz = (iz + 0.5) * CS;
+        const edge = Math.max(0, Math.min(px, GRID - px, pz, GRID - pz));
+        const e = edge / (GRID / 2);
+        const bx = Math.max(0, Math.min(GRID - 1, Math.round(px - 0.5)));
+        const bz = Math.max(0, Math.min(GRID - 1, Math.round(pz - 0.5)));
+        const onX = Math.min(px, GRID - px) <= Math.min(pz, GRID - pz);
+        const edgeTop = field.topAt(
+          onX ? (px < GRID / 2 ? 0 : GRID - 1) : bx,
+          onX ? bz : (pz < GRID / 2 ? 0 : GRID - 1)
+        );
+        const lip = edgeTop + (6 - edgeTop) * Math.min(1, e / 0.12);
+        const depth = profile(px, pz);
+        // the cheek push is a RIM feature and must die with distance from
+        // the rim, not with depth: keyed on depth alone, the shoulder's
+        // 26-34 range held the window open across the whole interior, and
+        // the per-cell rounding of a few units of radial push offset
+        // every neighbouring floor by ±1 — thousands of corner pinholes,
+        // which from the grazing eye-line smeared into bright streaks of
+        // sea through the keel
+        const push =
+          7.5 * Math.sin(Math.PI * Math.min(depth / 34, 1)) * Math.max(0, 1 - e / 0.22);
+        const cx = px - GRID / 2;
+        const cz2 = pz - GRID / 2;
+        const pl = Math.hypot(cx, cz2) || 1;
+        row.push({
+          y: Math.round(lip - depth),
+          lip,
+          ox: Math.round((cx / pl) * push),
+          oz: Math.round((cz2 / pl) * push),
+        });
+      }
+      cells.push(row);
     }
+
+    const pos: number[] = [];
+    const dep: number[] = [];
+    // every vertex carries its depth below the local lip, so the strata
+    // paint runs continuously down floors and risers alike
+    const tri = (
+      v0: readonly [number, number, number, number],
+      v1: readonly [number, number, number, number],
+      v2: readonly [number, number, number, number]
+    ) => {
+      pos.push(v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
+      dep.push(v0[3], v1[3], v2[3]);
+    };
+    const quad = (
+      a: readonly [number, number, number, number],
+      b: readonly [number, number, number, number],
+      c: readonly [number, number, number, number],
+      d: readonly [number, number, number, number]
+    ) => {
+      tri(a, c, b);
+      tri(b, c, d);
+    };
+
     for (let iz = 0; iz < RES; iz++) {
       for (let ix = 0; ix < RES; ix++) {
-        const wx = (ix / RES) * (GRID - 1) - half;
-        const wz = (iz / RES) * (GRID - 1) - half;
-        const wx1 = ((ix + 1) / RES) * (GRID - 1) - half;
-        const wz1 = ((iz + 1) / RES) * (GRID - 1) - half;
-        const a = grid[iz][ix];
-        const b = grid[iz][ix + 1];
-        const c = grid[iz + 1][ix];
-        const d = grid[iz + 1][ix + 1];
-        const root = hash1((ix * 31 + iz) * 5.77) < 0.06;
-        const cc = (v: { depth: number }, seed: number) => strataColor(v.depth, seed, root);
-        const A = [wx, a.y, wz, cc(a, ix * 131 + iz)] as const;
-        const B = [wx1, b.y, wz, cc(b, (ix + 1) * 131 + iz)] as const;
-        const C = [wx, c.y, wz1, cc(c, ix * 131 + iz + 1)] as const;
-        const D = [wx1, d.y, wz1, cc(d, (ix + 1) * 131 + iz + 1)] as const;
-        // wound so the faces look DOWN — this surface is seen from below
-        // and from the side, never from above
-        const tri = (v0: typeof A, v1: typeof A, v2: typeof A) => {
-          pos.push(v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
-          col.push(v0[3].r, v0[3].g, v0[3].b, v1[3].r, v1[3].g, v1[3].b, v2[3].r, v2[3].g, v2[3].b);
+        const cell = cells[iz][ix];
+        const x0 = ix * CS - half + cell.ox;
+        const x1 = (ix + 1) * CS - half + cell.ox;
+        const z0 = iz * CS - half + cell.oz;
+        const z1 = (iz + 1) * CS - half + cell.oz;
+        const dc = cell.lip - cell.y;
+        // the floor, wound to look DOWN — grown half a block on every
+        // side so neighbouring floors overlap: cells whose push differs
+        // only ALONG their shared edge leave a sliver of daylight at the
+        // corner otherwise (their bridge is skipped as zero-area), and a
+        // lit crack through a dark keel reads louder than any strata
+        quad(
+          [x0 - 0.5, cell.y, z0 - 0.5, dc],
+          [x0 - 0.5, cell.y, z1 + 0.5, dc],
+          [x1 + 0.5, cell.y, z0 - 0.5, dc],
+          [x1 + 0.5, cell.y, z1 + 0.5, dc]
+        );
+        // risers to the +x and +z neighbours: a bridge from this cell's
+        // edge to the neighbour's, vertical where only the floors differ,
+        // slanted where the cheek push steps. the winding is CHECKED, not
+        // derived: the face's cross product is compared with the way it
+        // must look — toward the deeper cell's air, or straight down for
+        // a push-only step — because hand-deriving winding per side is
+        // how a riser ends up invisible from exactly the side that
+        // matters.
+        const bridge = (
+          nb: Cell,
+          ax: number, az: number, bx2: number, bz2: number,
+          nax: number, naz: number, nbx2: number, nbz2: number,
+          dirx: number, dirz: number
+        ) => {
+          if (nb.y === cell.y && nb.ox === cell.ox && nb.oz === cell.oz) return;
+          // a bridge whose two edges lie on one line is a ZERO-AREA quad:
+          // its normal is the zero vector, normalize() of it is NaN, and a
+          // single NaN fragment smeared through the bloom blur blacks out
+          // the ENTIRE post chain — the whole screen died for two
+          // collinear triangles
+          if (nb.y === cell.y && (dirx !== 0 ? nb.ox === cell.ox : nb.oz === cell.oz)) return;
+          const dn = nb.lip - nb.y;
+          const T0 = [ax, cell.y, az, dc] as const;
+          const T1 = [bx2, cell.y, bz2, dc] as const;
+          const N0 = [nax, nb.y, naz, dn] as const;
+          const N1 = [nbx2, nb.y, nbz2, dn] as const;
+          const ux = nax - ax;
+          const uy = nb.y - cell.y;
+          const uz = naz - az;
+          const vx = bx2 - ax;
+          const vz = bz2 - az;
+          const cnx = uy * vz;
+          const cny = uz * vx - ux * vz;
+          const cnz = -uy * vx;
+          let dot: number;
+          if (nb.y === cell.y) dot = -cny;
+          else {
+            const toward = nb.y < cell.y ? 1 : -1;
+            dot = cnx * dirx * toward + cnz * dirz * toward;
+          }
+          if (dot >= 0) quad(T0, T1, N0, N1);
+          else quad(T1, T0, N1, N0);
         };
-        tri(A, C, B);
-        tri(B, C, D);
+        if (ix + 1 < RES) {
+          const nb = cells[iz][ix + 1];
+          bridge(
+            nb,
+            x1, z0, x1, z1,
+            (ix + 1) * CS - half + nb.ox, iz * CS - half + nb.oz,
+            (ix + 1) * CS - half + nb.ox, (iz + 1) * CS - half + nb.oz,
+            1, 0
+          );
+        }
+        if (iz + 1 < RES) {
+          const nb = cells[iz + 1][ix];
+          bridge(
+            nb,
+            x0, z1, x1, z1,
+            ix * CS - half + nb.ox, (iz + 1) * CS - half + nb.oz,
+            (ix + 1) * CS - half + nb.ox, (iz + 1) * CS - half + nb.oz,
+            0, 1
+          );
+        }
+        // the outer skirt at the world's border: from the terrain's own
+        // edge top straight to this cell's floor — the first, tallest
+        // course of the band, sealed to the voxel shell above
+        if (ix === 0)
+          quad(
+            [-half, cell.lip, iz * CS - half, 0],
+            [-half, cell.lip, (iz + 1) * CS - half, 0],
+            [x0, cell.y, z0, dc],
+            [x0, cell.y, z1, dc]
+          );
+        if (ix === RES - 1)
+          quad(
+            [half, cell.lip, (iz + 1) * CS - half, 0],
+            [half, cell.lip, iz * CS - half, 0],
+            [x1, cell.y, z1, dc],
+            [x1, cell.y, z0, dc]
+          );
+        if (iz === 0)
+          quad(
+            [(ix + 1) * CS - half, cell.lip, -half, 0],
+            [ix * CS - half, cell.lip, -half, 0],
+            [x1, cell.y, z0, dc],
+            [x0, cell.y, z0, dc]
+          );
+        if (iz === RES - 1)
+          quad(
+            [ix * CS - half, cell.lip, half, 0],
+            [(ix + 1) * CS - half, cell.lip, half, 0],
+            [x0, cell.y, z1, dc],
+            [x1, cell.y, z1, dc]
+          );
       }
     }
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    geo.setAttribute("depth", new THREE.Float32BufferAttribute(dep, 1));
     geo.computeVertexNormals();
-    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.receiveShadow = true;
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: THREE.UniformsUtils.clone(UndersideShader.uniforms),
+      vertexShader: UndersideShader.vertexShader,
+      fragmentShader: UndersideShader.fragmentShader,
+      // the terraces are a SHELL, not solid voxels, and a bowl's risers
+      // face its centre: from outside, every descending step on the near
+      // half shows the camera its BACK. single-sided, the whole near
+      // half of the belly was culled away and the sea shone through the
+      // keel as scattered daylight. backfaces stay unlit by the sun
+      // terms, which is exactly right — steps facing away read as the
+      // mass's own shadow.
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geo, this.mat);
     scene.add(mesh);
 
     this.buildFalls(field, scene);
@@ -434,7 +748,23 @@ export class Underside {
     }
   }
 
-  update(t: number) {
+  // the keel's light follows the sky: ambient from the mid sky, the sun's
+  // own colour for the graze, and the bounce fed from the same recipe as
+  // the cloud sea's bright tops — the light it throws back up is the light
+  // it caught
+  debug(v: number) {
+    this.mat.uniforms.uDebug.value = v;
+  }
+
+  update(t: number, light: SkyLight, fog: THREE.Fog) {
     for (const m of this.falls) m.uniforms.uTime.value = t;
+    const u = this.mat.uniforms;
+    (u.uSunDir.value as THREE.Vector3).copy(light.sunDir);
+    (u.uSunColor.value as THREE.Color).copy(light.sunColor);
+    (u.uAmbient.value as THREE.Color).copy(light.mid);
+    (u.uBounce.value as THREE.Color).copy(light.horizon).lerp(light.sunColor, 0.25);
+    (u.uFogColor.value as THREE.Color).copy(fog.color);
+    u.uFogNear.value = fog.near;
+    u.uFogFar.value = fog.far;
   }
 }
