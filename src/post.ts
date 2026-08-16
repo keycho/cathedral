@@ -156,6 +156,26 @@ const GradeShader = {
     rayF: { value: new THREE.Vector3(0, 0, -1) }, // forward * far
     rayR: { value: new THREE.Vector3(1, 0, 0) }, // right * far * tan * aspect
     rayU: { value: new THREE.Vector3(0, 1, 0) }, // up * far * tan
+    // THE DITHER LIVES HERE, in the grade, at the low resolution, after the
+    // colour and before the stylise pass's palette snap — which is the
+    // position the whole treatment needs (the weave decides which palette
+    // entry a cell falls to).
+    //
+    // and it is masked by LOCAL CONTRAST, not by depth. the honest record:
+    // three depth-based sky masks failed in a row, and the last diagnosis
+    // measured the depth texture reading as its exact clear value in every
+    // tail pass, at every camera, both targets — the depth texture works
+    // for scene occlusion and is unreadable from these passes under this
+    // driver stack, which also means the DOF and the altitude mist have
+    // never been sampling what they thought (logged as a standing item).
+    // the contrast mask needs none of that and is the truer statement of
+    // the requirement anyway: the dither earns its keep at world-geometry
+    // transitions, and a transition is a thing the colour image itself
+    // shows. a smooth gradient — the sky, a water sheet, a hazy far hill —
+    // measures flat and takes no weave; a block face against its
+    // neighbour measures a step and takes it.
+    ditherAmount: { value: 0 },
+    debugSky: { value: 0 }, // paint the detail mask; a mask you can look at is diagnosed in one frame
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -176,6 +196,7 @@ const GradeShader = {
     uniform vec3 mistColor, camPos, rayF, rayR, rayU;
     uniform float mistStrength, mistTop, mistDepth;
     uniform float dofStrength, dofFocus, dofRange, dofMaxPx;
+    uniform float ditherAmount, debugSky;
     uniform vec2 texel;
     varying vec2 vUv;
 
@@ -197,6 +218,23 @@ const GradeShader = {
       float d = texture2D(tDepth, uv).x;
       float z = perspectiveDepthToViewZ(d, cameraNear, cameraFar);
       return viewZToOrthographicDepth(z, cameraNear, cameraFar);
+    }
+
+    // the ordered matrix as a function: interleaving the bits of x and y IS
+    // the bayer pattern
+    float bayer8(vec2 pxy) {
+      vec2 q = mod(floor(pxy), 8.0);
+      float x = q.x;
+      float y = q.y;
+      float v = 0.0;
+      for (int i = 0; i < 3; i++) {
+        float xb = mod(x, 2.0);
+        float yb = mod(y, 2.0);
+        v = v * 4.0 + (yb * 2.0 + mod(xb + yb, 2.0));
+        x = floor(x / 2.0);
+        y = floor(y / 2.0);
+      }
+      return v / 64.0;
     }
 
     // the circle of confusion: zero across the focal band, opening toward
@@ -271,6 +309,26 @@ const GradeShader = {
       // vignette
       vec2 q = (vUv - 0.5) * 2.0;
       col *= 1.0 - vignette * dot(q, q) * 0.35;
+
+      // the dither, where the grain used to be — but a weave with a purpose
+      // (it decides which palette entry the snap lands on), and only where
+      // the image has detail for it to serve. four taps of the raw input
+      // measure the local step; a smooth gradient measures flat and stays
+      // clean. this pass renders at the low resolution, so gl_FragCoord is
+      // already in low-res pixels and the taps are one CELL apart.
+      if (ditherAmount > 0.0001 || debugSky > 0.5) {
+        float lc = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));
+        float dmax = 0.0;
+        dmax = max(dmax, abs(dot(texture2D(tDiffuse, vUv + vec2(texel.x, 0.0)).rgb, vec3(0.2126, 0.7152, 0.0722)) - lc));
+        dmax = max(dmax, abs(dot(texture2D(tDiffuse, vUv - vec2(texel.x, 0.0)).rgb, vec3(0.2126, 0.7152, 0.0722)) - lc));
+        dmax = max(dmax, abs(dot(texture2D(tDiffuse, vUv + vec2(0.0, texel.y)).rgb, vec3(0.2126, 0.7152, 0.0722)) - lc));
+        dmax = max(dmax, abs(dot(texture2D(tDiffuse, vUv - vec2(0.0, texel.y)).rgb, vec3(0.2126, 0.7152, 0.0722)) - lc));
+        // the sky's gradient steps about a thousandth of luma per cell; a
+        // block face against its neighbour steps thirty times that
+        float detail = smoothstep(0.012, 0.05, dmax);
+        if (debugSky > 0.5) { gl_FragColor = vec4(vec3(detail), 1.0); return; }
+        col += (bayer8(gl_FragCoord.xy) - 0.5) * ditherAmount * detail;
+      }
 
       gl_FragColor = vec4(col, src.a);
     }
@@ -386,7 +444,8 @@ export class Post {
     }
     const u = this.stylise.uniforms;
     u.paletteMix.value = this.style.paletteMix;
-    u.ditherAmount.value = this.style.ditherAmount;
+    // the dither is applied by the grade — see the note on its uniforms
+    this.grade.uniforms.ditherAmount.value = this.style.ditherAmount;
     u.chroma.value = this.style.chroma;
     u.chromaEdge.value = this.style.chromaEdge;
     if (Object.keys(p).length && this.styleMode !== "off") this.styleMode = "custom";
@@ -396,6 +455,10 @@ export class Post {
     this.setSize(size.x, size.y);
     this.applyDofScale();
     this.build();
+  }
+
+  styleDebug(v: number) {
+    this.grade.uniforms.debugSky.value = v;
   }
 
   get styleParams(): StyleParams & { mode: string; colours: number; renderedAt: string } {
@@ -410,17 +473,10 @@ export class Post {
     };
   }
 
-  // DITHER COUNTS. it was left out of this test, so ?dither=0.08 on its own
-  // never put the pass in the chain at all and came back looking exactly like
-  // an untouched frame — which is indistinguishable from "the dither does
-  // nothing", and is how a working stage gets mistaken for a broken one.
+  // whether the upscale pass is needed at all. the dither does not force
+  // it: the dither is applied by the grade, which is in the chain anyway.
   private get styling(): boolean {
-    return (
-      this.style.divisor > 1 ||
-      this.style.paletteMix > 0.001 ||
-      this.style.chroma > 0.001 ||
-      this.style.ditherAmount > 0.0001
-    );
+    return this.style.divisor > 1 || this.style.paletteMix > 0.001 || this.style.chroma > 0.001;
   }
 
   // (re)assemble the chain for the current effect set. a pass that is off
@@ -443,7 +499,22 @@ export class Post {
       this.composer.addPass(this.bloom);
     }
 
-    this.composer.addPass(new OutputPass());
+    // THE TONE MAP MUST NOT TOUCH THE DEPTH. OutputPass uses a bare
+    // RawShaderMaterial — depthWrite ON by default — and its fullscreen
+    // triangle sits at window depth 0.0. it renders into a target whose
+    // depth attachment is the ONE depth texture both ping-pong buffers
+    // share, so every frame it stomped the scene's depth to zero after the
+    // scene wrote it and before the grade read it. everything downstream
+    // that reads depth — the DOF's circle of confusion, the mist's world
+    // position, the haze curve, the stylisation's sky mask — was computing
+    // from 0.0, and each one failed in a way that could pass for working:
+    // coc(0) is a uniform near-blur that reads as "strong DOF", and the
+    // linear scene fog stood in for the haze. found by rendering the raw
+    // depth read to the screen, which came back black over land.
+    const output = new OutputPass();
+    output.material.depthTest = false;
+    output.material.depthWrite = false;
+    this.composer.addPass(output);
     // the grade and the stylisation are NOT composer passes. they are driven
     // by hand in render() so the grade can always write into its own
     // depth-free target — see the note on `tail`.

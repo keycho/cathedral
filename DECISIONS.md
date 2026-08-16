@@ -246,6 +246,24 @@ the diagnosis is not.
   catching the sky the way the basins already do — before anything public.
   logged as a standing item so the orbit frames do not keep certifying it.
 
+- **the post chain cannot read its own depth texture.** found while
+  masking the dither out of the sky: the shared depth texture reads as its
+  exact clear value from every hand-driven tail pass, at every camera, to
+  every target, under the swiftshader stack the captures run on — while
+  scene occlusion (which uses the same attachment as a depth BUFFER) works
+  fine. one real fault was found and fixed on the way (OutputPass writes
+  depth 0.0 across the whole frame into the shared attachment — its
+  fullscreen triangle sits at window depth zero with depthWrite on), but
+  the reads stayed at clear value even after. consequence: the DOF's
+  circle of confusion, the altitude mist and the grade's depth haze have
+  been computing from a constant all along — their looks pass because
+  uniform near-blur reads as strong DOF and the scene fog stands in for
+  the haze. the dither's sky mask now uses local contrast instead of
+  depth and is verified; the depth-dependent effects need a real fix
+  (likely: render linear depth to a colour target ourselves) before DOF
+  or mist can be called working. verify on real hardware too — this may
+  be a swiftshader-only behaviour.
+
 ## other standing calls
 
 - the world boots aged (50 epochs of simulated history and four finished

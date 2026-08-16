@@ -9,7 +9,7 @@ import * as THREE from "three";
 import { SWATCH } from "./palette";
 
 const CYCLE_S = 1200; // one full day
-const DOME_R = 460; // inside the camera's far plane, following the camera
+export const DOME_R = 460; // inside the camera's far plane, following the camera
 const REDRAW_S = 0.3; // gradient repaint cadence (colours move glacially)
 
 interface Key {

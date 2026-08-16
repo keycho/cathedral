@@ -223,6 +223,14 @@ export const StyliseShader = {
   uniforms: {
     tDiffuse: { value: null as THREE.Texture | null },
     tPalette: { value: null as THREE.Texture | null },
+    // NO DITHER HERE. it moved to the grade, which has the two things the
+    // dither needs — the low-resolution raster, and a depth read that
+    // works, for masking the weave out of the sky. this pass measurably
+    // could not sample the depth texture (same texture, same uniform, real
+    // values in the grade, the clear value here, in the same frame) and a
+    // mask balanced on an unexplained driver behaviour is not shippable.
+    // ditherAmount remains in StyleParams; post.tune routes it to the
+    // grade's uniform.
     // the resolution the scene was actually rendered at. every coordinate in
     // this shader is computed against THIS and not against the output, which
     // is what keeps the dither woven at the pixel scale instead of at the
@@ -244,7 +252,7 @@ export const StyliseShader = {
     uniform sampler2D tDiffuse;
     uniform sampler2D tPalette;
     uniform vec2 lowRes;
-    uniform float paletteMix, ditherAmount, chroma, chromaEdge;
+    uniform float paletteMix, chroma, chromaEdge;
     varying vec2 vUv;
 
     // EVERY READ IS SNAPPED TO THE LOW GRID. the upscale is done here rather
@@ -258,24 +266,6 @@ export const StyliseShader = {
 
     float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 
-    // the classic 8x8 ordered matrix, as a function rather than a table:
-    // interleaving the bits of x and y IS the bayer pattern, and it costs
-    // nothing next to a uniform array lookup.
-    float bayer8(vec2 p) {
-      vec2 q = mod(floor(p), 8.0);
-      float x = q.x;
-      float y = q.y;
-      float v = 0.0;
-      // bit-reverse-interleave, unrolled for glsl 1.0
-      for (int i = 0; i < 3; i++) {
-        float xb = mod(x, 2.0);
-        float yb = mod(y, 2.0);
-        v = v * 4.0 + (yb * 2.0 + mod(xb + yb, 2.0));
-        x = floor(x / 2.0);
-        y = floor(y / 2.0);
-      }
-      return v / 64.0;
-    }
 
     // the palette cube. no interpolation between slices: an interpolated
     // lookup returns a colour that is not in the palette.
@@ -313,10 +303,17 @@ export const StyliseShader = {
       // flat colour; before it, it is what decides which of two palette
       // entries a pixel falls to, which is the whole mechanism — a woven
       // texture across a gradient instead of a hard band.
-      if (ditherAmount > 0.0001) {
-        float d = bayer8(floor(vUv * lowRes)) - 0.5;
-        col += d * ditherAmount;
-      }
+      //
+      // AND IT STAYS OUT OF THE SKY. across world geometry the weave lands
+      // on real transitions — a wall meeting its eave, a slope turning —
+      // and reads as texture; across the sky's smooth gradient it flips
+      // fifteen per cent of the cells against their neighbours and reads as
+      // exactly the grain that was just removed. the sky is found by DEPTH,
+      // not by frame position: the dome sits past 0.8 of the far plane, the
+      // same band the grade's haze already lets go at, so the mask holds
+      // whatever the camera is doing — a top-third cut would put grain back
+      // in the sky the moment the horizon dropped.
+
 
       // and the snap, mixed rather than absolute, so the strength is one
       // number the whole way from off to full
