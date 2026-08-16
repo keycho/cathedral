@@ -379,13 +379,13 @@ export type StyleMode = "off" | "subtle" | "strong";
 // the same local-contrast test, so even the experiment cannot regrow grain
 // across the sky). ramp 3 (48 colours) per the coverage measurements.
 //
-// subtle ships at ONE css pixel — a crisp voxel render with a hint of
-// chunk, nothing near PS1 — pending the strength pick on real hardware;
-// it may end at 0.5 or 0 with the quantisation carrying the style alone.
-// ?px= takes the css chunk size directly (2 = the old default's look,
-// 1 = half, 0.5 = quarter-to-off depending on display).
+// THE VERDICT, from real hardware: pixelation ships OFF. the quantisation
+// carries the style alone — the voxels are already the pixels, and any
+// chunk on top of them read as churn on a retina panel however the chunk
+// was sized. ?px= stays as the experiment flag (css pixels: 2 = the old
+// default's look, 1 = half, 0 = shipped).
 export const STYLE_PRESETS: Record<StyleMode, StyleParams> = {
   off: { pxCss: 0, paletteMix: 0, ditherAmount: 0, chroma: 0, chromaEdge: 0.16, rampSteps: 3 },
-  subtle: { pxCss: 1, paletteMix: 0.55, ditherAmount: 0, chroma: 0.6, chromaEdge: 0.2, rampSteps: 3 },
+  subtle: { pxCss: 0, paletteMix: 0.55, ditherAmount: 0, chroma: 0.6, chromaEdge: 0.2, rampSteps: 3 },
   strong: { pxCss: 2, paletteMix: 1.0, ditherAmount: 0, chroma: 1.0, chromaEdge: 0.13, rampSteps: 3 },
 };

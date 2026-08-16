@@ -85,12 +85,13 @@ import { UrbanPlan } from "./plan";
 import { plantWoods } from "./woods";
 import { greatWorkPagoda } from "./components/greatwork";
 import { Motif } from "./threshold";
+import { CloudSea, buildSkirt } from "./cloudsea";
 import { connectChain } from "./chain";
 import type { ChainFeed } from "./chain";
 import { paletteHex } from "./stylise";
 import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
-import { buildVoidFloor, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
+import { GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
 import { distributeBlocks, TickEngine } from "./ticks";
 import { VoxelField } from "./voxels";
 
@@ -232,7 +233,6 @@ scene.add(viewFill.target);
 // ---------------------------------------------------------------------------
 // the world: ash plain + founding stone
 // ---------------------------------------------------------------------------
-buildVoidFloor(scene);
 const field = new VoxelField(meadowSampler);
 scene.add(field.group);
 
@@ -518,6 +518,15 @@ const greatWork = greatWorkPagoda(7, 21, 3);
     quarter: "precinct", planId: "great-work", title: "the great work", epoch: 0, slot: "great",
   });
 }
+
+// THE WORLD GETS AN UNDERNEATH. the slab's cut side is dressed as carved
+// earth from the terrain's own edge heights, and the cloud sea rolls
+// beneath it — the full-map orbit frames a world floating on cloud rather
+// than in void, and the coast at ground level ends at a cliff instead of
+// at nothing.
+const skirt = buildSkirt(field, scene);
+const cloudSea = new CloudSea(scene);
+void skirt;
 
 // THE MOTIF, AND THE THREE DEVICES. a vermilion gate at every threshold in
 // the world — the plaza's four ways in, the length of each route, the head of
@@ -1236,6 +1245,7 @@ function frame() {
   else rig.update(dt, camera);
   probe?.update();
   sky.update(dt, t, camera.position, wind.dirX, wind.dirZ, wind.gust);
+  cloudSea.update(t, camera.position, sky.light, scene.fog as THREE.Fog);
   flora.update(t);
   wind.update(dt, t);
   water.update(dt, t);

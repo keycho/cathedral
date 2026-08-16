@@ -27,7 +27,6 @@ import {
   SCREE,
   SCARMOSS,
   STILLWATER,
-  SWATCH,
   isMeadow,
 } from "./palette";
 import type { FieldSampler, VoxelField } from "./voxels";
@@ -443,18 +442,12 @@ export const meadowSampler: FieldSampler = {
   },
 };
 
-// the floor beyond the grid: warm earth under the haze, so the world sits
-// on land, not on nothing
-export function buildVoidFloor(scene: THREE.Scene) {
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(4000, 4000, 1, 1),
-    new THREE.MeshStandardMaterial({ color: SWATCH.earth, roughness: 1 })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0.02;
-  floor.receiveShadow = true;
-  scene.add(floor);
-}
+// the floor beyond the grid is GONE. it was a four-thousand-unit plane of
+// flat earth at y=0 — the "brown void" every orbit frame showed below the
+// horizon, and the thing that silently covered the first cloud sea, which
+// was built eleven units beneath it and never seen. the world does not sit
+// on land; it floats on the cloud sea (src/cloudsea.ts), and the slab's
+// carved skirt joins the two.
 
 // place the founding stone on the plaza at world center.
 // returns the world-space center of the block (for cameras + the glow).

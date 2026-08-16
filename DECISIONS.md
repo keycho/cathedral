@@ -236,15 +236,20 @@ the diagnosis is not.
   reconciliation catches divergence rather than fraud. proving would mean
   shipping the event log to the browser, which is a different product.
 
-## before launch, and deliberately not tonight
+## the world floats on a cloud sea (was: the edge falls into void)
 
-- **the world's edge falls into void.** the rim is terrain tapering into
-  nothing, and it reads two ways: acceptably at orbit, where it makes the
-  world a diorama on a table, and badly from ground level near the coast,
-  where everything below the horizon line is a band of empty grade. it
-  needs an ocean or cloud-sea treatment — a sheet the world stands out of,
-  catching the sky the way the basins already do — before anything public.
-  logged as a standing item so the orbit frames do not keep certifying it.
+resolved. the "brown void" below the horizon turned out to be a literal
+4000-unit plane of flat earth (`buildVoidFloor`) left from early
+development — it had been every orbit frame's background, and it silently
+covered the first attempt at a cloud sea, which was built eleven units
+beneath it and never seen. found by hiding scene children one at a time
+and measuring the frame, after three reasoned theories about domes and
+gradients went nowhere. the floor is gone; the world now floats on an
+infinite camera-following cloud sea (src/cloudsea.ts) that takes its
+colour from the sky's own published light, and the slab's cut side is a
+skirt of carved strata — topsoil, roots, clay, cliff bands, bedrock —
+built from the terrain's own edge heights. the sea laps the skirt from
+low angles, which reads as shoreline rather than as a hidden cliff.
 
 - **the post chain cannot read its own depth texture.** found while
   masking the dither out of the sky: the shared depth texture reads as its
