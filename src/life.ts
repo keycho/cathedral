@@ -164,11 +164,29 @@ export class SmallLife {
 
     // LOW CLOUD BETWEEN THE ISLANDS: a dozen soft quads in the band the
     // archipelago floats in, drifting on the wind, wrapping in a wide ring
-    // — the air between the levels is part of the composition now
+    // — the air between the levels is part of the composition now.
+    // the quads carry a soft radial body: untextured they were hard-edged
+    // panes of glass, and at banner scale every one read as a floating
+    // white rectangle
+    const puffCv = document.createElement("canvas");
+    puffCv.width = 64;
+    puffCv.height = 32;
+    const pg = puffCv.getContext("2d")!;
+    const grad = pg.createRadialGradient(32, 16, 2, 32, 16, 30);
+    grad.addColorStop(0, "rgba(255,255,255,0.9)");
+    grad.addColorStop(0.55, "rgba(255,255,255,0.4)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    pg.fillStyle = grad;
+    pg.save();
+    pg.scale(1, 0.5);
+    pg.translate(0, 16);
+    pg.fillRect(0, -16, 64, 64);
+    pg.restore();
     const puffMat = new THREE.MeshBasicMaterial({
+      map: new THREE.CanvasTexture(puffCv),
       color: SWATCH.mist,
       transparent: true,
-      opacity: 0.13,
+      opacity: 0.16,
       depthWrite: false,
     });
     this.puffs = new THREE.InstancedMesh(new THREE.PlaneGeometry(16, 7), puffMat, 12);
