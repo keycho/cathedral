@@ -58,13 +58,33 @@ function genesisFromEnv(v) {
 // throughout and says which of the three states it is in, with the error
 // when there is one, so the fault names itself from outside.
 const boot = { phase: "starting", error: "", at: Date.now(), attempts: 0 };
+// the launch transaction, once the source has found it (see bootUp)
+let launch = null;
 
 async function bootUp() {
   boot.attempts++;
   boot.phase = "booting";
   boot.error = "";
   try {
-    const born = genesisFromEnv(process.env.KODO_GENESIS ?? process.env.CATHEDRAL_GENESIS);
+    // THE WORLD'S TICK 1 IS THE TOKEN'S BIRTH. when the source can name the
+    // launch — and reading the chain directly, it can — genesis is not a
+    // configured guess but the block time of the transaction that created
+    // the mint. the founding stone is that transaction, and it carries its
+    // real signature into the world where anyone can check it.
+    let born = genesisFromEnv(process.env.KODO_GENESIS ?? process.env.CATHEDRAL_GENESIS);
+    if (source.genesis) {
+      try {
+        launch = await source.genesis();
+        if (launch?.at) {
+          born = launch.at;
+          console.log(
+            `[market] the founding stone is ${launch.signature} — ${launch.name || "the mint"} created ${new Date(launch.at).toISOString()}`
+          );
+        }
+      } catch (e) {
+        console.error(`[market] could not read the launch: ${e.message}`);
+      }
+    }
     const world = await indexer.ensureWorld(Date.now(), born);
     console.log(`[market] world founded ${new Date(world.genesisAt).toISOString()}`);
     await indexer.backfill(Date.now(), Math.max(60 * 60_000, Date.now() - world.genesisAt));
@@ -165,6 +185,19 @@ createServer(async (req, res) => {
         negativeRun: w.negativeRun ?? 0,
         tickMs: TIMING.tickMs,
         ticksPerEpoch: TIMING.ticksPerEpoch,
+        // the founding stone, so the world can plaque it with the real
+        // signature rather than with a story about one
+        launch: launch
+          ? {
+              signature: launch.signature,
+              at: launch.at,
+              slot: launch.slot,
+              name: launch.name,
+              symbol: launch.symbol,
+              creator: launch.creator,
+              bondingCurve: launch.bondingCurve,
+            }
+          : null,
       });
     }
     // THE HISTORY, from a tick the client names. this is the whole
@@ -221,6 +254,50 @@ createServer(async (req, res) => {
         walletsTotal: entries.length,
         wallets,
       });
+    }
+    // THE PROOF, IN PUBLIC. anyone can ask this service to show its work:
+    // the last N trades it indexed, each re-derived from the transaction's
+    // own balance movements — a reading no program authored — and compared
+    // against the program event it was indexed from. two independent
+    // readings of the same on-chain bytes agreeing is what matching the
+    // explorer means, and every signature here is checkable by hand.
+    if (url.pathname === "/status") {
+      const n = Math.min(50, Math.max(1, Number(url.searchParams.get("n") ?? 10)));
+      const w = (await store.world()) ?? {};
+      const recent = await store.ticksFrom(Math.max(1, (w.lastTick ?? 0) - 3), 4);
+      const out = {
+        world: {
+          mint: w.mint ?? source.mint,
+          standIn: (w.mint ?? source.mint) === STANDIN_MINT,
+          genesisAt: w.genesisAt ?? null,
+          lastTick: w.lastTick ?? 0,
+          store: store.kind,
+          source: source.name,
+          uptimeS: Math.round(process.uptime()),
+        },
+        launch,
+        indexer: indexer.stats,
+        ticker: ticker.stats,
+        sourceStats: source.stats ?? null,
+        recentTicks: recent.map((t) => ({
+          n: t.n,
+          netFlowUsd: t.netFlowUsd,
+          grossVolumeUsd: t.grossVolumeUsd,
+          uniqueWallets: t.uniqueWallets,
+        })),
+        verification: null,
+      };
+      if (source.verify && store.recentEventTxs) {
+        const txs = await store.recentEventTxs(n);
+        const rows = await source.verify(txs);
+        out.verification = {
+          checked: rows.length,
+          matched: rows.filter((r) => r.ok).length,
+          method: "program event vs transaction balance deltas, independently derived",
+          rows,
+        };
+      }
+      return json(res, 200, out);
     }
     if (url.pathname === "/audit") {
       const from = Math.max(1, Number(url.searchParams.get("from") ?? 1));

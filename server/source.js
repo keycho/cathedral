@@ -17,6 +17,7 @@
 // the property the real chain has and the phase-1 browser feed does not.
 
 import { normalise } from "../src/market/law.js";
+import { SolanaSource } from "./solana.js";
 
 const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -183,8 +184,10 @@ export class HttpSource {
 
 export function openSource(env = process.env) {
   const mint = (env.KODO_MINT ?? env.CATHEDRAL_MINT) || STANDIN_MINT;
-  if (env.MARKET_ENDPOINT && mint !== STANDIN_MINT) {
-    return new HttpSource(mint, env.MARKET_ENDPOINT, env.MARKET_API_KEY);
-  }
-  return new StandInSource(mint);
+  if (mint === STANDIN_MINT) return new StandInSource(mint);
+  // a provider endpoint still wins if one is configured, but it is no
+  // longer required: the default for a real mint is to read the chain
+  // directly, because a token that is live should not wait on a signup
+  if (env.MARKET_ENDPOINT) return new HttpSource(mint, env.MARKET_ENDPOINT, env.MARKET_API_KEY);
+  return new SolanaSource(mint, { rpcUrl: env.SOLANA_RPC_URL });
 }

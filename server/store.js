@@ -54,6 +54,14 @@ class FileStore {
       .sort((a, b) => a.at - b.at || (a.tx < b.tx ? -1 : 1));
   }
 
+  // the most recently indexed transactions, for /status to prove itself against
+  async recentEventTxs(n = 10) {
+    return Object.values(this.db.events)
+      .sort((a, b) => b.at - a.at)
+      .slice(0, n)
+      .map((e) => e.tx);
+  }
+
   async markTicked(txs, n) {
     for (const tx of txs) if (this.db.events[tx]) this.db.events[tx].tick = n;
     this.flush();
@@ -134,6 +142,16 @@ class SupabaseStore {
       price: Number(r.price),
       source: r.source,
     }));
+  }
+
+  async recentEventTxs(n = 10) {
+    const { data, error } = await this.sb
+      .from("events")
+      .select("tx")
+      .order("at", { ascending: false })
+      .limit(n);
+    if (error) throw new Error(`recentEventTxs: ${error.message}`);
+    return (data ?? []).map((r) => r.tx);
   }
 
   async markTicked(txs, n) {

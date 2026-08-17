@@ -21,6 +21,16 @@ import { reconcile } from "./market/law.js";
 import type { WireTick, SnapshotFold } from "./market/law.js";
 import type { TickEngine, TickSummary } from "./ticks";
 
+export interface LaunchInfo {
+  signature: string;
+  at: number;
+  slot: number;
+  name: string;
+  symbol: string;
+  creator: string;
+  bondingCurve: string;
+}
+
 export interface ChainState {
   genesisAt: number | null;
   mint: string;
@@ -28,6 +38,9 @@ export interface ChainState {
   lastTick: number;
   tickMs: number;
   ticksPerEpoch: number;
+  // the transaction that created the mint, when the service can name it.
+  // the world's tick 1 is this moment and the founding stone says so.
+  launch?: LaunchInfo | null;
 }
 
 // where the service is, if anywhere. a url in the environment for a real

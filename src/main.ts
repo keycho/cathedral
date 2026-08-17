@@ -87,7 +87,7 @@ import { plantWoods } from "./woods";
 import { greatWorkPagoda } from "./components/greatwork";
 import { Motif } from "./threshold";
 import { CloudSea, Underside } from "./cloudsea";
-import { connectChain, walletId } from "./chain";
+import { connectChain, marketUrl, walletId } from "./chain";
 import type { ChainFeed } from "./chain";
 import { paletteHex } from "./stylise";
 import { Water, Waterfall, WetPaving } from "./water";
@@ -1144,8 +1144,22 @@ canvas.addEventListener("pointerup", (e) => {
 const plaques = new Plaques(field, strata, works, camera, canvas);
 plaques.describeWallet = (w) => (w === -1 ? "the world" : w === -3 ? "the crew" : feed.short(w));
 plaques.ribbonInfo = (x, y, z) => ribbon.infoAt(x, y, z);
-plaques.special = (x, y, z) =>
-  tombs.plaque(x, y, z) ?? (shrine.isPart(x, y, z) ? shrine.plaque(x, y, z) : undefined);
+// THE FOUNDING STONE ANSWERS WITH THE TRANSACTION THAT MADE IT. once the
+// service names the launch, the world's first block stops being a story
+// about a beginning and becomes a receipt: the mint, the creator, the
+// signature, the block time. anyone who doubts the world can paste that
+// signature into an explorer and watch it resolve.
+let launchPlaque: string[] | null = null;
+plaques.special = (x, y, z) => {
+  if (
+    launchPlaque &&
+    x === GENESIS_CELL.x &&
+    z === GENESIS_CELL.z &&
+    field.typeAt(x, y, z) === GENESIS_ID
+  )
+    return launchPlaque;
+  return tombs.plaque(x, y, z) ?? (shrine.isPart(x, y, z) ? shrine.plaque(x, y, z) : undefined);
+};
 plaques.onInspect = (x, y, z) => {
   if (shrine.isTablet(x, y, z)) shrine.play(performance.now());
 };
@@ -1532,12 +1546,25 @@ let chain: ChainFeed | null = null;
 void connectChain(
   ticks,
   (st) => {
+    if (st.launch) {
+      const born = new Date(st.launch.at);
+      launchPlaque = [
+        "the founding stone",
+        `${st.launch.name || "the token"}${st.launch.symbol ? ` · ${st.launch.symbol}` : ""}`,
+        `minted ${born.toISOString().replace("T", " ").slice(0, 19)} utc`,
+        `by ${st.launch.creator.slice(0, 8)}…${st.launch.creator.slice(-4)}`,
+        `tx ${st.launch.signature.slice(0, 12)}…${st.launch.signature.slice(-8)}`,
+        "this world's first tick is that transaction.",
+      ];
+    }
     journal.add(
       "keeper",
       ticks.epoch,
       st.standIn
         ? `the ledger is being read, but the token is a stand-in. tick ${st.lastTick}.`
-        : `the ledger is being read. ${st.mint.slice(0, 8)}… at tick ${st.lastTick}.`
+        : st.launch
+          ? `the ledger is being read. the stone was laid ${new Date(st.launch.at).toISOString().slice(0, 10)}, and we are at tick ${st.lastTick}.`
+          : `the ledger is being read. ${st.mint.slice(0, 8)}… at tick ${st.lastTick}.`
     );
   },
   (f) => {
@@ -1804,8 +1831,14 @@ if (DEV_TOOLS) window.kodo = {
   witness,
 };
 
-// aged preview by default: the world is worth a screenshot within its
-// first ten seconds. ?young boots the empty meadow instead (and the real
-// genesis, phase 2, always starts young by law). runs last: the history
-// bootstrap drives every system, so every system must exist first.
-if (!new URLSearchParams(location.search).has("young")) void runHistory(50);
+// THE INVENTED PAST IS FOR A WORLD WITH NO REAL ONE. the aged boot replays
+// fifty epochs of synthetic market life so an unpointed world is worth a
+// screenshot in its first ten seconds. the moment a market service is
+// configured, that history is a lie about a token that has an actual
+// history — the ticks are real, the launch is a real transaction, and the
+// world grows from those or it grows from nothing. so: no service, aged
+// preview; a service, the real past only, seeded by the snapshot fold and
+// replayed from the log. ?young forces the empty meadow either way.
+const aged =
+  !new URLSearchParams(location.search).has("young") && marketUrl() === null;
+if (aged) void runHistory(50);
