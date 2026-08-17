@@ -13,7 +13,8 @@ import { HEADLAND_A, coastDistAt } from "./terrain";
 import type { VoxelField } from "./voxels";
 import type { Island } from "./islands";
 
-const MAX_SPAN = 36; // longest gap a rope crosses
+const MAX_SPAN = 36; // longest gap a rope crosses to the coast
+const ISLE_SPAN = 46; // and a little further stone to stone — a journey
 const MAX_DROP = 16; // steepest slope one is slung across
 
 function catenary(a: THREE.Vector3, b: THREE.Vector3, sag: number, n: number): THREE.Vector3[] {
@@ -137,5 +138,27 @@ export function buildArchipelagoBridges(scene: THREE.Scene, field: VoxelField, i
     if (Math.abs(A.y - B.y) > MAX_DROP) continue;
     if (A.distanceTo(B) > MAX_SPAN) continue;
     buildRopeBridge(scene, A, B);
+  }
+
+  // 3. stone to stone: the longer slings between satellites themselves,
+  // so reaching the outer archipelago is a journey of legs, not one hop
+  for (let i = 0; i < isles.length; i++) {
+    for (let j = i + 1; j < isles.length; j++) {
+      const A = isles[i];
+      const B = isles[j];
+      if (coastDistAt(A.cx, A.cz) > 0 || coastDistAt(B.cx, B.cz) > 0) continue;
+      const d = Math.hypot(A.cx - B.cx, A.cz - B.cz);
+      if (d > ISLE_SPAN + A.r + B.r || d < A.r + B.r + 4) continue;
+      const ang = Math.atan2(B.cz - A.cz, B.cx - A.cx);
+      const ax = Math.round(A.cx + Math.cos(ang) * (A.r - 1));
+      const az = Math.round(A.cz + Math.sin(ang) * (A.r - 1));
+      const bx2 = Math.round(B.cx - Math.cos(ang) * (B.r - 1));
+      const bz2 = Math.round(B.cz - Math.sin(ang) * (B.r - 1));
+      if (field.topAt(ax, az) <= 0 || field.topAt(bx2, bz2) <= 0) continue;
+      const P = top(ax, az);
+      const Q = top(bx2, bz2);
+      if (Math.abs(P.y - Q.y) > MAX_DROP || P.distanceTo(Q) > ISLE_SPAN) continue;
+      buildRopeBridge(scene, P, Q);
+    }
   }
 }

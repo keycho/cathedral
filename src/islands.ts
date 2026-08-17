@@ -24,8 +24,8 @@ const MILESTONE_BLOCKS = 1500; // standing mass per self-calved island
 const SKY_LO = 46; // the island band
 const SKY_HI = 66;
 // the market's sky stays composed at seven; the archipelago's boot
-// satellites sit outside the coast in their own ring and get four more
-const MAX_ISLANDS = 11;
+// satellites sit outside the coast in their own ring and get six more
+const MAX_ISLANDS = 13;
 
 export interface Island {
   cx: number;
@@ -130,6 +130,8 @@ export class Islands {
       { a: 3.5, out: 16, r: 9, y: 44 }, // mid sky
       { a: 4.6, out: 20, r: 11, y: 56 }, // high, in the market's own band
       { a: 5.9, out: 26, r: 7, y: 10 }, // a low outlying stone
+      { a: 1.55, out: 30, r: 10, y: 38 }, // the once-empty eastern quadrant
+      { a: 0.18, out: 36, r: 8, y: 24 }, // and the gap past the shard's wake
     ];
     for (const s of seats) {
       // march to the coast along this bearing, then step out past it

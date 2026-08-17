@@ -94,6 +94,7 @@ import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
 import { BASINS, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
 import { buildArchipelagoBridges } from "./bridges";
+import { HorizonIsles } from "./horizon";
 import { tendGround } from "./tended";
 import { GroundCover } from "./groundcover";
 import { distributeBlocks, TickEngine } from "./ticks";
@@ -153,7 +154,10 @@ const camera = new THREE.PerspectiveCamera(
   70,
   window.innerWidth / window.innerHeight,
   0.1,
-  760
+  // far enough that the horizon range survives the camera standing on the
+  // world's far side: the isles sit ~600 from the origin, which is 850+
+  // from an eye-line across the map — at 760 they were silently clipped
+  1150
 );
 scene.add(camera);
 
@@ -353,6 +357,7 @@ islands.onCalved = (isle) => {
 // gets its rope bridge
 islands.seedArchipelago();
 buildArchipelagoBridges(scene, field, islands.list);
+const horizonIsles = new HorizonIsles(scene);
 
 // the shrine of epochs: the world's own furniture beside the stone
 const shrine = new Shrine(field, strata, GENESIS_CELL);
@@ -1275,6 +1280,7 @@ function frame() {
   sky.update(dt, t, camera.position, wind.dirX, wind.dirZ, wind.gust);
   cloudSea.update(t, camera.position, sky.light, scene.fog as THREE.Fog);
   underside.update(t, sky.light, scene.fog as THREE.Fog);
+  horizonIsles.update(scene.fog as THREE.Fog);
   flora.update(t);
   wind.update(dt, t);
   water.update(dt, t);

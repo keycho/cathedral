@@ -184,7 +184,35 @@ export class UrbanPlan {
       this.routes[0].name = "the pilgrim way, plaza to the great work";
     }
     laid += this.pave(this.plazaX - 6, this.plazaZ - 6, 13, 13, STONE);
-    for (const r of this.routes) laid += this.road(r.ax, r.az, r.bx, r.bz);
+    // THE PILGRIM WAY EARNS ITS NAME: route length over area. the way to
+    // the great work goes by switchbacks — three waypoints swung
+    // alternately off the direct line — so the approach is a climb with
+    // turns and reveals rather than a straight march, and the world walks
+    // longer than it measures. the market road stays direct: commerce is
+    // in a hurry, pilgrims are not.
+    const way = this.routes[0];
+    const wdx = way.bx - way.ax;
+    const wdz = way.bz - way.az;
+    const wl = Math.hypot(wdx, wdz) || 1;
+    const px = -wdz / wl;
+    const pz = wdx / wl;
+    const swing = Math.min(16, wl * 0.3);
+    let lx = way.ax;
+    let lz = way.az;
+    for (let k = 1; k <= 3; k++) {
+      const t = k / 4;
+      const side = (k % 2 === 0 ? -1 : 1) * swing * (k === 2 ? 1 : 0.7);
+      const nx = Math.round(way.ax + wdx * t + px * side);
+      const nz = Math.round(way.az + wdz * t + pz * side);
+      laid += this.road(lx, lz, nx, nz);
+      lx = nx;
+      lz = nz;
+    }
+    laid += this.road(lx, lz, way.bx, way.bz);
+    for (let i = 1; i < this.routes.length; i++) {
+      const r = this.routes[i];
+      laid += this.road(r.ax, r.az, r.bx, r.bz);
+    }
     // the precinct's own wall line and the quarter's kerb are laid as the
     // districts are built into, not up front: an empty walled field reads
     // worse than open meadow.

@@ -38,7 +38,7 @@ import { coastDistAt } from "./terrain";
 // belly's central sag and every tooth. at -54 the bowl bottoms out in the
 // air, the four teeth carry a hand's length of visible spear, and the
 // cloud laps at the hanging points — which is where the references put it.
-const SEA_Y = -54;
+export const SEA_Y = -54;
 
 // ---- the sea -----------------------------------------------------------------
 
