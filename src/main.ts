@@ -456,9 +456,10 @@ const journal = new Journal();
 const voice = new Voice();
 // the crew log is public: entries are posted to the feed as they are
 // written (batched, and silent when the endpoint is absent in dev)
-let feedQueue: { agent: string; epoch: number; text: string; at: number }[] = [];
+let feedQueue: { agent: string; epoch: number; text: string; at: number; source?: string }[] = [];
 let feedFlushAt = 0;
-journal.onEntry = (e) => feedQueue.push({ agent: e.agent, epoch: e.epoch, text: e.text, at: e.at });
+journal.onEntry = (e) =>
+  feedQueue.push({ agent: e.agent, epoch: e.epoch, text: e.text, at: e.at, source: e.source ?? "scripted" });
 const tombs = new Tombs();
 const works = new CrewWorks(scene, field, strata);
 works.placeBorders(GENESIS_CELL);
