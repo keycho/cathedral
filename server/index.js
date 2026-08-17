@@ -121,7 +121,7 @@ async function bootUp() {
     console.log(`[market] world founded ${new Date(world.genesisAt).toISOString()}`);
     boot.phase = "backfilling";
     await indexer.backfill(Date.now(), Math.max(60 * 60_000, Date.now() - world.genesisAt));
-    await ticker.advance();
+    await ticker.advance(Date.now(), indexer.stats.lastAt);
     // LIVE means the replay has caught the head and the beat is following
     // it, which is a different claim from "the process started".
     boot.phase = "live";
@@ -149,7 +149,8 @@ async function beat() {
   running = true;
   try {
     const p = await indexer.pass();
-    const closed = await ticker.advance();
+    // the clock may only advance over what the log has actually read
+    const closed = await ticker.advance(Date.now(), indexer.stats.lastAt);
     if (closed.length) {
       const last = closed[closed.length - 1];
       console.log(

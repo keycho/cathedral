@@ -31,10 +31,31 @@ export class Ticker {
 
   // close every tick that is fully settled and not yet closed. returns the
   // summaries it wrote, oldest first.
-  async advance(nowMs = Date.now()) {
+  // A TICK MAY ONLY BE CLOSED OVER A WINDOW THE INDEXER HAS ACTUALLY READ.
+  // this used to close on wall time alone, which is correct only if the log
+  // is always current — and it never is during a backfill, or after any
+  // outage, or whenever the source is slower than the clock. the ticker
+  // would run ahead of the indexer and write EMPTY ticks over windows full
+  // of trades, and an empty tick is not a gap the repair path can spot: it
+  // is a stored, digested claim that nothing happened.
+  //
+  // measured on the first live world: 204 of 332 ticks closed empty, with
+  // real events in the log up to tick 231. the world recorded two hours of
+  // silence on a token that never stopped trading, and the crew read a
+  // budget of zero from it.
+  //
+  // indexedToMs is how far the log is known good. undefined keeps the old
+  // behaviour for callers that have no indexer (the tests close ticks over
+  // a log they wrote themselves, which is current by construction).
+  async advance(nowMs = Date.now(), indexedToMs = undefined) {
     const w = await this.store.world();
     if (!w?.genesisAt) return [];
-    const newest = tickAt(nowMs - this.graceMs, w.genesisAt, this.tickMs) - 1;
+    let newest = tickAt(nowMs - this.graceMs, w.genesisAt, this.tickMs) - 1;
+    if (indexedToMs !== undefined && Number.isFinite(indexedToMs)) {
+      // the last tick whose window ends at or before the watermark
+      const covered = Math.floor((indexedToMs - w.genesisAt) / this.tickMs);
+      newest = Math.min(newest, covered);
+    }
     if (newest < 1) return [];
 
     const out = [];
