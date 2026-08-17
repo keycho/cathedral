@@ -160,7 +160,12 @@ createServer(async (req, res) => {
       return res.end();
     }
     if (url.pathname === "/health") {
-      return json(res, boot.phase === "ready" ? 200 : 503, {
+      // A HEALTHCHECK IS A LIVENESS QUESTION, and the honest answer while
+      // backfilling is "yes, and working". a platform healthcheck that
+      // reads 503 during a long boot kills the deploy that was about to
+      // succeed — so only a FAILED boot answers unhealthy. the phase is in
+      // the body either way, which is where a human looks.
+      return json(res, boot.phase === "failed" ? 503 : 200, {
         ok: boot.phase === "ready",
         boot: boot.phase,
         bootError: boot.error,
@@ -312,4 +317,9 @@ createServer(async (req, res) => {
   } catch (e) {
     json(res, 500, { error: e.message });
   }
-}).listen(PORT, () => console.log(`[market] listening on :${PORT}`));
+  // 0.0.0.0 explicitly: a host that routes to the container expects the
+  // process on every interface, and a default that ever resolved to
+  // loopback would look exactly like an app that failed to respond.
+}).listen(PORT, "0.0.0.0", () =>
+  console.log(`[market] listening on 0.0.0.0:${PORT} (PORT env ${process.env.PORT ?? "unset"})`)
+);
