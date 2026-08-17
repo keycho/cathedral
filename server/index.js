@@ -306,6 +306,13 @@ async function handle(req, res) {
         }
       }
       if (rest.blocks > 0 || rest.buyUsd > 0) wallets["kodo:rest"] = rest;
+      // THE CREW IS FUNDED BY TRAILING VOLUME, so a seeded world needs the
+      // recent ticks as well as the mass. the fold jumps the clock to its
+      // own tick and leaves the history empty behind it — which left the
+      // architect reading a budget of zero and reporting "the market is
+      // quiet" on a token doing real volume. these are for the aggregates
+      // only; the mass they would accrete is already in the fold.
+      const recentTicks = await store.ticksFrom(Math.max(1, fold.atTick - 60), 60);
       return json(res, 200, {
         genesisAt: w.genesisAt ?? null,
         mint: w.mint ?? source.mint,
@@ -318,6 +325,8 @@ async function handle(req, res) {
         grossVolumeUsd: fold.grossVolumeUsd,
         blocksAccreted: fold.blocksAccreted,
         blocksEroded: fold.blocksEroded,
+        standing: fold.standing,
+        recentTicks,
         walletsTotal: entries.length,
         wallets,
       });

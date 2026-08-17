@@ -107,6 +107,22 @@ export class TickEngine {
     this.negativeRun = Math.max(0, negativeRun);
   }
 
+  // THE AGGREGATES WITHOUT THE RULES. the crew's budget is trailing volume
+  // read out of this history, so a world seeded from a snapshot had a
+  // budget of zero and an architect reporting "the market is quiet" on a
+  // token doing real volume — the clock had jumped to the fold's tick and
+  // left the history empty behind it. these summaries fill that in for the
+  // aggregates ONLY: the mass they would have accreted is already in the
+  // fold, and running them through settle() would build the world twice.
+  seedHistory(list: TickSummary[]) {
+    for (const s of list) {
+      if (s.n > this.tick) continue;
+      this.history.push(s);
+    }
+    this.history.sort((a, b) => a.n - b.n);
+    while (this.history.length > 400) this.history.shift();
+  }
+
   // an authoritative summary, from the market service. it takes exactly the
   // same path a locally closed tick takes — the rules must not be able to
   // tell where a tick came from, or a world grown from the chain would

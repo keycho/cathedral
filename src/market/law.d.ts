@@ -56,6 +56,8 @@ export interface SnapshotFold {
   grossVolumeUsd: number;
   blocksAccreted: number;
   blocksEroded: number;
+  standing: number;
+  recentTicks?: WireTick[];
   wallets: Record<string, { buyUsd: number; blocks: number }>;
 }
 

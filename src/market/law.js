@@ -242,8 +242,9 @@ export function foldStart() {
     subsides: 0, // how many times the run reached the subsidence threshold
     netFlowUsd: 0,
     grossVolumeUsd: 0,
-    blocksAccreted: 0, // r1 total
-    blocksEroded: 0, // r2 total
+    blocksAccreted: 0, // r1 total, gross
+    blocksEroded: 0, // r2 total, capped by what stood at the time
+    standing: 0, // what the two leave behind: the world's actual mass
     wallets: {}, // pubkey -> { buyUsd, blocks }
   };
 }
@@ -258,7 +259,19 @@ export function foldTick(f, t) {
   f.grossVolumeUsd = round2(f.grossVolumeUsd + t.grossVolumeUsd);
   if (t.netFlowUsd < 0) {
     f.negativeRun++;
-    f.blocksEroded += Math.floor(-t.netFlowUsd / USD_PER_BLOCK);
+    // EROSION IS CAPPED BY WHAT IS STANDING, and the fold has to model that
+    // or it does not describe the same world the engine builds. r2 bites
+    // the frontier: a tick that would take a thousand blocks off a world
+    // holding two hundred takes two hundred. summing the intended bites
+    // instead and subtracting at the end counts erosion that never had
+    // anything to remove — which, on a token whose sells outweigh its buys
+    // in raw dollars, reliably folds a real world down to nothing. it did
+    // exactly that on the first live run: 288 blocks accreted across 472
+    // wallets, and a snapshot that seeded zero.
+    const want = Math.floor(-t.netFlowUsd / USD_PER_BLOCK);
+    const took = Math.min(want, f.standing);
+    f.standing -= took;
+    f.blocksEroded += took;
   } else {
     f.negativeRun = 0;
   }
@@ -274,6 +287,7 @@ export function foldTick(f, t) {
   if (t.netFlowUsd > 0) {
     const n = Math.floor(t.netFlowUsd / USD_PER_BLOCK);
     f.blocksAccreted += n;
+    f.standing += n;
     for (const [w, count] of distributeUsd(n, t.buys ?? {})) {
       f.wallets[w].blocks += count;
     }

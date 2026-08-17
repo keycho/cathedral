@@ -1592,7 +1592,10 @@ void connectChain(
     // and not a ledger), land through the same growth queue a tick's would.
     // the architecture is not reconstructed — the crew regrows it from the
     // seeded mass forward, the way a town rebuilds on old foundations.
-    const keep = Math.max(0, f.blocksAccreted - f.blocksEroded);
+    // the fold already models erosion the way the engine does — capped by
+    // what stood at the time — so the standing mass is read, never derived
+    // by subtracting two totals that were never comparable
+    const keep = f.standing ?? Math.max(0, f.blocksAccreted - f.blocksEroded);
     const scale = f.blocksAccreted > 0 ? keep / f.blocksAccreted : 0;
     let seeded = 0;
     for (const [pub, w] of Object.entries(f.wallets)) {

@@ -221,6 +221,8 @@ export class ChainFeed {
       this.snapshot = f;
       this.floor = f.atTick;
       this.ticks.seed(f.atTick, f.negativeRun);
+      // the trailing volume the crew is funded by, for the aggregates only
+      if (f.recentTicks?.length) this.ticks.seedHistory(f.recentTicks.map(toSummary));
       this.opts.onSnapshot?.(f);
     } catch {
       // the fallback is the thing that was already correct
