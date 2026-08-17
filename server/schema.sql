@@ -1,4 +1,4 @@
--- cathedral - the world's durable schema.
+-- kodo - the world's durable schema.
 --
 -- the shape of this follows one decision: THE EVENT LOG IS THE WORLD. every
 -- block standing, every hollow burned, every monument raised is a pure

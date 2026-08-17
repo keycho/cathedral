@@ -231,7 +231,7 @@ class SupabaseStore {
 
 export async function openStore(env = process.env) {
   const url = env.SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_KEY;
+  const key = env.SUPABASE_SERVICE_ROLE ?? env.SUPABASE_SERVICE_KEY;
   if (url && key) {
     const { createClient } = await import("@supabase/supabase-js");
     return new SupabaseStore(createClient(url, key, { auth: { persistSession: false } }));

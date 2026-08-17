@@ -98,6 +98,7 @@ import { tendGround } from "./tended";
 import { GroundCover } from "./groundcover";
 import { distributeBlocks, TickEngine } from "./ticks";
 import { VoxelField } from "./voxels";
+import { Witness, witnessConfig } from "./witness";
 
 // ---------------------------------------------------------------------------
 // renderer
@@ -1541,6 +1542,12 @@ void connectChain(ticks, (st) => {
   if (c) console.info("[kodo] following the market service; local ticks stood down");
 });
 
+// the witness: the browser reads the log itself through row-level
+// security and checks the service's story against the database's
+const wcfg = witnessConfig();
+const witness = wcfg ? new Witness(wcfg, () => chain?.state?.lastTick ?? null) : null;
+witness?.start();
+
 // a small debug/stream handle (the director module will drive cameras
 // through this later)
 declare global {
@@ -1606,6 +1613,7 @@ declare global {
       kinetics: Kinetics;
       renderer: THREE.WebGLRenderer;
       cover: GroundCover;
+      witness: Witness | null;
       post: Post;
       runHistory: (epochs?: number) => Promise<number>;
       captureMode: (on: boolean) => void;
@@ -1768,6 +1776,7 @@ if (DEV_TOOLS) window.kodo = {
   renderer,
   post,
   runHistory,
+  witness,
 };
 
 // aged preview by default: the world is worth a screenshot within its
