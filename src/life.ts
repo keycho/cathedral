@@ -15,6 +15,7 @@
 
 import * as THREE from "three";
 import { GRID } from "./config";
+import { BASINS } from "./terrain";
 import {
   isAgentMaterial,
   LANTERN,
@@ -123,6 +124,8 @@ export class SmallLife {
   private smoke: THREE.InstancedMesh;
   private puffs!: THREE.InstancedMesh;
   private lanternMesh!: THREE.InstancedMesh;
+  private ringMesh!: THREE.InstancedMesh;
+  private fireflies!: THREE.InstancedMesh;
   private birdN = 0;
   private smokeN = 0;
   private t = 0;
@@ -130,6 +133,10 @@ export class SmallLife {
   private stacks: { x: number; y: number; z: number }[] = [];
   private flock: { x: number; y: number; z: number; r: number; s: number; p: number }[] = [];
   private drift: { x: number; y: number; z: number; s: number }[] = [];
+  // birds that CROSS: long lines between the islands' airspace, so the sky
+  // has traffic as well as circles
+  private crossers: { ax: number; ay: number; az: number; bx: number; by: number; bz: number; s: number; p: number }[] = [];
+  private rings: { bx: number; bz: number; y: number; r: number; t0: number }[] = [];
   private m = new THREE.Matrix4();
   private q = new THREE.Quaternion();
   private v = new THREE.Vector3();
@@ -193,6 +200,49 @@ export class SmallLife {
     this.lanternMesh.frustumCulled = false;
     this.lanternMesh.renderOrder = 4;
     scene.add(this.lanternMesh);
+
+    // FISH-RISE RINGS: a ring blooms on a basin now and then, expands, and
+    // is gone — the water is inhabited even when nothing shows itself
+    this.ringMesh = new THREE.InstancedMesh(
+      new THREE.RingGeometry(0.42, 0.5, 20).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({
+        color: 0xe8f2ec,
+        transparent: true,
+        opacity: 0.3,
+        depthWrite: false,
+      }),
+      5
+    );
+    this.ringMesh.frustumCulled = false;
+    this.ringMesh.renderOrder = 2;
+    for (let i = 0; i < 5; i++) {
+      const b = BASINS[i % BASINS.length];
+      this.rings.push({
+        bx: b.x - GRID / 2 + 0.5,
+        bz: b.z - GRID / 2 + 0.5,
+        y: b.wl + 1.06,
+        r: b.r * 0.6,
+        t0: hash2(i, 51) * 9,
+      });
+    }
+    scene.add(this.ringMesh);
+
+    // FIREFLIES AFTER DUSK: warm sparks wandering near the hearths and
+    // lanterns, gone by morning
+    this.fireflies = new THREE.InstancedMesh(
+      new THREE.PlaneGeometry(0.09, 0.09),
+      new THREE.MeshBasicMaterial({
+        color: 0xd8e86a,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+      36
+    );
+    this.fireflies.frustumCulled = false;
+    this.fireflies.renderOrder = 4;
+    scene.add(this.fireflies);
   }
 
   // THE EDGE OF THE MADE GROUND is where things get left. a column that is
@@ -320,6 +370,20 @@ export class SmallLife {
     // crown is the oldest trick for making a building read as tall — and
     // the rest keep their settlement rounds
     this.flock.length = 0;
+    this.crossers.length = 0;
+    // eight crossers on long lines through the archipelago's band
+    for (let i = 0; i < 8; i++) {
+      const a1 = hash2(i, 61) * Math.PI * 2;
+      const a2 = a1 + Math.PI * (0.6 + hash2(i, 67) * 0.8);
+      const r1 = 55 + hash2(i, 71) * 70;
+      const r2 = 55 + hash2(i, 73) * 70;
+      this.crossers.push({
+        ax: Math.cos(a1) * r1, ay: 26 + hash2(i, 79) * 30, az: Math.sin(a1) * r1,
+        bx: Math.cos(a2) * r2, by: 26 + hash2(i, 83) * 30, bz: Math.sin(a2) * r2,
+        s: 0.028 + hash2(i, 89) * 0.02,
+        p: hash2(i, 97),
+      });
+    }
     const g = plan.greatWorkAt;
     const gTop = g ? field.topAt(g.x, g.z) : 0;
     for (let i = 0; i < 30; i++) {
@@ -404,8 +468,62 @@ export class SmallLife {
       this.m.compose(_p.set(px, py, pz), this.q, this.v);
       this.birds.setMatrixAt(this.birdN++, this.m);
     }
+    // the crossers ride their lines, turning around at each end
+    for (const c of this.crossers) {
+      const cyc = (this.t * c.s + c.p) % 2;
+      const k = cyc < 1 ? cyc : 2 - cyc; // there and back
+      const px = c.ax + (c.bx - c.ax) * k;
+      const py = c.ay + (c.by - c.ay) * k + Math.sin(this.t * 2.1 + c.p * 9) * 0.8;
+      const pz = c.az + (c.bz - c.az) * k;
+      this.q.setFromAxisAngle(_up, Math.atan2(camera.position.x - px, camera.position.z - pz));
+      this.v.set(1, 0.55 + Math.abs(Math.sin(this.t * 8 + c.p * 7)) * 0.9, 1);
+      this.m.compose(_p.set(px, py, pz), this.q, this.v);
+      if (this.birdN < 90) this.birds.setMatrixAt(this.birdN++, this.m);
+    }
     this.birds.count = this.birdN;
     this.birds.instanceMatrix.needsUpdate = true;
+
+    // fish rise: each ring blooms on its own beat, expands and fades
+    let rn = 0;
+    for (const r of this.rings) {
+      const cyc = ((this.t + r.t0) % 7) / 7;
+      if (cyc < 0.72) continue; // quiet most of the time
+      const age = (cyc - 0.72) / 0.28;
+      const ox = (hash2(Math.floor((this.t + r.t0) / 7), r.bx) - 0.5) * r.r * 1.6;
+      const oz = (hash2(r.bz, Math.floor((this.t + r.t0) / 7)) - 0.5) * r.r * 1.6;
+      this.m.compose(
+        _p.set(r.bx + ox, r.y, r.bz + oz),
+        _noRot,
+        this.v.setScalar(0.3 + age * 2.4)
+      );
+      this.ringMesh.setMatrixAt(rn++, this.m);
+    }
+    this.ringMesh.count = rn;
+    this.ringMesh.instanceMatrix.needsUpdate = true;
+    (this.ringMesh.material as THREE.MeshBasicMaterial).opacity = 0.32;
+
+    // fireflies: night creatures around the hearths
+    const nightW = phase > 0.3 && phase < 0.5 ? 1 - Math.abs(phase - 0.4) / 0.1 : 0;
+    (this.fireflies.material as THREE.MeshBasicMaterial).opacity = 0.75 * Math.min(1, nightW * 1.6);
+    let fn = 0;
+    if (nightW > 0.03 && this.stacks.length) {
+      for (let k = 0; k < 36; k++) {
+        const src = this.stacks[k % this.stacks.length];
+        const wob = this.t * (0.5 + hash2(k, 7) * 0.5) + k * 2.1;
+        this.m.compose(
+          _p.set(
+            src.x + Math.sin(wob) * (1.5 + hash2(k, 11) * 2),
+            src.y - 3.4 + Math.sin(wob * 1.7) * 1.2 + 1.2,
+            src.z + Math.cos(wob * 0.83) * (1.5 + hash2(k, 13) * 2)
+          ),
+          this.q, // reuse last camera-facing rotation; a 9cm spark reads at any yaw
+          this.v.setScalar(0.7 + Math.sin(wob * 3.1) * 0.3)
+        );
+        this.fireflies.setMatrixAt(fn++, this.m);
+      }
+    }
+    this.fireflies.count = fn;
+    this.fireflies.instanceMatrix.needsUpdate = true;
 
     // smoke: each stack is a short column of quads climbing and drifting
     // downwind, fading as it goes
@@ -439,8 +557,11 @@ export class SmallLife {
     this.smoke.visible = on;
     this.puffs.visible = on;
     this.lanternMesh.visible = on;
+    this.ringMesh.visible = on;
+    this.fireflies.visible = on;
   }
 }
 
 const _up = new THREE.Vector3(0, 1, 0);
 const _p = new THREE.Vector3();
+const _noRot = new THREE.Quaternion();

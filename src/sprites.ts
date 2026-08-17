@@ -19,11 +19,15 @@ import * as THREE from "three";
 import { SWATCH } from "./palette";
 
 export type Role = "surveyor" | "architect" | "mason" | "keeper";
-export type Pose = "idle" | "walkA" | "walkB" | "work";
+export type Pose = "idle" | "walkA" | "walkB" | "work" | "workB";
 
 const W = 16; // the grid a figure is drawn on
 const H = 24;
 const PX = 6; // canvas pixels per figure pixel
+// HALF AS TALL AGAIN. at 1.8 blocks the crew were easy to lose entirely;
+// at 2.7 against a four-block storey they are present without being
+// giants, and the label rides higher to match.
+export const SPRITE_ROW = 0.1125;
 
 // the ink. lower case keys so a row of pixels reads as a row of pixels.
 // '.' is air; everything else indexes this table.
@@ -41,7 +45,9 @@ function hex(n: number): string {
 //
 // every figure is drawn once, facing forward. these are original designs and
 // deliberately generic monastics — a hood, a robe, a tool, no marks.
-const FIGURES: Record<Role, Record<Pose, string[]>> = {
+// workB exists only where a role has a second stroke of work (the mason);
+// everyone else falls back to their single work pose
+const FIGURES: Record<Role, Partial<Record<Pose, string[]>>> = {
   surveyor: {
     idle: [
       "................", "......ssss......", ".....shhhhs.....", ".....hffffh.....",
@@ -144,6 +150,17 @@ const FIGURES: Record<Role, Record<Pose, string[]>> = {
       "....rrrrrrr.....", ".....rrrrrr.....", ".....rrrrrr.....", ".....rrrrrr.....",
       ".....rr.rrr.....", ".....bb.bbb.....", "................", "................",
     ],
+    // and the beat after: the stone set, arms drawn back to the hod — the
+    // two frames alternate as each stone lands, so the laying reads as
+    // strokes of work rather than one held pose
+    workB: [
+      "................", "................", "......ssss......", ".....shhhhs.....",
+      ".....hffffh.....", ".....hffffh.....", "......hhhh......", "....kkkkkkk.....",
+      "....kkkkkkk.....", "...rrrrrrrr.....", "...rrrrrrrrr....", "...rrrrrrrr.....",
+      "....rrrrrrrr....", "....rrrrrr......", "....rrrrrr......", "....rrrrrr......",
+      "....rrrrrrr.....", ".....rrrrrr.....", ".....rrrrrr.....", ".....rrrrrr.....",
+      ".....rr.rrr.....", ".....bb.bbb.....", "................", "................",
+    ],
   },
   keeper: {
     idle: [
@@ -241,11 +258,19 @@ export class CrewSprite {
   private mats: Record<Pose, THREE.MeshLambertMaterial>;
   private pose: Pose = "idle";
   private phase = 0;
+  private tt: number;
+  private leanX = 0;
+  private leanZ = 0;
+  // incremented by the owner as each stone lands: the work pose alternates
+  // on the stones themselves, not on the clock
+  workTick = 0;
 
   constructor(role: Role, seed: number) {
     const ink = inkFor(role, seed);
+    this.tt = seed * 1.7;
     const mk = (p: Pose) => {
-      const tex = new THREE.CanvasTexture(paint(FIGURES[role][p], ink));
+      const rows = FIGURES[role][p] ?? FIGURES[role].work!;
+      const tex = new THREE.CanvasTexture(paint(rows, ink));
       tex.magFilter = THREE.NearestFilter;
       tex.minFilter = THREE.NearestFilter;
       tex.colorSpace = THREE.SRGBColorSpace;
@@ -254,19 +279,27 @@ export class CrewSprite {
       // shadow floats above the ground however well it is drawn
       return new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
     };
-    this.mats = { idle: mk("idle"), walkA: mk("walkA"), walkB: mk("walkB"), work: mk("work") };
-    // 24 rows tall at 0.075 a row is 1.8 blocks: a person against a 4 block
-    // storey, which is the proportion the buildings were drawn to
-    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.075, H * 0.075), this.mats.idle);
-    this.mesh.position.y = H * 0.075 * 0.5;
+    this.mats = {
+      idle: mk("idle"), walkA: mk("walkA"), walkB: mk("walkB"),
+      work: mk("work"), workB: mk("workB"),
+    };
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(W * SPRITE_ROW, H * SPRITE_ROW), this.mats.idle);
+    this.mesh.position.y = H * SPRITE_ROW * 0.5;
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = false;
+  }
+
+  // the walker's velocity, for the lean into travel
+  setLean(vx: number, vz: number) {
+    this.leanX = vx;
+    this.leanZ = vz;
   }
 
   // pose and the two-frame walk. the cycle is driven by distance covered
   // rather than by the clock, so a figure's feet match its speed.
   update(dt: number, moving: boolean, working: boolean, camera: THREE.Camera) {
-    if (working && !moving) this.pose = "work";
+    this.tt += dt;
+    if (working && !moving) this.pose = this.workTick % 2 === 0 ? "work" : "workB";
     else if (!moving) this.pose = "idle";
     else {
       this.phase += dt * 5.2;
@@ -279,7 +312,16 @@ export class CrewSprite {
     // figure as the camera rises and lays its shadow down with it; turning
     // about the vertical keeps it standing on the ground it stands on.
     const p = this.mesh.getWorldPosition(_v);
-    this.mesh.rotation.y = Math.atan2(camera.position.x - p.x, camera.position.z - p.z);
+    const ry = Math.atan2(camera.position.x - p.x, camera.position.z - p.z);
+    this.mesh.rotation.y = ry;
+
+    // NOTHING IS EVER PERFECTLY STILL: a breath in the shoulders always,
+    // and a lean into the direction of travel — projected onto the
+    // billboard's own axis so the tilt reads from wherever the camera is
+    this.mesh.scale.y = 1 + Math.sin(this.tt * 1.8) * (moving ? 0.006 : 0.014);
+    const side = this.leanX * Math.cos(ry) - this.leanZ * Math.sin(ry);
+    const sway = moving ? 0 : Math.sin(this.tt * 0.7) * 0.015;
+    this.mesh.rotation.z = -side * 0.09 + sway;
   }
 }
 

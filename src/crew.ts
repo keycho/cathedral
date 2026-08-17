@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { GRID, MAXY } from "./config";
 import { CREAM, SWATCH } from "./palette";
 import type { Strata } from "./strata";
-import { CrewSprite, type Role } from "./sprites";
+import { CrewSprite, SPRITE_ROW, type Role } from "./sprites";
 import type { VoxelField } from "./voxels";
 
 export type AgentName = "surveyor" | "architect" | "mason" | "keeper";
@@ -73,11 +73,43 @@ function makeNameSprite(name: string, colorHex: number): NameSprite {
   return sprite;
 }
 
+// each agent's presence light: the keeper carries the warmest flame, the
+// architect the coolest — findable and TELLABLE from orbit by temperature
+const GLOW_TINT: Record<AgentName, number> = {
+  keeper: 0xffa050,
+  mason: 0xe8b070,
+  surveyor: 0xf0d8a8,
+  architect: 0x8fd0cc,
+};
+
+// a soft radial disc, drawn once and shared by every glow and shadow
+let _radialTex: THREE.CanvasTexture | null = null;
+function radialTex(): THREE.CanvasTexture {
+  if (_radialTex) return _radialTex;
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 64;
+  const g = cv.getContext("2d")!;
+  const grad = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+  grad.addColorStop(0, "rgba(255,255,255,1)");
+  grad.addColorStop(0.55, "rgba(255,255,255,0.35)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  _radialTex = new THREE.CanvasTexture(cv);
+  return _radialTex;
+}
+
 export class Avatar {
   readonly group = new THREE.Group();
   private sprite: CrewSprite;
   private label: NameSprite;
   private working = false;
+  private shadowMat: THREE.MeshBasicMaterial;
+  private motes: THREE.Points;
+  private motePos: Float32Array;
+  private moteN = 0;
+  private moteTimer = 0;
+  private halfH: number;
 
   // THE CREW WERE TWO BOXES EACH. a body and a head in the role's colour,
   // which at any distance reads as a coloured pillar — the world had four
@@ -87,14 +119,80 @@ export class Avatar {
   constructor(name: string, role: AgentName = "mason", seed = 0) {
     const color = AGENT_COLORS[role];
     this.sprite = new CrewSprite(role as Role, seed);
+    this.halfH = 24 * SPRITE_ROW * 0.5;
     this.label = makeNameSprite(name, color);
-    this.label.position.y = 2.05;
+    this.label.position.y = this.halfH * 2 + 0.25;
     this.group.add(this.sprite.mesh, this.label);
+
+    // a soft shadow that tracks the feet: a figure that throws no ground
+    // contact floats however well it is drawn
+    this.shadowMat = new THREE.MeshBasicMaterial({
+      map: radialTex(),
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.34,
+      depthWrite: false,
+    });
+    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.15), this.shadowMat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.04;
+    shadow.renderOrder = 1;
+    this.group.add(shadow);
+
+    // the presence glow: an additive halo plus a small real light, so the
+    // eye can find every crew member from orbit by their temperature
+    const tint = GLOW_TINT[role];
+    const halo = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: radialTex(),
+        color: tint,
+        transparent: true,
+        opacity: 0.32,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    halo.scale.set(2.6, 2.6, 1);
+    halo.position.y = this.halfH;
+    this.group.add(halo);
+    const lamp = new THREE.PointLight(tint, 0.5, 7, 1.8);
+    lamp.position.y = this.halfH + 0.4;
+    this.group.add(lamp);
+
+    // walking motes: a short trail of warm dust kicked up behind the glide
+    this.motePos = new Float32Array(6 * 3);
+    const mg = new THREE.BufferGeometry();
+    mg.setAttribute("position", new THREE.BufferAttribute(this.motePos, 3));
+    this.motes = new THREE.Points(
+      mg,
+      new THREE.PointsMaterial({
+        map: radialTex(),
+        color: tint,
+        size: 0.22,
+        transparent: true,
+        opacity: 0.5,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    this.motes.frustumCulled = false;
+    this.motes.visible = false;
+    this.group.add(this.motes);
   }
 
   // the mason is the only one with a working pose, and only it knows when
   setWorking(on: boolean) {
     this.working = on;
+  }
+
+  // a stone landed: flip the work frame, so the laying reads as strokes
+  pulseWork() {
+    this.sprite.workTick++;
+  }
+
+  // the walker's velocity, handed to the sprite for its lean
+  setLean(vx: number, vz: number) {
+    this.sprite.setLean(vx, vz);
   }
 
   // billboarding needs the camera, which the body does not have: main hands
@@ -116,11 +214,27 @@ export class Avatar {
   }
 
   // the bob stays, gently: a drawn figure with a two frame walk still wants
-  // a little vertical or it slides rather than steps
+  // a little vertical or it slides rather than steps. the shadow answers
+  // it — a touch fainter at the top of the glide — and the motes trail
+  // only while there is a walk to trail behind.
   bob(t: number, moving: boolean) {
-    const amp = moving ? 0.05 : 0.015;
+    const amp = moving ? 0.07 : 0.015;
     const rate = moving ? 9 : 1.6;
-    this.sprite.mesh.position.y = 0.9 + Math.abs(Math.sin(t * rate)) * amp;
+    const lift = Math.abs(Math.sin(t * rate)) * amp;
+    this.sprite.mesh.position.y = this.halfH + lift;
+    this.shadowMat.opacity = 0.34 - lift * 1.2;
+
+    this.moteTimer += 1 / 60;
+    if (moving && this.moteTimer > 0.13) {
+      this.moteTimer = 0;
+      const i = (this.moteN++ % 6) * 3;
+      this.motePos[i] = (Math.sin(t * 13.7) - 0.5) * 0.3;
+      this.motePos[i + 1] = 0.15 + Math.abs(Math.sin(t * 7.3)) * 0.25;
+      this.motePos[i + 2] = (Math.cos(t * 11.3) - 0.5) * 0.3;
+      this.motes.geometry.getAttribute("position").needsUpdate = true;
+      this.motes.visible = true;
+    }
+    if (!moving) this.motes.visible = false;
   }
 }
 
@@ -252,12 +366,13 @@ export class AgentBody {
         // NOT THE GROUP. a drawn figure has no facing to turn — it is
         // always looking at the camera — and rotating its parent turns the
         // billboard off its own axis, so the crew walked sideways into the
-        // view. the walk direction is no longer a rotation at all.
-        void 0;
+        // view. the walk direction becomes a LEAN instead of a rotation.
+        this.avatar.setLean(dx / d, dz / d);
       }
       const floor = this.field.surfaceBelow(this.x, this.z, this.y + 2.5);
       this.y += (floor - this.y) * Math.min(1, dt * 12);
     }
+    if (!this.moving) this.avatar.setLean(0, 0);
     this.avatar.group.position.set(this.x, this.y, this.z);
     this.avatar.bob(t, this.moving);
     if (camera) this.avatar.face(dt, this.moving, camera);

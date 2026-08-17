@@ -72,6 +72,8 @@ export class GroundCover {
     add("flower", crossGeo(0.24, 0.34), 0xd8a0b4, 320);
     add("stone", new THREE.BoxGeometry(0.34, 0.22, 0.28), SWATCH.stoneGrey, 340, { flat: true });
     add("leaf", new THREE.PlaneGeometry(0.5, 0.5).rotateX(-Math.PI / 2), 0x8a6b35, 340);
+    add("moss", new THREE.PlaneGeometry(0.8, 0.8).rotateX(-Math.PI / 2), 0x2e4726, 260);
+    add("petalfall", new THREE.PlaneGeometry(0.22, 0.22).rotateX(-Math.PI / 2), 0xdcb0bc, 260);
     add("marker", new THREE.BoxGeometry(0.4, 1.1, 0.4), SWATCH.stoneDark, 70, { flat: true });
     add("stump", new THREE.BoxGeometry(0.55, 0.45, 0.55), SWATCH.timberDark, 70, { flat: true });
   }
@@ -141,8 +143,12 @@ export class GroundCover {
             this.put("flower", wx, top, wz, h1 * 31, s * (0.8 + h1));
           } else if (h1 < 0.73) {
             this.put("stone", wx, top + 0.1, wz, h1 * 17, s);
-          } else if (h1 < 0.79) {
+          } else if (h1 < 0.78) {
             this.put("leaf", wx, top + 0.03, wz, h1 * 23, s);
+          } else if (h1 < 0.81) {
+            this.put("moss", wx, top + 0.02, wz, h1 * 29, s, 0.85 + h1 * 0.3);
+          } else if (h1 < 0.84) {
+            this.put("petalfall", wx, top + 0.04, wz, h1 * 37, s);
           }
           // near a path, the kept things: a waymarker stone or an old stump
           if (h1 > 0.985 || (h1 > 0.972 && h1 <= 0.985)) {

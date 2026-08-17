@@ -210,6 +210,9 @@ export class Mason {
         this.strata.register(c.x, c.y, c.z, AGENT_WALLET, planId);
         this.works.add(c.x, c.y, c.z, c.material, planId, title, zone);
         if (c.material === LANTERN) this.works.addLantern(c.x, c.y, c.z);
+        // the stone is set: the laying pose takes its next stroke (the
+        // knock and the dust puff already ride the kinetics drop itself)
+        this.body.avatar.pulseWork();
       },
       { stopY: c.y, from: 2.6 }
     );

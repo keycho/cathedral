@@ -126,6 +126,12 @@ export class VoxelField {
   private groundShade?: (x: number, z: number) => number;
   private groundTint?: (x: number, z: number) => [number, number, number];
 
+  // the shared clock behind the emissive flicker; one uniform, every chunk
+  private voxTime = { value: 0 };
+  setTime(t: number) {
+    this.voxTime.value = t;
+  }
+
   constructor(sampler: FieldSampler) {
     this.groundShade = sampler.groundShade?.bind(sampler);
     this.groundTint = sampler.groundTint?.bind(sampler);
@@ -204,19 +210,37 @@ export class VoxelField {
            float vNearF = 1.0 - smoothstep(16.0, 28.0, vNearD);
            if (vNearF > 0.001) {
              float vG = fract(sin(dot(floor(vVoxWorld * 3.0 - 0.25), vec3(127.1, 311.7, 74.7))) * 43758.5453);
-             float vCourse = (vFaceShade < 0.95 && vFaceShade > 0.7)
+             bool vSide = vFaceShade < 0.95 && vFaceShade > 0.7;
+             float vCourse = vSide
                ? 1.0 - (1.0 - smoothstep(0.0, 0.12, vVoxUv.y)) * 0.09
                : 1.0;
-             diffuseColor.rgb *= (1.0 + (vG - 0.5) * 0.14 * vNearF) * mix(1.0, vCourse, vNearF);
+             // the implicit edge light every reference carries: the top rim
+             // of each near side face catches a one-pixel line of light, so
+             // geometry reads crisp at arm's length
+             float vEdgeLight = vSide ? 1.0 + smoothstep(0.84, 0.97, vVoxUv.y) * 0.11 : 1.0;
+             diffuseColor.rgb *=
+               (1.0 + (vG - 0.5) * 0.14 * vNearF) * mix(1.0, vCourse * vEdgeLight, vNearF);
            }`
         )
         .replace(
           "#include <emissivemap_fragment>",
           `#include <emissivemap_fragment>
            #if defined( USE_COLOR ) || defined( USE_INSTANCING_COLOR ) || defined( USE_BATCHING_COLOR )
-             totalEmissiveRadiance += max(vec3(0.0), vColor - 1.0) * 0.9;
+             // EVERY FLAME BREATHES: two incommensurate sines on a per-block
+             // phase, a few percent of drift — lanterns, windows, embers all
+             // flicker gently and never in step, never strobing
+             float vFlickP = fract(sin(dot(floor(vVoxWorld), vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 6.2832;
+             float vFlick = 0.9
+               + 0.06 * sin(uVoxTime * 6.3 + vFlickP)
+               + 0.04 * sin(uVoxTime * 9.7 + vFlickP * 2.0);
+             totalEmissiveRadiance += max(vec3(0.0), vColor - 1.0) * 0.9 * vFlick;
            #endif`
         );
+      shader.uniforms.uVoxTime = this.voxTime;
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <common>",
+        "#include <common>\n uniform float uVoxTime;"
+      );
     };
 
     for (let cx = 0; cx < CPS; cx++) {

@@ -48,6 +48,7 @@ import {
   GENESIS as GENESIS_ID,
   GLASSLIGHT,
   INTERIOR,
+  isGround,
   LANTERN,
   MASS,
   MATERIALS,
@@ -91,7 +92,7 @@ import type { ChainFeed } from "./chain";
 import { paletteHex } from "./stylise";
 import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
-import { GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
+import { BASINS, GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
 import { buildArchipelagoBridges } from "./bridges";
 import { tendGround } from "./tended";
 import { GroundCover } from "./groundcover";
@@ -606,6 +607,11 @@ const keeper = new Keeper(
   () => (walking ? { x: Math.floor(fp.pos.x + GRID / 2), z: Math.floor(fp.pos.z + GRID / 2) } : null),
   { x: GENESIS_CELL.x + 3, z: GENESIS_CELL.z - 2 }
 );
+// the relight, seen: a warm spark at each lamp the keeper tends
+keeper.onTend = (x, z) => {
+  const y = field.topAt(x, z);
+  kinetics.dust(x - GRID / 2 + 0.5, y + 1.5, z - GRID / 2 + 0.5, 8, 0.8, 0.5);
+};
 
 let mourningUntil = 0;
 // mortality. the crew lives on the market's volume and nothing else, and
@@ -1246,6 +1252,10 @@ const cover = new GroundCover(scene);
 const perf = new PerfHud(renderer, () => field.placedCount, () => auto.current);
 
 let frameNo = 0;
+let stepDist = 0;
+let lastFpX = 0;
+let lastFpZ = 0;
+let lastBell = -1;
 
 const clock = new THREE.Clock();
 const camDir = new THREE.Vector3();
@@ -1454,6 +1464,41 @@ function frame() {
   }
   life?.update(dt, wind, camera, sky.phase01(t));
   cover.update(camera, field, plan);
+  field.setTime(t);
+
+  // the sound bed: wind that rises with altitude, water that swells near
+  // basin edges and the coast falls, footsteps under the walker, and the
+  // temple bell far off on the world's hour
+  if (frameNo % 12 === 0) {
+    audio.setWind(Math.min(1, Math.max(0, (camera.position.y - 6) / 55)) + wind.gust * 0.2);
+    let wd = 99;
+    for (const b of BASINS) {
+      const d = Math.abs(Math.hypot(camera.position.x - (b.x - GRID / 2), camera.position.z - (b.z - GRID / 2)) - b.r * 0.78);
+      if (d < wd) wd = d;
+    }
+    for (const f of underside.fallSpots) {
+      const d = Math.hypot(camera.position.x - (f.x - GRID / 2), camera.position.z - (f.z - GRID / 2));
+      if (d * 0.55 < wd) wd = d * 0.55; // a fall carries further than a lap
+    }
+    audio.setWater(1 - Math.min(1, wd / 20));
+  }
+  if (walking) {
+    stepDist += Math.hypot(fp.pos.x - lastFpX, fp.pos.z - lastFpZ);
+    if (stepDist > 1.9) {
+      stepDist = 0;
+      const ux = Math.floor(fp.pos.x + GRID / 2);
+      const uz = Math.floor(fp.pos.z + GRID / 2);
+      const uy = field.topAt(ux, uz) - 1;
+      audio.step(uy >= 0 && !isGround(field.typeAt(ux, uy, uz)));
+    }
+  }
+  lastFpX = fp.pos.x;
+  lastFpZ = fp.pos.z;
+  const bellHour = Math.floor(t / 300);
+  if (bellHour !== lastBell && t > 60) {
+    lastBell = bellHour;
+    audio.bellHour();
+  }
   if (weather) {
     // the pressure is the trailing net flow turned negative-side-up: a red
     // hour is a storm and a quiet one is clear air
@@ -1560,6 +1605,7 @@ declare global {
       shrine: Shrine;
       kinetics: Kinetics;
       renderer: THREE.WebGLRenderer;
+      cover: GroundCover;
       post: Post;
       runHistory: (epochs?: number) => Promise<number>;
       captureMode: (on: boolean) => void;
@@ -1687,6 +1733,7 @@ if (DEV_TOOLS) window.cathedral = {
   rig,
   fp,
   camera,
+  cover,
   genesis,
   feed,
   growth,

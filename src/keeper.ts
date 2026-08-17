@@ -29,6 +29,9 @@ interface Stop {
 
 export class Keeper {
   readonly body: AgentBody;
+  // fired when the keeper tends a lamp on its round, so the world can show
+  // the relight — a spark at the lantern — rather than only journal it
+  onTend?: (x: number, z: number) => void;
   private stops: Stop[] = [];
   private dwellUntil = 0;
   private walking = false;
@@ -129,9 +132,11 @@ export class Keeper {
           this.stops.length = 0;
           this.journal.add("keeper", this.epochOf(), this.voice.keeperGrave(next.name));
         } else if (next.kind === "lantern") {
-          // some lamps are found dark
+          // some lamps are found dark — and the relight is SEEN, not only
+          // journalled: a spark at the lamp as the keeper reaches it
           if (Math.random() < 0.3) this.outTonight++;
           else this.litTonight++;
+          this.onTend?.(next.x, next.z);
         }
       }
       return;

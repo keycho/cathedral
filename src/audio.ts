@@ -122,6 +122,80 @@ class WorldAudio {
     this.tone(82.5, 0.3 * v, 2.2, 0);
     this.tone(110, 0.22 * v, 1.7, 0);
   }
+
+  // ---- the standing bed: wind and water, held as loops -------------------
+
+  private windGain: GainNode | null = null;
+  private windFilter: BiquadFilterNode | null = null;
+  private waterGain: GainNode | null = null;
+
+  private ensureBed() {
+    if (!this.ctx || !this.master || !this.noiseBuf || this.windGain) return;
+    // wind: looping noise through a low-pass that breathes
+    const w = this.ctx.createBufferSource();
+    w.buffer = this.noiseBuf;
+    w.loop = true;
+    this.windFilter = this.ctx.createBiquadFilter();
+    this.windFilter.type = "lowpass";
+    this.windFilter.frequency.value = 320;
+    this.windGain = this.ctx.createGain();
+    this.windGain.gain.value = 0;
+    w.connect(this.windFilter).connect(this.windGain).connect(this.master);
+    w.start();
+    // water: the same noise, band-passed brighter, gated by proximity
+    const s = this.ctx.createBufferSource();
+    s.buffer = this.noiseBuf;
+    s.loop = true;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 1400;
+    bp.Q.value = 0.7;
+    this.waterGain = this.ctx.createGain();
+    this.waterGain.gain.value = 0;
+    s.connect(bp).connect(this.waterGain).connect(this.master);
+    s.start();
+  }
+
+  // wind gain rises with altitude; the filter opens a little with it too,
+  // so height sounds thinner and wilder rather than only louder
+  setWind(level: number) {
+    this.ensure();
+    this.ensureBed();
+    if (!this.windGain || !this.windFilter || !this.ctx) return;
+    const v = Math.max(0, Math.min(1, level));
+    this.windGain.gain.setTargetAtTime(0.028 + v * 0.09, this.ctx.currentTime, 0.6);
+    this.windFilter.frequency.setTargetAtTime(280 + v * 480, this.ctx.currentTime, 0.6);
+  }
+
+  // basin lap and fall rumble, pre-attenuated by the caller's distance
+  setWater(level: number) {
+    this.ensureBed();
+    if (!this.waterGain || !this.ctx) return;
+    this.waterGain.gain.setTargetAtTime(
+      Math.max(0, Math.min(1, level)) * 0.075,
+      this.ctx.currentTime,
+      0.4
+    );
+  }
+
+  // a footstep: stone knocks, grass hushes
+  step(onStone: boolean) {
+    if (!this.ctx) return;
+    if (onStone) {
+      this.noise(0.045, 1500, 0.1, 0.05);
+      this.tone(190 + Math.random() * 40, 0.05, 0.06, 60);
+    } else {
+      this.noise(0.06, 500, 0.09, 0.07);
+    }
+  }
+
+  // the distant temple bell: the toll's far-off cousin, on the hour
+  bellHour() {
+    if (!this.ctx) return;
+    this.tone(220, 0.1, 3.2, 0);
+    this.tone(330, 0.05, 2.4, 0);
+    this.tone(110, 0.07, 3.8, 0);
+  }
 }
 
 export const audio = new WorldAudio();
