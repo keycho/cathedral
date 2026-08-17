@@ -1,4 +1,4 @@
-// cathedral - the town register. the flats, at night, which is the state
+// kodo - the town register. the flats, at night, which is the state
 // this register was designed for: the buildings read DARK and the light is
 // the subject. a shopfront is not a lit box, it is a lamp pointed at a
 // street, and the street is what you are actually looking at.

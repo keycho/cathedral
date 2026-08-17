@@ -1,4 +1,4 @@
-// cathedral - THE PALETTE LOCK. every colour in the world comes from this
+// kodo - THE PALETTE LOCK. every colour in the world comes from this
 // file. nothing samples a colour outside it: not terrain, not flora, not
 // the crew's materials, not particles, not the market's light. if a new
 // thing needs a colour it takes one of these swatches or the palette gains

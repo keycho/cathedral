@@ -1,4 +1,4 @@
-// cathedral - the sky realm. the world is vertical: meadow below, floating
+// kodo - the sky realm. the world is vertical: meadow below, floating
 // islands above, calved from the mass at its milestones. a whale's monolith
 // seeds an island over the place it surfaced; a major burn launches a
 // hollowed ruin-island with an ember underside; every ~1500 blocks of

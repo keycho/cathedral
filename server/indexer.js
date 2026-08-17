@@ -1,4 +1,4 @@
-// cathedral - the indexer. it pulls windows of trades from a source,
+// kodo - the indexer. it pulls windows of trades from a source,
 // normalises them into the world's one event shape, and writes them to the
 // log. that is all it does, and the restraint is the design: an indexer that
 // also decides what the world does is an indexer you cannot re-run.

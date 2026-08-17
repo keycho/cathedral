@@ -1,4 +1,4 @@
-// cathedral - multiplayer transport, ported from the biocraft co-op layer
+// kodo - multiplayer transport, ported from the biocraft co-op layer
 // and trimmed to the primitives the place layer will need: presence (who is
 // here), low-rate position broadcast (ash silhouettes), and batched block
 // edits (shared world state). client-authoritative only for its own
@@ -14,7 +14,7 @@ import { NET_ENABLED } from "./config";
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-const ROOM = "cathedral-main";
+const ROOM = "kodo-main";
 const SEND_INTERVAL = 1000 / 12; // ~12 hz position broadcast
 const EDIT_FLUSH = 80; // ms between edit-batch broadcasts
 const EDITS_PER_MSG = 200; // cap edits per broadcast

@@ -1,4 +1,4 @@
-// cathedral - the crew log: every field note, design memo and completion
+// kodo - the crew log: every field note, design memo and completion
 // the crew writes, public, on screen. this is the seed of the per-agent
 // journals that publish to the site in phase 3.
 
@@ -71,7 +71,7 @@ export class Journal {
     return (
       `<?xml version="1.0" encoding="UTF-8"?>\n` +
       `<rss version="2.0">\n  <channel>\n` +
-      `    <title>cathedral · the crew log</title>\n` +
+      `    <title>kodō · the crew log</title>\n` +
       `    <link>${origin}</link>\n` +
       `    <description>field notes, design memos and completions from the crew that keeps this world</description>\n` +
       `${items}\n  </channel>\n</rss>`

@@ -1,4 +1,4 @@
-// cathedral - the stream director. the orbit camera drifts on its own, but
+// kodo - the stream director. the orbit camera drifts on its own, but
 // when something happens that a viewer should not miss, the director takes
 // the wheel and frames it. drama outranks progress: a dying agent's walk
 // beats a wall going up, a gathering beats a whale, a tomb being raised

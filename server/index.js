@@ -1,4 +1,4 @@
-// cathedral - the market service. it runs the indexer on a timer, closes
+// kodo - the market service. it runs the indexer on a timer, closes
 // ticks off the log, and serves the history to whoever is drawing the world.
 //
 // it is a plain node http server with no framework because it has four
@@ -29,7 +29,7 @@ if (source.mint === STANDIN_MINT) {
   console.log("[market] THIS IS A STAND-IN TOKEN. no chain is being read.");
 }
 
-// when the world is founded. CATHEDRAL_GENESIS accepts an iso timestamp, a
+// when the world is founded. KODO_GENESIS accepts an iso timestamp, a
 // millisecond epoch, or a relative "-90m" meaning ninety minutes ago — the
 // last of which is how a stand-in world is given a past to be looked at.
 function genesisFromEnv(v) {
@@ -45,7 +45,7 @@ function genesisFromEnv(v) {
   return Number.isFinite(p) ? p : null;
 }
 
-const born = genesisFromEnv(process.env.CATHEDRAL_GENESIS);
+const born = genesisFromEnv(process.env.KODO_GENESIS ?? process.env.CATHEDRAL_GENESIS);
 const world = await indexer.ensureWorld(Date.now(), born);
 console.log(`[market] world founded ${new Date(world.genesisAt).toISOString()}`);
 await indexer.backfill(Date.now(), Math.max(60 * 60_000, Date.now() - world.genesisAt));

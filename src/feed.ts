@@ -1,4 +1,4 @@
-// cathedral - the synthetic market. emits the exact event shapes the real
+// kodo - the synthetic market. emits the exact event shapes the real
 // indexer will emit in phase 2 (buy / sell / burn / newHolder, every event
 // carrying a txRef), on an exponential timer whose rate and buy/sell bias
 // are live-adjustable from the dev panel. wallets are stable fake pubkeys

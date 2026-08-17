@@ -1,4 +1,4 @@
-// cathedral - the woods. trees as world furniture rather than as a design
+// kodo - the woods. trees as world furniture rather than as a design
 // decision: groves on the hillsides, avenues along the plan's roads, bamboo
 // at the water's edge.
 //

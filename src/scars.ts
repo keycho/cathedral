@@ -1,4 +1,4 @@
-// cathedral - erosion scars. when stone is torn away, the freshly exposed
+// kodo - erosion scars. when stone is torn away, the freshly exposed
 // faces glow ember and cool back to their resting strata tint over ~2h
 // (the constitution's scarCoolMs). the scar registry owns those cells'
 // colours while they cool; strata's epoch re-tints defer to it and the

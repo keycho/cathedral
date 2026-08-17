@@ -1,4 +1,4 @@
-// cathedral - the crew's foundations: embodied avatars with vt323 name
+// kodo - the crew's foundations: embodied avatars with vt323 name
 // floats, pathfinding over the real column geometry, the three territory
 // wedges with their border posts, and the registry of every block the crew
 // has laid (which is also what a dump can damage and the mason repairs).

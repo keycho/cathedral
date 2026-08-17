@@ -1,4 +1,4 @@
-// cathedral - TENDED GROUND. micro-detail by rule, so the land reads as
+// kodo - TENDED GROUND. micro-detail by rule, so the land reads as
 // KEPT rather than generated: field plots striped on the gentle mid
 // slopes with hedgerow borders and gate gaps, low stone walls tracing
 // the contours of the open hills with stiles where feet pass, and a

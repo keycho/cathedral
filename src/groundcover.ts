@@ -1,4 +1,4 @@
-// cathedral - GROUND COVER AT WALK SCALE. the empty planes up close are
+// kodo - GROUND COVER AT WALK SCALE. the empty planes up close are
 // filled by things too small to exist at orbit: grass tufts and flowers
 // as crossed quads, fallen leaves, small stones, and — near the paths —
 // waymarkers and stumps, so no ten-block walk is featureless. everything

@@ -1,4 +1,4 @@
-// cathedral - THE GREAT WORK. the world had no hero and nothing to navigate
+// kodo - THE GREAT WORK. the world had no hero and nothing to navigate
 // by: a hundred buildings of roughly one size, every one of them plausible,
 // placed by rules that are individually correct and collectively generic. a
 // place is not made legible by the quality of its average building. it is

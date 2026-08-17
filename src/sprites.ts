@@ -1,4 +1,4 @@
-// cathedral - the crew, drawn. they were two coloured boxes each: a body
+// kodo - the crew, drawn. they were two coloured boxes each: a body
 // and a head, in the role's colour, with a name floating over them. at
 // distance that reads as a coloured pillar, and a pillar is not a person —
 // the world had four agents in it and no inhabitants.

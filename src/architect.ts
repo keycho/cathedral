@@ -1,4 +1,4 @@
-// cathedral - the architect. every cycle (6 epochs; hourly at the
+// kodo - the architect. every cycle (6 epochs; hourly at the
 // constitution's cadence) it gathers the surveyor's notes, the market's
 // tick aggregates and a snapshot of a chosen site, and asks claude for a
 // BLUEPRINT: ordered block placements in the crew's materials, with a

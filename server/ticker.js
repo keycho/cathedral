@@ -1,4 +1,4 @@
-// cathedral - the clock, moved to the server.
+// kodo - the clock, moved to the server.
 //
 // in phase 1 every browser ran its own tick engine over its own synthetic
 // feed, which meant every visitor was looking at a different world and

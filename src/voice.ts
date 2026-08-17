@@ -1,4 +1,4 @@
-// cathedral - the crew's voices. every line any agent writes comes from
+// kodo - the crew's voices. every line any agent writes comes from
 // here, so the four registers in crew/*.md live in one place and cannot
 // drift apart. the bibles are the specification; this is their runtime.
 //
@@ -115,7 +115,13 @@ export class Voice {
   surveyor(f: SurveyorFacts): string {
     this.entryNo++;
     const m = this.mem("surveyor");
-    const parts: string[] = [`epoch ${f.epoch}. the mass stands ${f.blocks} stones.`];
+    // the world has a name now, and the crew may use it
+    const parts: string[] = [
+      `epoch ${f.epoch}. ${pick(
+        [`the mass stands ${f.blocks} stones`, `kodō stands ${f.blocks} stones`],
+        f.epoch + this.entryNo
+      )}.`,
+    ];
 
     if (f.grew > 12) parts.push(`it grew ${f.grew} since my last walk.`);
     else if (f.grew < -12) parts.push(`it lost ${-f.grew}. the wind was against us.`);
@@ -238,6 +244,7 @@ export class Voice {
           "someone is standing at the founding stone. you are welcome to it.",
           "you walked the west line tonight. the lamps are lit for it.",
           "you are here late. so am i.",
+          "kodō keeps a lamp lit for whoever comes. tonight that is you.",
         ],
         this.entryNo
       );

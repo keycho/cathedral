@@ -1,4 +1,4 @@
-// cathedral - ROPE BRIDGES. an archipelago is one composition only if its
+// kodo - ROPE BRIDGES. an archipelago is one composition only if its
 // pieces are joined: where a gap is genuinely crossable — the sheared
 // headland to its detached shard, a low satellite to the coast — a rope
 // bridge swings across it. spans are found, not placed: the headland

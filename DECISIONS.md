@@ -282,3 +282,9 @@ low angles, which reads as shoreline rather than as a hidden cliff.
   the composition. (first as smooth cones that read as paper tents, then
   as voxel masses with a sky-derived value law; both diluted the frame.
   the cloud sea carries the sense of distance on its own.)
+- 2026-08-17: the world is named KODŌ — "kodō" with the macron wherever
+  typography allows, plain "kodo" in code, tickers, env vars and keys.
+  replaces the working name "cathedral" everywhere. the common-noun
+  cathedral survives only where it means a great work of stone ("how a
+  cathedral becomes a shed"), and the old CATHEDRAL_* env vars are still
+  read as fallbacks so no deployment breaks.

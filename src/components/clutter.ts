@@ -1,4 +1,4 @@
-// cathedral - eye height. the register files build the architecture; this
+// kodo - eye height. the register files build the architecture; this
 // one builds what is at the height of a person standing in it.
 //
 // the frames that came back from ground level were legible and empty: a

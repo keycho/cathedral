@@ -1,4 +1,4 @@
-// cathedral - reconciliation. two questions, and they are different
+// kodo - reconciliation. two questions, and they are different
 // questions even though a naive check answers both with "no":
 //
 //   IS THE STORED HISTORY WHAT THE LOG SAYS?   recompute every tick from the

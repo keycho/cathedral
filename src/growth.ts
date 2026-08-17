@@ -1,4 +1,4 @@
-// cathedral - accretion: r1's frontier growth. new stone attaches to a
+// kodo - accretion: r1's frontier growth. new stone attaches to a
 // weighted random exposed face of the existing mass, biased upward and
 // toward the buying wallet's own formation, so the structure climbs like
 // slow crystal and each wallet's blocks clot into a recognizable lobe.

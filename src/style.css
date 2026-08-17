@@ -1,4 +1,4 @@
-/* cathedral - hud. vt323, lowercase, sharp corners.
+/* kodo - hud. vt323, lowercase, sharp corners.
    warm-black #0B0B0A · sage #8FAE6A · cream #FAF3E2 · orange #D45A20 */
 
 :root {
@@ -55,7 +55,7 @@ body {
 }
 
 /* corner wordmark. vt323 is an 8px-grid pixel font: off-grid sizes can
-   rasterize the h ascender away (cathedral reading as catnedral), so hud
+   rasterize ascenders away (the old wordmark's h read as n), so hud
    sizes stay on multiples of 8 */
 #wordmark {
   top: 14px;

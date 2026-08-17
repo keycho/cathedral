@@ -1,4 +1,4 @@
-// cathedral - the keeper. the fourth agent, and the only one that holds no
+// kodo - the keeper. the fourth agent, and the only one that holds no
 // territory: it walks all three. at dusk it begins its round of the
 // lanterns, relights what went dark, waters the moss on the grave markers,
 // and greets anyone standing in the world. it neglects the round whenever

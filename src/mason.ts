@@ -1,4 +1,4 @@
-// cathedral - the mason. it executes blueprints exactly, block by block, at
+// kodo - the mason. it executes blueprints exactly, block by block, at
 // a watchable pace: walk to the site, set the stone, next. repairs always
 // come first: any crew block the market breaks goes back up before new
 // work continues. lantern blocks get their light as they are set.

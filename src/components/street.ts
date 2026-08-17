@@ -1,4 +1,4 @@
-// cathedral - the street. one block of the lower town, composed from the
+// kodo - the street. one block of the lower town, composed from the
 // town register's parts. four buildings sharing a frontage, in four
 // different eras, with the alley shrine between two of them, the whole
 // road in front of them and everything people leave lying on it.

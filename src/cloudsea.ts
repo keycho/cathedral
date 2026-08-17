@@ -1,4 +1,4 @@
-// cathedral - THE CLOUD SEA, AND THE CARVED EDGE. the world is a floating
+// kodo - THE CLOUD SEA, AND THE CARVED EDGE. the world is a floating
 // slab, and until now it floated in nothing: the full-map orbit — the
 // marketing frame — showed a diorama standing in brown void, and from the
 // coast at ground level the land simply stopped, a flat extrusion over a

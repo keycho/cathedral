@@ -1,4 +1,4 @@
-// cathedral - the temple register. the heights and the sky islands build
+// kodo - the temple register. the heights and the sky islands build
 // in this: timber post and beam, bone plaster infill, dark charcoal tile
 // stacked course by course with swept eaves and exposed bracket sets.
 //

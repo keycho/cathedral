@@ -1,4 +1,4 @@
-// cathedral - the component catalogue: the architect's actual vocabulary.
+// kodo - the component catalogue: the architect's actual vocabulary.
 //
 // the architect used to write a blueprint as six hundred raw cells, one
 // coordinate and one material name at a time. it could say "put a stone

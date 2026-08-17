@@ -1,4 +1,4 @@
-// cathedral - the debug readout. hidden by default and toggled with p: it
+// kodo - the debug readout. hidden by default and toggled with p: it
 // is an instrument for whoever is tuning the world, not an interface for a
 // visitor. no tier buttons, no effect switches, no quality menu anywhere in
 // the shipping ui: the world ships one configuration and steps down the

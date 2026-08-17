@@ -1,4 +1,4 @@
-// cathedral - the market's marks. r4: a single tx past the whale threshold
+// kodo - the market's marks. r4: a single tx past the whale threshold
 // immediately slams a two-block bright monolith onto the highest point of
 // the frontier, with a toll. r5: a new holder plants a seed block on empty
 // ground within 20 blocks of the mass; accretion can take it from there.

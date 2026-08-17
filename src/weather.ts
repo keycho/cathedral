@@ -1,4 +1,4 @@
-// cathedral - weather and season. the world had one sky and one climate: a
+// kodo - weather and season. the world had one sky and one climate: a
 // long golden hour that never changed its mind. a place you watch for hours
 // needs the sky to DO something, and it needs the doing to mean something —
 // so the weather is on a clock and its violence is the market's.

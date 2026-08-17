@@ -1,4 +1,4 @@
-// cathedral - the work site. the world was finished objects appearing one
+// kodo - the work site. the world was finished objects appearing one
 // block at a time: a stone lands, then another, and at no point does the
 // place look like somewhere anybody is BUILDING. a construction site is a
 // thing you can recognise from across a valley — the shape of what is

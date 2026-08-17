@@ -1,4 +1,4 @@
-// cathedral - THE THRESHOLDS. a world where everything is placed by rule is
+// kodo - THE THRESHOLDS. a world where everything is placed by rule is
 // plausible everywhere and deliberate nowhere: each building is correct, each
 // road goes where a road should go, and the whole thing reads as generated
 // because nothing in it was ever CHOSEN. the fix is not more detail. it is

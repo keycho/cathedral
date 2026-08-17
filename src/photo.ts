@@ -1,4 +1,4 @@
-// cathedral - photo mode. the world already knows how to look like itself;
+// kodo - photo mode. the world already knows how to look like itself;
 // this is the part that knows how to be PHOTOGRAPHED.
 //
 // three things, none of them new rendering: framing presets that put the

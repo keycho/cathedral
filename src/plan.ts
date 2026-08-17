@@ -1,4 +1,4 @@
-// cathedral - the urban plan. the layer that makes a settlement out of
+// kodo - the urban plan. the layer that makes a settlement out of
 // buildings.
 //
 // the world's works used to sit on open meadow like garden furniture: each

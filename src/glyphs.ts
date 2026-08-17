@@ -1,4 +1,4 @@
-// cathedral - value glyphs: the market's numbers made briefly visible in
+// kodo - value glyphs: the market's numbers made briefly visible in
 // the air. when a buy's stone lands, its dollar value floats up from the
 // impact in spirit green; when a dump bites the mass, the outflow rises
 // in ember from the wound. pooled canvas sprites in the hud's own

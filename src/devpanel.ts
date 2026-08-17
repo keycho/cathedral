@@ -1,4 +1,4 @@
-// cathedral - the market dev panel (phase 1 tooling; retired when the real
+// kodo - the market dev panel (phase 1 tooling; retired when the real
 // indexer lands). drives the synthetic feed: event rate, buy/sell bias,
 // manual buy / sell / whale / burn, an epoch clock readout with a fast
 // mode for judging strata, live counters and the event log. built

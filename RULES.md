@@ -2,7 +2,7 @@
 
 a voxel world grown by a market, architected by agents.
 
-the constitution of the cathedral. this file is the human mirror of
+the constitution of kodō. this file is the human mirror of
 src/rules.ts: every constant and rule below appears there verbatim. after
 genesis this file is frozen. if the code and this file ever disagree, the
 code is wrong.

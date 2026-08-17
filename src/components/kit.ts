@@ -1,4 +1,4 @@
-// cathedral - the component kit. every structure in this world is
+// kodo - the component kit. every structure in this world is
 // ASSEMBLED from parameterised parts, never placed freeform and never as
 // slabs. a part returns cells in its own local space; a composition
 // offsets parts into a build and the kit dedupes, so a roof laid over a

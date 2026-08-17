@@ -1,4 +1,4 @@
-// cathedral - compositions. the architect never places blocks freehand: it
+// kodo - compositions. the architect never places blocks freehand: it
 // chooses a composition and the composition assembles parts from the kit.
 // this file holds the first one, the gate piece: a single tier of the great
 // work, with the grounds that make it a place rather than an object.

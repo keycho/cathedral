@@ -1,4 +1,4 @@
-// cathedral - the drift. meadow seeds and petals riding the air, wrapped in
+// kodo - the drift. meadow seeds and petals riding the air, wrapped in
 // a volume that follows the camera so the air is always moving and never
 // crowded. density is driven from outside (r6: ambient scales with market
 // volume); the level here is just obeyed. (the class keeps its founding

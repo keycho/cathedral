@@ -1,4 +1,4 @@
-// cathedral - burn hollows (r3's carve + treatment). a burn eats a rough
+// kodo - burn hollows (r3's carve + treatment). a burn eats a rough
 // sphere out of the mass: the removed cells become permanent hollow that
 // never re-accretes, the surviving cells that face the cavity are locked as
 // lining and tinted a dim rust, and a pooled warm light breathes inside so

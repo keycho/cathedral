@@ -1,4 +1,4 @@
-// cathedral - the constitution's constants, in one object, mirrored word
+// kodo - the constitution's constants, in one object, mirrored word
 // for word by RULES.md (if they ever disagree, this file is wrong). frozen
 // at genesis. the deterministic rule LOGIC (tick aggregation, r1-r6
 // application) lands here in phase 1d; until then the synthetic feed

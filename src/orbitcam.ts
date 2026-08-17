@@ -1,4 +1,4 @@
-// cathedral - the orbit rig: the default view, the stream shot, and the
+// kodo - the orbit rig: the default view, the stream shot, and the
 // mobile view. a slow automatic drift around a target; dragging takes the
 // wheel (and pauses the drift for a few seconds), scroll zooms. it never
 // fights the walker: main only updates the rig while the pointer is not

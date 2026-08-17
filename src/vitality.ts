@@ -1,4 +1,4 @@
-// cathedral - mortality. the crew lives on the market's volume and nothing
+// kodo - mortality. the crew lives on the market's volume and nothing
 // else. sustained starvation kills an agent; a successor arrives with a new
 // name and voice, inherits the territory and the duties, and inherits none
 // of the memories.

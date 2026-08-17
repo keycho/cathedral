@@ -1,4 +1,4 @@
-// cathedral - the wind. one vector field the whole world obeys: the grass
+// kodo - the wind. one vector field the whole world obeys: the grass
 // leans with it, the seeds ride it, the banners ripple along it, the clouds
 // walk with it. a slow turning direction with gusts rolling through, so the
 // air reads as weather rather than as several unrelated animations.

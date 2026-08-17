@@ -1,4 +1,4 @@
-// cathedral - dev edit probe. NOT a gameplay system: visitors never build.
+// kodo - dev edit probe. NOT a gameplay system: visitors never build.
 // a dev-build-only tool to poke the field while the market rules are being
 // written. left click steps the targeted block through its damage tiers and
 // breaks it on the last hit (the same ramp collapse will use); right click

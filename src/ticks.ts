@@ -1,4 +1,4 @@
-// cathedral - the tick engine: the constitution's clock. every 30 seconds
+// kodo - the tick engine: the constitution's clock. every 30 seconds
 // the raw feed collapses into one summary (netFlowUsd, grossVolumeUsd,
 // uniqueWallets, largestTxUsd, per-wallet buy/sell usd) and the rules are
 // applied to the summary, not to raw events: r1 accretion on positive net,

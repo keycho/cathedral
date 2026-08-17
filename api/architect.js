@@ -1,11 +1,11 @@
-// cathedral - the architect's brain. a vercel serverless function so the
+// kodo - the architect's brain. a vercel serverless function so the
 // anthropic key lives in project env (ANTHROPIC_API_KEY) and never reaches
 // the browser. input: zone, palette, budget, a heightmap patch with a
 // blocked mask, the surveyor's notes and the market's aggregates. output:
 // a blueprint json (title, memo, ordered blocks) judged against the style
 // bible. the client validates every cell again before the mason moves.
 
-const BIBLE = `you are the architect of the cathedral: a voxel world grown by a market, architected by agents.
+const BIBLE = `you are the architect of kodō: a voxel world grown by a market, architected by agents.
 you design BLUEPRINTS the mason executes exactly, one block per ~8 seconds, watched live.
 
 the style bible:

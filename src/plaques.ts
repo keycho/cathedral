@@ -1,4 +1,4 @@
-// cathedral - plaques (p7): every block answers for itself. inspect a
+// kodo - plaques (p7): every block answers for itself. inspect a
 // block and its provenance card renders: what it is, the epoch it was
 // born, how deep its stratum sits, whose wallet or whose plan made it,
 // and the tx that paid for it. walking: aim and press e. orbit: right

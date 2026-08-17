@@ -1,4 +1,4 @@
-// cathedral - the pipeline, exercised end to end against the stand-in.
+// kodo - the pipeline, exercised end to end against the stand-in.
 //
 // this is here because every fault this project has had came from believing
 // a change worked rather than measuring that it did, and a market pipeline
@@ -25,8 +25,8 @@ function check(name, cond, detail = "") {
   console.log(`${mark} ${name}${detail ? "   " + detail : ""}`);
 }
 
-const dir = mkdtempSync(join(tmpdir(), "cathedral-"));
-const fresh = () => openStore({ CATHEDRAL_STORE: join(dir, `m-${Math.random().toString(36).slice(2)}.json`) });
+const dir = mkdtempSync(join(tmpdir(), "kodo-"));
+const fresh = () => openStore({ KODO_STORE: join(dir, `m-${Math.random().toString(36).slice(2)}.json`) });
 
 // a fixed "now" so the whole test is deterministic. the stand-in is a pure
 // function of (mint, window), so pinning the clock pins everything.
@@ -110,7 +110,7 @@ let genesis = 0;
 console.log("\n— a restart lands on the same tick —");
 {
   const path = join(dir, "restart.json");
-  const s1 = await openStore({ CATHEDRAL_STORE: path });
+  const s1 = await openStore({ KODO_STORE: path });
   const ix1 = new Indexer(s1, new StandInSource());
   await ix1.ensureWorld(NOW - HOUR);
   await ix1.backfill(NOW, HOUR);
@@ -119,7 +119,7 @@ console.log("\n— a restart lands on the same tick —");
   const lastA = a[a.length - 1].n;
 
   // a completely new process, same store
-  const s2 = await openStore({ CATHEDRAL_STORE: path });
+  const s2 = await openStore({ KODO_STORE: path });
   const t2 = new Ticker(s2);
   const b = await t2.advance(NOW);
   check("a second ticker closes nothing already closed", b.length === 0, `first run closed to #${lastA}`);

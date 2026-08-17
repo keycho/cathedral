@@ -1,4 +1,4 @@
-// cathedral - the ground. a green basin holding the founding stone, calm
+// kodo - the ground. a green basin holding the founding stone, calm
 // where the crew builds and wilder toward the horizon: grey cliff crests,
 // old craters mossed over, jade water basins, and four ancient spires
 // standing far off so every view has a landmark. the world still starts

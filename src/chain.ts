@@ -1,4 +1,4 @@
-// cathedral - the seam where the world stops making the market up.
+// kodo - the seam where the world stops making the market up.
 //
 // phase 1 ran a synthetic feed and a tick engine inside every browser, which
 // means every visitor has been watching a different world. that is fine for

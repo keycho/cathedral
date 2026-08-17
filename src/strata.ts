@@ -1,4 +1,4 @@
-// cathedral - strata: provenance and epoch tinting. every structure block
+// kodo - strata: provenance and epoch tinting. every structure block
 // permanently records the wallet, tx and epoch that made it (r1); strata
 // are tinted by the epoch they were born in, mossy while young, pale
 // granite as they settle, cold blue in the oldest layers (older is deeper,

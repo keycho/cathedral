@@ -1,4 +1,4 @@
-// cathedral - erosion: r2 collapse with physics, r2b subsidence. a negative
+// kodo - erosion: r2 collapse with physics, r2b subsidence. a negative
 // tick destabilizes floor(|net| / 50) frontier blocks: each steps through
 // damage tiers toward ember, breaks off, tumbles outward and settles at the
 // base as PERMANENT walkable rubble carrying the eroded wallet's name.

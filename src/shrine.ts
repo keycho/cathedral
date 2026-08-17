@@ -1,4 +1,4 @@
-// cathedral - the shrine of epochs. the time-lapse made diegetic: a small
+// kodo - the shrine of epochs. the time-lapse made diegetic: a small
 // arc of dressed posts beside the founding stone holding a glasslight
 // tablet. inspect the tablet and the world replays its own history in
 // light: every stratum flashes gold in the order of its birth epoch, a

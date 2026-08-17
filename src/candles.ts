@@ -1,4 +1,4 @@
-// cathedral - the candle row: twelve translucent columns standing at the
+// kodo - the candle row: twelve translucent columns standing at the
 // founding plaza's south edge, the market's last minutes rendered as
 // glass. eleven closed ticks fade with age; the twelfth forms live,
 // swelling and changing colour as the price moves inside the open tick.

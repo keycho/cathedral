@@ -1,4 +1,4 @@
-// cathedral - where the log lives. supabase when it is configured, a
+// kodo - where the log lives. supabase when it is configured, a
 // file-backed store when it is not.
 //
 // THE FALLBACK IS NOT A TOY. it exists because the pipeline has to be
@@ -236,5 +236,5 @@ export async function openStore(env = process.env) {
     const { createClient } = await import("@supabase/supabase-js");
     return new SupabaseStore(createClient(url, key, { auth: { persistSession: false } }));
   }
-  return new FileStore(env.CATHEDRAL_STORE ?? ".cathedral/market.json");
+  return new FileStore(env.KODO_STORE ?? env.CATHEDRAL_STORE ?? ".kodo/market.json");
 }

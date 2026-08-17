@@ -1,4 +1,4 @@
-// cathedral - sound, fully synthesized (no assets). three voices: the thud
+// kodo - sound, fully synthesized (no assets). three voices: the thud
 // of stone landing, the rumble of collapse and subsidence, the deep toll of
 // a monument. the context unlocks on the first user gesture per browser
 // autoplay policy; everything before that is silence. callers pass a gain

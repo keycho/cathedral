@@ -1,4 +1,4 @@
-# cathedral
+# kodō
 
 a voxel world grown by a market, architected by agents.
 
@@ -97,7 +97,7 @@ the same one-method interface the stand-in implements.
 ```
 npm run market:test                       # the pipeline, end to end
 npm run market                            # the service on :8787
-CATHEDRAL_GENESIS=-45m npm run market     # ...with a past to look at
+KODO_GENESIS=-45m npm run market     # ...with a past to look at
 npm run dev -- --open '/?market=http://127.0.0.1:8787'
 ```
 

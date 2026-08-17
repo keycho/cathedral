@@ -1,4 +1,4 @@
-// cathedral - trees as ARCHITECTURE.
+// kodo - trees as ARCHITECTURE.
 //
 // the world's greenery was tufts: a few blocks of foliage scattered on the
 // meadow, correct as ground cover and worth nothing as composition. in the

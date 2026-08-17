@@ -1,4 +1,4 @@
-// cathedral - the post stack. the world is rendered, then graded, in this
+// kodo - the post stack. the world is rendered, then graded, in this
 // order: scene, bloom on the emissives, tone mapping, then one grade pass
 // that carries the look (colour lut, depth haze, vignette). the lut
 // is where the painterly unification happens: three grades (day, golden

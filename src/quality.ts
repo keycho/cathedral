@@ -1,4 +1,4 @@
-// cathedral - ONE configuration, and a ladder it climbs down in silence.
+// kodo - ONE configuration, and a ladder it climbs down in silence.
 //
 // there is no quality menu. a visitor arriving at a world should see the
 // world, not a settings screen, and a 24/7 stream cannot depend on someone

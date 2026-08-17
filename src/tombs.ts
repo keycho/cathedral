@@ -1,4 +1,4 @@
-// cathedral - the tombs. when an agent dies its tomb is raised at a site
+// kodo - the tombs. when an agent dies its tomb is raised at a site
 // the architect chooses and built by the mason like any other work, and it
 // stands forever after: permanent, plaqued, and on the pilgrim path the
 // keeper walks. a tomb is never eroded, never burned, never repurposed.

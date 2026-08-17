@@ -1,4 +1,4 @@
-// cathedral - where trades come from. one interface, two implementations:
+// kodo - where trades come from. one interface, two implementations:
 // a stand-in token that exists today, and the real one that does not yet.
 //
 // A SOURCE ANSWERS ONE QUESTION: what happened between these two moments.
@@ -23,7 +23,7 @@ const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 // a stand-in mint. it is deliberately obvious rather than a plausible
 // looking address: nobody should ever be unsure whether this world is
 // running against a real token.
-export const STANDIN_MINT = "stand1nCathedra1PlaceholderMintNotRea1";
+export const STANDIN_MINT = "stand1nKodoPlaceholderMintNotRea1Yet";
 
 function hash32(str) {
   let h = 0x811c9dc5;
@@ -49,7 +49,7 @@ function sig(seed) {
   return out;
 }
 function pubkey(i) {
-  const r = rngFrom(hash32("cathedral-holder-" + i));
+  const r = rngFrom(hash32("kodo-holder-" + i));
   let out = "";
   for (let k = 0; k < 44; k++) out += BASE58[Math.floor(r() * BASE58.length)];
   return out;
@@ -182,7 +182,7 @@ export class HttpSource {
 }
 
 export function openSource(env = process.env) {
-  const mint = env.CATHEDRAL_MINT || STANDIN_MINT;
+  const mint = (env.KODO_MINT ?? env.CATHEDRAL_MINT) || STANDIN_MINT;
   if (env.MARKET_ENDPOINT && mint !== STANDIN_MINT) {
     return new HttpSource(mint, env.MARKET_ENDPOINT, env.MARKET_API_KEY);
   }

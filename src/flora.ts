@@ -1,4 +1,4 @@
-// cathedral - flora. the meadow's living layer: thousands of grass tufts,
+// kodo - flora. the meadow's living layer: thousands of grass tufts,
 // wildflowers in drifts, reeds crowding the stillwater banks, moss creeping
 // over scars and rubble. all instanced (one draw per family), all swaying
 // on the same wind through a shared time uniform, all tinted by the same

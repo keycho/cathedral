@@ -1,4 +1,4 @@
-// cathedral - the price ribbon: the market's chart rendered as terrain. a
+// kodo - the price ribbon: the market's chart rendered as terrain. a
 // line of glowing blocks snakes the world's spine, one column per closed
 // tick, ascents in spirit green and descents in ember. the newest tick
 // anchors at the east end and the line grows westward as history accrues,

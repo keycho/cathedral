@@ -1,4 +1,4 @@
-// cathedral - engine + world constants (no deps, importable anywhere).
+// kodo - engine + world constants (no deps, importable anywhere).
 // market rule constants do NOT live here: those belong to src/rules.ts
 // (phase 1d) and are mirrored in RULES.md, frozen at genesis.
 

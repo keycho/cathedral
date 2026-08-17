@@ -1,4 +1,4 @@
-// cathedral - first-person walker with true 3d voxel collision, ported from
+// kodo - first-person walker with true 3d voxel collision, ported from
 // the biocraft engine. the visitor is an aabb tested against per-voxel
 // solidity (not column tops), so hollows, overhangs and rubble caves are all
 // walkable. supported by any voxel below the feet, blocked by voxels on any

@@ -1,4 +1,4 @@
-// cathedral - simulated history. a bootstrap that replays N epochs of
+// kodo - simulated history. a bootstrap that replays N epochs of
 // synthetic market life so a dev or genesis-preview world LOOKS aged:
 // every block registers under the simulated epoch it was born in (orange
 // bedrock, cream mid-strata, fresh sage crowns), rubble aprons accumulate

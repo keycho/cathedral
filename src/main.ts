@@ -1,4 +1,4 @@
-// cathedral - entry. assembles the systems: renderer, the long golden hour,
+// kodo - entry. assembles the systems: renderer, the long golden hour,
 // the voxel field with its meadow, the founding stone, and the two ways of
 // seeing: the orbit rig (default, stream shot, mobile) and the first-person
 // walker (click to enter, esc to leave).
@@ -1538,14 +1538,14 @@ void connectChain(ticks, (st) => {
   );
 }).then((c) => {
   chain = c;
-  if (c) console.info("[cathedral] following the market service; local ticks stood down");
+  if (c) console.info("[kodo] following the market service; local ticks stood down");
 });
 
 // a small debug/stream handle (the director module will drive cameras
 // through this later)
 declare global {
   interface Window {
-    cathedral?: {
+    kodo?: {
       field: VoxelField;
       rig: OrbitRig;
       fp: FirstPerson;
@@ -1704,7 +1704,7 @@ const settle = (n = 12) => {
 // a public build reads the whole mechanism off one object. it is also what
 // every capture harness drives, so it stays on wherever the panel does —
 // localhost, a dev server, or an explicit ?dev — and nowhere else.
-if (DEV_TOOLS) window.cathedral = {
+if (DEV_TOOLS) window.kodo = {
   captureMode,
   get workSite() {
     return workSite!;

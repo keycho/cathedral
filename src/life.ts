@@ -1,4 +1,4 @@
-// cathedral - small life. the settlement was architecture and nothing else:
+// kodo - small life. the settlement was architecture and nothing else:
 // every object in it had been designed, which meant every object in it was a
 // building or a part of one. what a place actually looks like inhabited is
 // the stuff nobody designed — a bicycle against a wall, a bucket by a door,

@@ -1,4 +1,4 @@
-// cathedral - water. the voxel field keeps the water CELLS (a plaque still
+// kodo - water. the voxel field keeps the water CELLS (a plaque still
 // names them, the mason still refuses to build in them, a column still
 // holds its level); this module draws the SURFACE over them, which is a
 // different problem: a surface has to move, catch the sun, and reflect the

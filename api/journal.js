@@ -1,4 +1,4 @@
-// cathedral - the crew's public journal, as a feed. the world writes its
+// kodo - the crew's public journal, as a feed. the world writes its
 // entries here as they happen and this serves them back as rss, so the
 // crew can be followed from outside the world.
 //
@@ -32,7 +32,7 @@ function rss(origin) {
   return (
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<rss version="2.0">\n  <channel>\n` +
-    `    <title>cathedral · the crew log</title>\n` +
+    `    <title>kodō · the crew log</title>\n` +
     `    <link>${esc(origin)}</link>\n` +
     `    <description>field notes, design memos and completions from the crew that keeps this world</description>\n` +
     `${items}\n  </channel>\n</rss>`
@@ -60,7 +60,7 @@ export default function handler(req, res) {
     res.status(405).json({ error: "get or post only" });
     return;
   }
-  const origin = `https://${req.headers.host ?? "cathedral"}`;
+  const origin = `https://${req.headers.host ?? "kodo"}`;
   res.setHeader("content-type", "application/rss+xml; charset=utf-8");
   res.setHeader("cache-control", "public, max-age=30");
   res.status(200).send(rss(origin));

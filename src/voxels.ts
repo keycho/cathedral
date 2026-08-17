@@ -1,4 +1,4 @@
-// cathedral - chunked voxel field, ported from the biocraft engine and
+// kodo - chunked voxel field, ported from the biocraft engine and
 // stripped to the core. solidity + material per cell on global arrays;
 // rendering is split into per-chunk instanced meshes so the renderer
 // frustum-culls off-screen chunks (main and shadow passes). break / place /

@@ -1,4 +1,4 @@
-// cathedral - THE STYLISATION STAGE. the world renders clean and modern: a
+// kodo - THE STYLISATION STAGE. the world renders clean and modern: a
 // correct physically-lit voxel scene at whatever resolution the monitor
 // happens to have, with smooth gradients and sixteen million colours. that is
 // a rendering, and a rendering is a picture of a technology. what this world

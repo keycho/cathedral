@@ -1,4 +1,4 @@
-// cathedral - waterworks. a canal is the one piece of architecture that
+// kodo - waterworks. a canal is the one piece of architecture that
 // cannot be built by ADDING blocks: it is a cut. so this file returns three
 // things instead of one, a set of cells to place, a set of cells to empty,
 // and the columns the water surface should cover, and whoever places it

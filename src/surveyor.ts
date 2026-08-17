@@ -1,4 +1,4 @@
-// cathedral - the surveyor. after each epoch it comes down from its ridge,
+// kodo - the surveyor. after each epoch it comes down from its ridge,
 // walks the newest ground over the real geometry (fresh rubble, the latest
 // chamber mouth, the newest monument, the peak), dwells at each, and files
 // a terse public note. between walks it stands on the ridge and watches.

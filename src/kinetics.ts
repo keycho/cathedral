@@ -1,4 +1,4 @@
-// cathedral - kinetics: every block that enters the world ARRIVES. accreted
+// kodo - kinetics: every block that enters the world ARRIVES. accreted
 // stone falls in from above and thuds into place, monuments slam, collapse
 // debris tumbles to the base. a pooled set of cube meshes animates the
 // falls; a shared particle system puffs dust at every impact; audio gets a

@@ -1,4 +1,4 @@
-// cathedral - the painterly sky. a camera-following gradient dome, drifting
+// kodo - the painterly sky. a camera-following gradient dome, drifting
 // cloud sprites, stars, and a slow day cycle with a long golden hour (the
 // default and the identity shot). the sky owns the light script: each frame
 // it publishes sun direction/colour/intensity, hemisphere light and fog

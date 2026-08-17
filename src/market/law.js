@@ -1,4 +1,4 @@
-// cathedral - THE MARKET'S LAW, in one file, in plain javascript, because
+// kodo - THE MARKET'S LAW, in one file, in plain javascript, because
 // two things now have to obey it: the browser that draws the world and the
 // server that decides what the world is.
 //
