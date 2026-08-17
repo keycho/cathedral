@@ -16,19 +16,59 @@ import { TIMING, foldStart, foldTick } from "../src/market/law.js";
 const PORT = Number(process.env.PORT ?? 8787);
 const PASS_MS = Number(process.env.INDEX_INTERVAL_MS ?? 10_000);
 
-const store = await openStore();
-const source = openSource();
-const indexer = new Indexer(store, source);
-const ticker = new Ticker(store);
+// THE PORT IS BOUND BEFORE ANYTHING ELSE IS DECIDED, and "anything else"
+// includes opening the store. this module used to bind at the bottom, so
+// the listen waited on every top-level await above it — and one of those
+// awaits is a chain backfill that replays the token's whole history. a
+// host that healthchecks for five minutes gets nothing from a service
+// that is still honestly reading the ledger, kills the deploy, and leaves
+// no evidence of the difference between slow and dead.
+//
+// so: bind first, answer immediately, and tell the truth about what is
+// still happening behind the answer. the state below is what /health and
+// /status read; every stage updates it as it goes.
+const boot = {
+  phase: "binding", // binding → opening → founding → backfilling → live
+  ready: false, // true only when the world is following the chain's head
+  error: "",
+  at: Date.now(),
+  attempts: 0,
+  progress: null, // {done, total, label} while a stage can count itself
+};
+
+let store = null;
+let source = null;
+let indexer = null;
+let ticker = null;
+let launch = null;
 // the /snapshot fold, extended lazily as ticks close (see the route)
 const fold = foldStart();
 
-console.log(`[market] store=${store.kind} source=${source.name} mint=${source.mint}`);
-if (source.mint === STANDIN_MINT) {
-  // SAY IT OUT LOUD, EVERY START. a world quietly running on a placeholder
-  // token while everyone assumes it is following a real one is the single
-  // most misleading state this project could be in.
-  console.log("[market] THIS IS A STAND-IN TOKEN. no chain is being read.");
+const server = createServer(async (req, res) => handle(req, res));
+server.listen(PORT, "0.0.0.0", () =>
+  console.log(`[market] listening on 0.0.0.0:${PORT} (PORT env ${process.env.PORT ?? "unset"}) — bound before boot`)
+);
+
+async function openEverything() {
+  boot.phase = "opening";
+  store = await openStore();
+  source = openSource();
+  indexer = new Indexer(store, source);
+  ticker = new Ticker(store);
+  console.log(`[market] store=${store.kind} source=${source.name} mint=${source.mint}`);
+  if (source.mint === STANDIN_MINT) {
+    // SAY IT OUT LOUD, EVERY START. a world quietly running on a placeholder
+    // token while everyone assumes it is following a real one is the single
+    // most misleading state this project could be in.
+    console.log("[market] THIS IS A STAND-IN TOKEN. no chain is being read.");
+  }
+  // the source counts its own work; the boot reads it so a backfill can
+  // report progress rather than merely take time. assigned unconditionally
+  // — testing the hook first only ever tested whether it was already set,
+  // which it never is, so the progress stayed null through every backfill.
+  source.onProgress = (p) => {
+    boot.progress = p;
+  };
 }
 
 // when the world is founded. KODO_GENESIS accepts an iso timestamp, a
@@ -47,30 +87,22 @@ function genesisFromEnv(v) {
   return Number.isFinite(p) ? p : null;
 }
 
-// A SERVICE THAT DIES BEFORE IT LISTENS CANNOT SAY WHY. the boot work used
-// to run at the top of this module: found the world, backfilled, advanced
-// the clock, and only then opened the port. when the store was unreachable —
-// a schema not yet applied, a bad key — the process exited before anything
-// bound, so the only symptom anywhere outside the host's log was a bare 502
-// from the edge, which is indistinguishable from a hundred other faults.
-//
-// the port opens first now and the boot runs behind it. /health answers
-// throughout and says which of the three states it is in, with the error
-// when there is one, so the fault names itself from outside.
-const boot = { phase: "starting", error: "", at: Date.now(), attempts: 0 };
-// the launch transaction, once the source has found it (see bootUp)
-let launch = null;
-
+// THE BOOT RUNS BEHIND THE OPEN PORT, and narrates itself while it does.
+// the phases are honest about which is which: opening the store, finding
+// the founding transaction, replaying the ledger, and finally following
+// the chain's head. only the last of those is "ready".
 async function bootUp() {
   boot.attempts++;
-  boot.phase = "booting";
   boot.error = "";
+  boot.ready = false;
   try {
+    if (!store) await openEverything();
     // THE WORLD'S TICK 1 IS THE TOKEN'S BIRTH. when the source can name the
     // launch — and reading the chain directly, it can — genesis is not a
     // configured guess but the block time of the transaction that created
     // the mint. the founding stone is that transaction, and it carries its
     // real signature into the world where anyone can check it.
+    boot.phase = "founding";
     let born = genesisFromEnv(process.env.KODO_GENESIS ?? process.env.CATHEDRAL_GENESIS);
     if (source.genesis) {
       try {
@@ -87,13 +119,20 @@ async function bootUp() {
     }
     const world = await indexer.ensureWorld(Date.now(), born);
     console.log(`[market] world founded ${new Date(world.genesisAt).toISOString()}`);
+    boot.phase = "backfilling";
     await indexer.backfill(Date.now(), Math.max(60 * 60_000, Date.now() - world.genesisAt));
     await ticker.advance();
-    boot.phase = "ready";
+    // LIVE means the replay has caught the head and the beat is following
+    // it, which is a different claim from "the process started".
+    boot.phase = "live";
+    boot.ready = true;
+    boot.progress = null;
     boot.at = Date.now();
+    console.log(`[market] caught up — following the chain at tick ${ticker.stats.lastN}`);
     return true;
   } catch (e) {
     boot.phase = "failed";
+    boot.ready = false;
     boot.error = e.message;
     console.error(`[market] boot failed: ${e.message}`);
     // KEEP TRYING. the usual cause is a dependency that is not ready yet
@@ -103,11 +142,10 @@ async function bootUp() {
     return false;
   }
 }
-void bootUp();
 
 let running = false;
 async function beat() {
-  if (running || boot.phase !== "ready") return;
+  if (running || !boot.ready) return;
   running = true;
   try {
     const p = await indexer.pass();
@@ -141,7 +179,7 @@ function json(res, code, body) {
   res.end(s);
 }
 
-createServer(async (req, res) => {
+async function handle(req, res) {
   const url = new URL(req.url, "http://x");
   try {
     // THE WORLD IS SERVED FROM A DIFFERENT ORIGIN THAN THE LOG. every
@@ -161,21 +199,39 @@ createServer(async (req, res) => {
     }
     if (url.pathname === "/health") {
       // A HEALTHCHECK IS A LIVENESS QUESTION, and the honest answer while
-      // backfilling is "yes, and working". a platform healthcheck that
-      // reads 503 during a long boot kills the deploy that was about to
-      // succeed — so only a FAILED boot answers unhealthy. the phase is in
-      // the body either way, which is where a human looks.
+      // replaying the ledger is "yes, and working". a platform healthcheck
+      // that reads 503 during a long backfill kills the deploy that was
+      // about to succeed — so only a FAILED boot answers unhealthy.
+      //
+      // READY IS A SEPARATE CLAIM from healthy, and it is the one that
+      // matters to the world: it means the replay has caught the chain's
+      // head and the beat is following it. a client can be trusted with
+      // the difference — "the world is catching up" is true, on-register,
+      // and better than a blank screen or a lie.
       return json(res, boot.phase === "failed" ? 503 : 200, {
-        ok: boot.phase === "ready",
-        boot: boot.phase,
+        ok: boot.phase !== "failed",
+        ready: boot.ready,
+        phase: boot.phase,
+        progress: boot.progress,
         bootError: boot.error,
         bootAttempts: boot.attempts,
         uptimeS: Math.round(process.uptime()),
-        store: store.kind,
-        source: source.name,
-        standIn: source.mint === STANDIN_MINT,
-        indexer: indexer.stats,
-        ticker: ticker.stats,
+        store: store?.kind ?? null,
+        source: source?.name ?? null,
+        standIn: source ? source.mint === STANDIN_MINT : null,
+        indexer: indexer?.stats ?? null,
+        ticker: ticker?.stats ?? null,
+      });
+    }
+    // EVERY OTHER ROUTE READS THE STORE, and the store opens behind the
+    // port. a request that arrives in that window gets an answer saying so
+    // rather than a stack trace: the phase is the whole explanation, and a
+    // client that polls will simply find the world a moment later.
+    if (!store) {
+      return json(res, 503, {
+        ready: false,
+        phase: boot.phase,
+        error: boot.error || "the world is still opening",
       });
     }
     // WHAT THE WORLD IS, in one call: enough for a fresh browser to know
@@ -190,6 +246,12 @@ createServer(async (req, res) => {
         negativeRun: w.negativeRun ?? 0,
         tickMs: TIMING.tickMs,
         ticksPerEpoch: TIMING.ticksPerEpoch,
+        // the world may still be reading its own past. the client polls
+        // this already, so it learns here whether what it is following is
+        // the head or a replay still in progress — and can say so.
+        ready: boot.ready,
+        phase: boot.phase,
+        tradesHonoured: source.stats?.eventsSeen ?? null,
         // the founding stone, so the world can plaque it with the real
         // signature rather than with a story about one
         launch: launch
@@ -270,15 +332,31 @@ createServer(async (req, res) => {
       const n = Math.min(50, Math.max(1, Number(url.searchParams.get("n") ?? 10)));
       const w = (await store.world()) ?? {};
       const recent = await store.ticksFrom(Math.max(1, (w.lastTick ?? 0) - 3), 4);
+      // WHERE THE REPLAY HAS GOT TO, against where the chain actually is.
+      // "tick 40" means nothing on its own; "tick 40 of 118" is the whole
+      // answer to whether this world is behind and by how much.
+      const tickMs = TIMING.tickMs;
+      const head =
+        w.genesisAt != null ? Math.floor((Date.now() - w.genesisAt) / tickMs) + 1 : null;
+      const at = w.lastTick ?? 0;
       const out = {
         world: {
           mint: w.mint ?? source.mint,
           standIn: (w.mint ?? source.mint) === STANDIN_MINT,
           genesisAt: w.genesisAt ?? null,
-          lastTick: w.lastTick ?? 0,
+          lastTick: at,
           store: store.kind,
           source: source.name,
           uptimeS: Math.round(process.uptime()),
+        },
+        catchUp: {
+          ready: boot.ready,
+          phase: boot.phase,
+          progress: boot.progress,
+          tick: at,
+          chainHeadTick: head,
+          ticksBehind: head === null ? null : Math.max(0, head - at),
+          tradesHonoured: source.stats?.eventsSeen ?? null,
         },
         launch,
         indexer: indexer.stats,
@@ -317,9 +395,7 @@ createServer(async (req, res) => {
   } catch (e) {
     json(res, 500, { error: e.message });
   }
-  // 0.0.0.0 explicitly: a host that routes to the container expects the
-  // process on every interface, and a default that ever resolved to
-  // loopback would look exactly like an app that failed to respond.
-}).listen(PORT, "0.0.0.0", () =>
-  console.log(`[market] listening on 0.0.0.0:${PORT} (PORT env ${process.env.PORT ?? "unset"})`)
-);
+}
+
+// the boot runs behind the already-open port
+void bootUp();

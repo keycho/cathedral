@@ -1547,6 +1547,23 @@ let chain: ChainFeed | null = null;
 void connectChain(
   ticks,
   (st) => {
+    // THE WORLD SAYS WHAT IT IS DOING. while the service replays the
+    // ledger there are no ticks to draw, and a blank meadow with no
+    // explanation reads as a broken world rather than an honest one.
+    // this line goes away the moment the service is following the head.
+    const catchEl = document.getElementById("catchup");
+    if (catchEl) {
+      if (st.ready === false) {
+        const n = st.tradesHonoured ?? 0;
+        catchEl.textContent =
+          n > 0
+            ? `the world is catching up — ${n.toLocaleString()} trades honoured so far`
+            : "the world is reading its own past";
+        catchEl.hidden = false;
+      } else {
+        catchEl.hidden = true;
+      }
+    }
     if (st.launch) {
       const born = new Date(st.launch.at);
       launchPlaque = [

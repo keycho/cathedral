@@ -41,6 +41,13 @@ export interface ChainState {
   // the transaction that created the mint, when the service can name it.
   // the world's tick 1 is this moment and the founding stone says so.
   launch?: LaunchInfo | null;
+  // whether the service is following the chain's head or still replaying
+  // its way to it. a world that is catching up should say so rather than
+  // look empty: "the world is catching up" is true and on-register, and a
+  // blank meadow with no explanation is neither.
+  ready?: boolean;
+  phase?: string;
+  tradesHonoured?: number | null;
 }
 
 // where the service is, if anywhere. a url in the environment for a real
@@ -109,6 +116,7 @@ export class ChainFeed {
   // ticks at or below this are covered by the snapshot fold, not the replay
   private floor = 0;
   private timer: number | null = null;
+  private waiting: number | null = null;
   private failures = 0;
   lastError = "";
   drift: { firstBad: number | null; checked: number } = { firstBad: null, checked: 0 };
@@ -124,12 +132,19 @@ export class ChainFeed {
   ) {}
 
   async start(): Promise<boolean> {
-    const ok = await this.readState();
-    if (!ok) return false;
-    // THE ENGINE STOPS ROLLING ITS OWN THE MOMENT A SERVER ANSWERS, and not
-    // a moment before. handing over on the attempt rather than on the answer
-    // would stall the world every time the service was down.
+    // A CONFIGURED WORLD NEVER INVENTS ITS OWN TICKS. the engine used to
+    // keep rolling its own until a server answered, which was right when
+    // the alternative was a dead world — and wrong now: the alternative is
+    // a world that quietly runs a synthetic market under a real token's
+    // name while its service is merely still opening. so the local clock
+    // stands down as soon as a service is CONFIGURED, not when it answers,
+    // and a world waiting on its service says so instead of pretending.
     this.ticks.external = true;
+    const ok = await this.readState();
+    if (!ok) {
+      this.waitForService();
+      return true;
+    }
     await this.trySnapshot();
     await this.catchUp();
     const every = this.opts.pollMs ?? Math.max(5_000, Math.floor((this.state?.tickMs ?? 30_000) / 3));
@@ -139,13 +154,42 @@ export class ChainFeed {
 
   stop() {
     if (this.timer !== null) clearInterval(this.timer);
+    if (this.waiting !== null) clearInterval(this.waiting);
     this.timer = null;
+    this.waiting = null;
     this.ticks.external = false;
+  }
+
+  // the service is opening, or down. keep asking: a backfill of a long
+  // history is minutes, and a world that gave up after one attempt would
+  // need a page reload to ever join the world it was pointed at.
+  private waitForService() {
+    if (this.waiting !== null) return;
+    this.waiting = setInterval(() => {
+      void this.readState().then(async (ok) => {
+        if (!ok) return;
+        if (this.waiting !== null) clearInterval(this.waiting);
+        this.waiting = null;
+        await this.trySnapshot();
+        await this.catchUp();
+        const every =
+          this.opts.pollMs ?? Math.max(5_000, Math.floor((this.state?.tickMs ?? 30_000) / 3));
+        this.timer = setInterval(() => void this.catchUp(), every) as unknown as number;
+      });
+    }, 6_000) as unknown as number;
   }
 
   private async readState(): Promise<boolean> {
     try {
       const res = await fetch(`${this.url}/state`);
+      // 503 IS NOT AN OUTAGE HERE: it is the service saying it is still
+      // opening. the difference matters, because a world that gives up on
+      // a 503 falls back to its own clock and quietly stops being the
+      // world everyone else is watching.
+      if (res.status === 503) {
+        this.lastError = "the world is still opening";
+        return false;
+      }
       if (!res.ok) throw new Error(String(res.status));
       this.state = (await res.json()) as ChainState;
       this.opts.onState?.(this.state);

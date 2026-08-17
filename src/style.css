@@ -379,3 +379,23 @@ body.walking #scene {
   color: var(--dim);
   opacity: 0.75;
 }
+
+/* THE WORLD READING ITS OWN PAST. shown only while the market service is
+   still replaying the ledger toward the chain's head. it sits with the
+   status readout rather than over the world, because it is a note about
+   the world's state and not an event in it — and it says a true thing:
+   the trades are already counted, the world is still catching up to them. */
+#catchup {
+  position: fixed;
+  z-index: 10;
+  pointer-events: none;
+  user-select: none;
+  left: 16px;
+  bottom: 34px;
+  font-size: 16px;
+  color: var(--sage);
+  opacity: 0.82;
+}
+#catchup[hidden] {
+  display: none;
+}

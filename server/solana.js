@@ -401,12 +401,16 @@ export class SolanaSource {
       byDelta: 0,
       undecoded: 0,
       rejected: 0,
+      eventsSeen: 0,
       priceUsd: 0,
       publicRpc: this.publicRpc,
       rpcCalls: 0,
       rpcRetries: 0,
     };
     this.genesisInfo = null;
+    // a host that replaced this reads progress out of it; the source does
+    // not care whether anyone is listening
+    this.onProgress = null;
   }
   get name() {
     return "solana";
@@ -484,6 +488,11 @@ export class SolanaSource {
     let before = null;
     let oldest = null;
     for (let page = 0; page < 40; page++) {
+      // walking back to the launch is itself minutes on a busy token, and
+      // it happens before a single trade is read. it counts pages rather
+      // than transactions because it does not yet know how many there are
+      // — which is the honest shape of "still looking for the beginning".
+      this.onProgress?.({ done: page, total: 40, label: "finding the founding transaction" });
       const params = [this.mint, before ? { limit: 1000, before } : { limit: 1000 }];
       const rows = (await this.rpc.call("getSignaturesForAddress", params)) ?? [];
       if (!rows.length) break;
@@ -540,6 +549,7 @@ export class SolanaSource {
       console.log(`[market] reading ${missing.length} transactions from the chain…`);
     }
     for (let i = 0; i < missing.length; i += this.batchSize) {
+      this.onProgress?.({ done: i, total: missing.length, label: "reading the ledger" });
       if (loud && i && i % (this.batchSize * 20) === 0) {
         console.log(`[market]   ${i}/${missing.length}`);
       }
@@ -593,6 +603,8 @@ export class SolanaSource {
     clean.sort((a, b) => a.at - b.at || (a.tx < b.tx ? -1 : 1));
     this.stats.rpcCalls = this.rpc.calls;
     this.stats.rpcRetries = this.rpc.retries;
+    this.stats.eventsSeen += clean.length;
+    if (missing.length) this.onProgress?.({ done: missing.length, total: missing.length, label: "reading the ledger" });
     return clean;
   }
 
