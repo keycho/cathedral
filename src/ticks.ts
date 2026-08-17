@@ -96,6 +96,17 @@ export class TickEngine {
     }
   }
 
+  // THE SNAPSHOT SEED: an old world's clock and r2b state handed over in
+  // one call, so the browser starts at tick n instead of replaying to it.
+  // history stays empty — the architect's trailing aggregates begin from
+  // the seed forward, which is the same view a browser opened at tick n
+  // would have had anyway.
+  seed(n: number, negativeRun: number) {
+    if (n <= this.tick) return;
+    this.tick = n;
+    this.negativeRun = Math.max(0, negativeRun);
+  }
+
   // an authoritative summary, from the market service. it takes exactly the
   // same path a locally closed tick takes — the rules must not be able to
   // tell where a tick came from, or a world grown from the chain would

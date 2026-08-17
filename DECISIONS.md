@@ -226,11 +226,10 @@ the diagnosis is not.
   rather than plausible, and the service says so on every start. the real
   adapter (`HttpSource`) is written against the same one-method interface
   the stand-in implements, so swapping it is a line in `openSource`.
-- **a new visitor replays rather than loads a snapshot.** the client pulls
-  the tick log from 1 and applies it in batches of 200 per poll, which is
-  correct but gets slower as the world ages. the fix is a snapshot
-  endpoint — the voxel field plus the tick it was taken at — with replay
-  as the fallback for the tail. that is the next piece, not this one.
+- **a new visitor replays rather than loads a snapshot.** resolved — see
+  "the log arrives folded" below. past 240 ticks of history the client asks
+  `/snapshot` for the fold and replays only the tail; `?snapshot=off`
+  forces the full replay, which remains correct and only slow.
 - **the client trusts the server's arithmetic, and checks it.** it cannot
   prove a summary from the log itself (it does not hold the events), so
   reconciliation catches divergence rather than fraud. proving would mean
@@ -288,3 +287,23 @@ low angles, which reads as shoreline rather than as a hidden cliff.
   cathedral survives only where it means a great work of stone ("how a
   cathedral becomes a shed"), and the old CATHEDRAL_* env vars are still
   read as fallbacks so no deployment breaks.
+
+## the log arrives folded (was: a new visitor replays from tick 1)
+
+2026-08-17. the client used to pull the tick log from 1 and apply it in
+batches, which was correct and got slower every day the world aged. r1 and
+r2 are arithmetic on the rule-visible fields, so the service now keeps a
+running fold of the whole log — cumulative per-wallet blocks, the clock,
+the negative run — and serves it at `/snapshot` (memoized, extended
+incrementally, refolded after a repair). past 240 ticks of history a fresh
+browser seeds its geology from the fold in one deposit and replays only
+the tail; a service without the route, a failed fetch, or `?snapshot=off`
+all fall back to the full replay.
+
+what the fold deliberately does not carry is the voxel field: the browser
+is the only party that holds one. a seeded world gets its MASS — each
+wallet's accreted stones, net of erosion, through the same growth queue a
+tick's would use — and the crew regrows the architecture from there
+forward, the way a town rebuilds on old foundations. reconstructing every
+past epoch's works stone by stone would mean the service holding a world,
+and the service holds a log.

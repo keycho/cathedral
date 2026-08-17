@@ -7,4 +7,6 @@ dist/
 .DS_Store
 
 # the market service keeps its log here when supabase is not configured
+.kodo/
+# legacy store path from before the rename; old checkouts may still have one
 .cathedral/

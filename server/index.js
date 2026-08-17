@@ -11,7 +11,7 @@ import { Ticker } from "./ticker.js";
 import { audit, repair } from "./reconcile.js";
 import { openSource, STANDIN_MINT } from "./source.js";
 import { openStore } from "./store.js";
-import { TIMING } from "../src/market/law.js";
+import { TIMING, foldStart, foldTick } from "../src/market/law.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const PASS_MS = Number(process.env.INDEX_INTERVAL_MS ?? 10_000);
@@ -20,6 +20,8 @@ const store = await openStore();
 const source = openSource();
 const indexer = new Indexer(store, source);
 const ticker = new Ticker(store);
+// the /snapshot fold, extended lazily as ticks close (see the route)
+const fold = foldStart();
 
 console.log(`[market] store=${store.kind} source=${source.name} mint=${source.mint}`);
 if (source.mint === STANDIN_MINT) {
@@ -117,10 +119,58 @@ createServer(async (req, res) => {
       const ticks = await store.ticksFrom(since, limit);
       return json(res, 200, { since, count: ticks.length, ticks });
     }
+    // THE SNAPSHOT: the whole log folded into where the world has got to,
+    // so an old world does not make every fresh browser replay from tick 1.
+    // the fold is kept in memory and extended incrementally — each request
+    // costs only the ticks closed since the last one — and it survives
+    // nothing: a restarted service refolds from the store, and lands on the
+    // same answer, because the fold is pure arithmetic on the log.
+    if (url.pathname === "/snapshot") {
+      const w = (await store.world()) ?? {};
+      const last = w.lastTick ?? 0;
+      while (fold.atTick < last) {
+        const batch = await store.ticksFrom(fold.atTick + 1, 1000);
+        if (!batch.length) break;
+        for (const t of batch) foldTick(fold, t);
+        if (batch.length < 1000) break;
+      }
+      // the wire caps the wallet list: the big holders keep their names,
+      // the long tail is folded into one honest remainder entry so the
+      // total mass still adds up on the other side.
+      const entries = Object.entries(fold.wallets).sort((a, b) => b[1].blocks - a[1].blocks);
+      const wallets = {};
+      let rest = { buyUsd: 0, blocks: 0 };
+      for (let i = 0; i < entries.length; i++) {
+        if (i < 512) wallets[entries[i][0]] = entries[i][1];
+        else {
+          rest.buyUsd += entries[i][1].buyUsd;
+          rest.blocks += entries[i][1].blocks;
+        }
+      }
+      if (rest.blocks > 0 || rest.buyUsd > 0) wallets["kodo:rest"] = rest;
+      return json(res, 200, {
+        genesisAt: w.genesisAt ?? null,
+        mint: w.mint ?? source.mint,
+        standIn: (w.mint ?? source.mint) === STANDIN_MINT,
+        atTick: fold.atTick,
+        ticksSeen: fold.ticksSeen,
+        negativeRun: fold.negativeRun,
+        subsides: fold.subsides,
+        netFlowUsd: fold.netFlowUsd,
+        grossVolumeUsd: fold.grossVolumeUsd,
+        blocksAccreted: fold.blocksAccreted,
+        blocksEroded: fold.blocksEroded,
+        walletsTotal: entries.length,
+        wallets,
+      });
+    }
     if (url.pathname === "/audit") {
       const from = Math.max(1, Number(url.searchParams.get("from") ?? 1));
       const fix = url.searchParams.get("repair") === "1";
       const out = fix ? await repair(store, ticker, { from }) : await audit(store, { from });
+      // a repair can re-close a past tick with different numbers, which
+      // stales the memoized snapshot fold; refold from the top next ask
+      if (fix) Object.assign(fold, foldStart());
       return json(res, 200, out);
     }
     json(res, 404, { error: "no such route" });

@@ -46,3 +46,21 @@ export function tickDigest(t: WireTick): number;
 export function chainDigest(ticks: WireTick[]): string;
 export function reconcile(mine: WireTick[], theirs: WireTick[]): Reconciliation;
 export function findGaps(ticks: WireTick[]): number[];
+
+export interface SnapshotFold {
+  atTick: number;
+  ticksSeen: number;
+  negativeRun: number;
+  subsides: number;
+  netFlowUsd: number;
+  grossVolumeUsd: number;
+  blocksAccreted: number;
+  blocksEroded: number;
+  wallets: Record<string, { buyUsd: number; blocks: number }>;
+}
+
+export const USD_PER_BLOCK: number;
+export const SUBSIDENCE_TICKS: number;
+export function foldStart(): SnapshotFold;
+export function foldTick(f: SnapshotFold, t: WireTick): SnapshotFold;
+export function distributeUsd(n: number, buys: Record<string, number>): Map<string, number>;

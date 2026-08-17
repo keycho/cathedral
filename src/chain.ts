@@ -18,7 +18,7 @@
 // admits it is synthetic.
 
 import { reconcile } from "./market/law.js";
-import type { WireTick } from "./market/law.js";
+import type { WireTick, SnapshotFold } from "./market/law.js";
 import type { TickEngine, TickSummary } from "./ticks";
 
 export interface ChainState {
@@ -82,11 +82,19 @@ export function walletId(pubkey: string): number {
   return h >>> 0;
 }
 
+// past this many ticks of history, a fresh browser asks for the snapshot
+// fold instead of replaying the whole log; the tail after the fold still
+// replays tick by tick. ?snapshot=off forces the full replay for checking.
+const SNAPSHOT_AFTER = 240;
+
 export class ChainFeed {
   state: ChainState | null = null;
+  snapshot: SnapshotFold | null = null;
   // the ticks this browser has actually applied, kept so it can check itself
   // against the server rather than assume the sequence it received was right
   private applied: WireTick[] = [];
+  // ticks at or below this are covered by the snapshot fold, not the replay
+  private floor = 0;
   private timer: number | null = null;
   private failures = 0;
   lastError = "";
@@ -95,7 +103,11 @@ export class ChainFeed {
   constructor(
     private url: string,
     private ticks: TickEngine,
-    private opts: { pollMs?: number; onState?: (s: ChainState) => void } = {}
+    private opts: {
+      pollMs?: number;
+      onState?: (s: ChainState) => void;
+      onSnapshot?: (f: SnapshotFold) => void;
+    } = {}
   ) {}
 
   async start(): Promise<boolean> {
@@ -105,6 +117,7 @@ export class ChainFeed {
     // a moment before. handing over on the attempt rather than on the answer
     // would stall the world every time the service was down.
     this.ticks.external = true;
+    await this.trySnapshot();
     await this.catchUp();
     const every = this.opts.pollMs ?? Math.max(5_000, Math.floor((this.state?.tickMs ?? 30_000) / 3));
     this.timer = setInterval(() => void this.catchUp(), every) as unknown as number;
@@ -130,10 +143,37 @@ export class ChainFeed {
     }
   }
 
+  // AN OLD WORLD ARRIVES FOLDED, NOT REPLAYED. when the log is long, ask
+  // the service for the snapshot fold and seed the engine from it; the
+  // replay then starts at the fold's edge instead of tick 1. a service
+  // without the route, a failed fetch, or ?snapshot=off all mean the same
+  // thing: full replay, which is always correct and only slow.
+  private async trySnapshot() {
+    const last = this.state?.lastTick ?? 0;
+    if (last < SNAPSHOT_AFTER) return;
+    if (
+      typeof location !== "undefined" &&
+      new URLSearchParams(location.search).get("snapshot") === "off"
+    )
+      return;
+    try {
+      const res = await fetch(`${this.url}/snapshot`);
+      if (!res.ok) return;
+      const f = (await res.json()) as SnapshotFold;
+      if (!f || !Number.isFinite(f.atTick) || f.atTick <= 0) return;
+      this.snapshot = f;
+      this.floor = f.atTick;
+      this.ticks.seed(f.atTick, f.negativeRun);
+      this.opts.onSnapshot?.(f);
+    } catch {
+      // the fallback is the thing that was already correct
+    }
+  }
+
   // pull everything after the last tick this browser applied, apply it in
   // order, and then check that what it holds still agrees with the server.
   async catchUp(): Promise<number> {
-    const since = (this.applied[this.applied.length - 1]?.n ?? 0) + 1;
+    const since = Math.max(this.floor, this.applied[this.applied.length - 1]?.n ?? 0) + 1;
     let batch: WireTick[];
     try {
       const res = await fetch(`${this.url}/ticks?since=${since}&limit=200`);
@@ -187,11 +227,12 @@ export class ChainFeed {
 // which is the shipped state.
 export async function connectChain(
   ticks: TickEngine,
-  onState?: (s: ChainState) => void
+  onState?: (s: ChainState) => void,
+  onSnapshot?: (f: SnapshotFold) => void
 ): Promise<ChainFeed | null> {
   const url = marketUrl();
   if (!url) return null;
-  const feed = new ChainFeed(url, ticks, { onState });
+  const feed = new ChainFeed(url, ticks, { onState, onSnapshot });
   const ok = await feed.start();
   return ok ? feed : null;
 }

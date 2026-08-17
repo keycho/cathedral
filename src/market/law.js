@@ -212,3 +212,100 @@ export function findGaps(ticks) {
   }
   return gaps;
 }
+
+// ---- the snapshot fold -------------------------------------------------
+//
+// AN OLD WORLD MUST NOT MAKE EVERY FRESH BROWSER REPLAY THE WHOLE LOG. the
+// client pulls ticks from 1 and applies them in batches, which is correct
+// and gets slower every day the world ages. but r1 and r2 are arithmetic on
+// the rule-visible fields, so the server can run the same sums the browser
+// would — cumulative per-wallet blocks, the clock, the negative run — and
+// hand the result over in one call, with replay kept for the tail. the fold
+// lives in the law because both sides have to agree on what the sums are.
+//
+// what the fold carries is the GEOLOGY: how many blocks each wallet's
+// buying has accreted, net of what selling eroded. it does not carry the
+// voxel field itself — the browser is the only party that holds one — so a
+// seeded world regrows its architecture from the seeded mass forward
+// rather than reconstructing every past epoch's works stone by stone.
+
+// mirrors RULES.usdPerBlock in src/rules.ts, frozen at genesis
+export const USD_PER_BLOCK = 50;
+// mirrors RULES.subsidenceTicks
+export const SUBSIDENCE_TICKS = 12;
+
+export function foldStart() {
+  return {
+    atTick: 0, // last tick folded in
+    ticksSeen: 0, // how many ticks actually contributed (gaps excluded)
+    negativeRun: 0, // consecutive negative ticks at atTick (r2b state)
+    subsides: 0, // how many times the run reached the subsidence threshold
+    netFlowUsd: 0,
+    grossVolumeUsd: 0,
+    blocksAccreted: 0, // r1 total
+    blocksEroded: 0, // r2 total
+    wallets: {}, // pubkey -> { buyUsd, blocks }
+  };
+}
+
+// apply one wire tick to the fold, in ascending n order. mutates and
+// returns the fold so a server can keep one and extend it incrementally.
+export function foldTick(f, t) {
+  if (t.n <= f.atTick) return f; // the wire repeats itself
+  f.atTick = t.n;
+  f.ticksSeen++;
+  f.netFlowUsd = round2(f.netFlowUsd + t.netFlowUsd);
+  f.grossVolumeUsd = round2(f.grossVolumeUsd + t.grossVolumeUsd);
+  if (t.netFlowUsd < 0) {
+    f.negativeRun++;
+    f.blocksEroded += Math.floor(-t.netFlowUsd / USD_PER_BLOCK);
+  } else {
+    f.negativeRun = 0;
+  }
+  if (f.negativeRun >= SUBSIDENCE_TICKS) {
+    // r2b: the run restarts after the mass settles, same as the engine
+    f.negativeRun = 0;
+    f.subsides++;
+  }
+  for (const [w, usd] of Object.entries(t.buys ?? {})) {
+    const cur = f.wallets[w] ?? (f.wallets[w] = { buyUsd: 0, blocks: 0 });
+    cur.buyUsd = round2(cur.buyUsd + usd);
+  }
+  if (t.netFlowUsd > 0) {
+    const n = Math.floor(t.netFlowUsd / USD_PER_BLOCK);
+    f.blocksAccreted += n;
+    for (const [w, count] of distributeUsd(n, t.buys ?? {})) {
+      f.wallets[w].blocks += count;
+    }
+  }
+  return f;
+}
+
+// r1's attribution over the wire shape: n blocks across buying wallets
+// proportional to usd, largest remainder. mirrors distributeBlocks in
+// src/ticks.ts, which works on hashed wallet ids; this one keeps the
+// pubkeys because the fold crosses the wire. ties break on the key so the
+// answer is the same whoever runs it.
+export function distributeUsd(n, buys) {
+  const out = new Map();
+  const entries = Object.entries(buys);
+  if (n <= 0 || !entries.length) return out;
+  let total = 0;
+  for (const [, usd] of entries) total += usd;
+  if (total <= 0) return out;
+  const shares = [];
+  let assigned = 0;
+  for (const [w, usd] of entries) {
+    const exact = (n * usd) / total;
+    const whole = Math.floor(exact);
+    shares.push({ w, whole, frac: exact - whole });
+    assigned += whole;
+  }
+  shares.sort((a, b) => b.frac - a.frac || (a.w < b.w ? -1 : 1));
+  for (let i = 0; i < shares.length && assigned < n; i++) {
+    shares[i].whole++;
+    assigned++;
+  }
+  for (const s of shares) if (s.whole > 0) out.set(s.w, s.whole);
+  return out;
+}

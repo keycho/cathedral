@@ -87,7 +87,7 @@ import { plantWoods } from "./woods";
 import { greatWorkPagoda } from "./components/greatwork";
 import { Motif } from "./threshold";
 import { CloudSea, Underside } from "./cloudsea";
-import { connectChain } from "./chain";
+import { connectChain, walletId } from "./chain";
 import type { ChainFeed } from "./chain";
 import { paletteHex } from "./stylise";
 import { Water, Waterfall, WetPaving } from "./water";
@@ -1529,15 +1529,40 @@ frame();
 // the tick engine stops rolling its own and follows the log instead. nothing
 // downstream knows the difference: the rules read a TickSummary either way.
 let chain: ChainFeed | null = null;
-void connectChain(ticks, (st) => {
-  journal.add(
-    "keeper",
-    ticks.epoch,
-    st.standIn
-      ? `the ledger is being read, but the token is a stand-in. tick ${st.lastTick}.`
-      : `the ledger is being read. ${st.mint.slice(0, 8)}… at tick ${st.lastTick}.`
-  );
-}).then((c) => {
+void connectChain(
+  ticks,
+  (st) => {
+    journal.add(
+      "keeper",
+      ticks.epoch,
+      st.standIn
+        ? `the ledger is being read, but the token is a stand-in. tick ${st.lastTick}.`
+        : `the ledger is being read. ${st.mint.slice(0, 8)}… at tick ${st.lastTick}.`
+    );
+  },
+  (f) => {
+    // THE LOG ARRIVES FOLDED. an old world seeds its geology in one deposit
+    // instead of replaying every tick: each wallet's accreted blocks, net of
+    // what erosion took (scaled proportionally, since erosion bites the mass
+    // and not a ledger), land through the same growth queue a tick's would.
+    // the architecture is not reconstructed — the crew regrows it from the
+    // seeded mass forward, the way a town rebuilds on old foundations.
+    const keep = Math.max(0, f.blocksAccreted - f.blocksEroded);
+    const scale = f.blocksAccreted > 0 ? keep / f.blocksAccreted : 0;
+    let seeded = 0;
+    for (const [pub, w] of Object.entries(f.wallets)) {
+      const n = Math.floor(w.blocks * scale);
+      if (n <= 0) continue;
+      seeded += n;
+      growth.enqueue(n, walletId(pub), "snapshot", undefined);
+    }
+    journal.add(
+      "keeper",
+      ticks.epoch,
+      `the log arrives folded: tick ${f.atTick}, ${seeded} stones already standing in the record.`
+    );
+  }
+).then((c) => {
   chain = c;
   if (c) console.info("[kodo] following the market service; local ticks stood down");
 });
