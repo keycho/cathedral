@@ -1,0 +1,22 @@
+# kodo - THIS REPO IS TWO THINGS AND A BUILDER CAN ONLY GUESS ONE. the root
+# holds a vite app (the world, deployed as a static site elsewhere) and a
+# node service (the market, deployed here). a builder that autodetects sees
+# vite first, builds a static site, and never runs the service — which
+# looks exactly like what was seen: a green build and an empty deploy log,
+# because nothing of ours was ever started.
+#
+# so nothing is left to detection. no build phase (the service is plain
+# node and needs no compiling), install only what it needs, and start the
+# service by name.
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci --omit=dev || npm install --omit=dev"]
+
+[phases.build]
+cmds = ["echo 'no build: the market service is plain node'"]
+
+[start]
+cmd = "node server/boot.js"

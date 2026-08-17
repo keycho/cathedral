@@ -9,7 +9,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "start": "node server/index.js",
+    "start": "node server/boot.js",
     "market": "node server/index.js",
     "market:test": "node server/test.js",
     "monitor": "node scripts/monitor.mjs",
