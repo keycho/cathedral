@@ -278,3 +278,7 @@ low angles, which reads as shoreline rather than as a hidden cliff.
   of our own world, not invented. nothing samples a colour outside it.
 - the ascent measures the height that actually stands rather than the
   height it drew, and re-anchors when a stage fails to lift the world.
+- horizon isles tried twice, cut — the lone island against empty sky is
+  the composition. (first as smooth cones that read as paper tents, then
+  as voxel masses with a sky-derived value law; both diluted the frame.
+  the cloud sea carries the sense of distance on its own.)
