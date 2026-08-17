@@ -93,6 +93,8 @@ import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
 import { GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
 import { buildArchipelagoBridges } from "./bridges";
+import { tendGround } from "./tended";
+import { GroundCover } from "./groundcover";
 import { distributeBlocks, TickEngine } from "./ticks";
 import { VoxelField } from "./voxels";
 
@@ -1231,6 +1233,14 @@ const auto = new AutoQuality((cfg, step) => {
   void step;
 });
 
+// the land is kept, not generated: field plots, contour walls, swept
+// path edges — run after everything that paves or builds at boot is done
+tendGround(field, plan);
+
+// walk-scale cover: tufts, flowers, stones, leaves, waymarkers — seeded
+// deterministically around the camera, gone by twenty blocks out
+const cover = new GroundCover(scene);
+
 // the debug readout: hidden, p reveals it. no visitor ever sees a quality
 // control anywhere in this world.
 const perf = new PerfHud(renderer, () => field.placedCount, () => auto.current);
@@ -1443,6 +1453,7 @@ function frame() {
     workSite.show(onSite.bp, onSite.cursor);
   }
   life?.update(dt, wind, camera, sky.phase01(t));
+  cover.update(camera, field, plan);
   if (weather) {
     // the pressure is the trailing net flow turned negative-side-up: a red
     // hour is a storm and a quiet one is clear air

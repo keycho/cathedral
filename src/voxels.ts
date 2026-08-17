@@ -164,12 +164,13 @@ export class VoxelField {
       shader.vertexShader = shader.vertexShader
         .replace(
           "#include <common>",
-          "#include <common>\n varying float vFaceShade;\n varying vec2 vVoxUv;"
+          "#include <common>\n varying float vFaceShade;\n varying vec2 vVoxUv;\n varying vec3 vVoxWorld;"
         )
         .replace(
           "#include <begin_vertex>",
           `#include <begin_vertex>
            vVoxUv = uv;
+           vVoxWorld = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
            vFaceShade = normal.y > 0.5 ? 1.0
              : (normal.y < -0.5 ? 0.68
              : (abs(normal.z) > 0.5 ? 0.88 : 0.80));`
@@ -177,7 +178,7 @@ export class VoxelField {
       shader.fragmentShader = shader.fragmentShader
         .replace(
           "#include <common>",
-          "#include <common>\n varying float vFaceShade;\n varying vec2 vVoxUv;"
+          "#include <common>\n varying float vFaceShade;\n varying vec2 vVoxUv;\n varying vec3 vVoxWorld;"
         )
         // spirit-light, properly. the instance colour above 1.0 used to be
         // multiplied into the ALBEDO, which meant a lantern was a very
@@ -194,7 +195,20 @@ export class VoxelField {
            #endif
            vec2 vEdge = abs(vVoxUv - 0.5) * 2.0;
            float vAO = 1.0 - smoothstep(0.86, 1.0, max(vEdge.x, vEdge.y)) * 0.1;
-           diffuseColor.rgb *= vFaceShade * vAO;`
+           diffuseColor.rgb *= vFaceShade * vAO;
+           // NEAR-FIELD FACE DETAIL: within a couple dozen blocks a face
+           // gains a sub-block grain and, on its sides, a faint coursing
+           // seam — fading to nothing by thirty, so every orbit frame is
+           // untouched and only the walker sees the surfaces roughen
+           float vNearD = distance(cameraPosition, vVoxWorld);
+           float vNearF = 1.0 - smoothstep(16.0, 28.0, vNearD);
+           if (vNearF > 0.001) {
+             float vG = fract(sin(dot(floor(vVoxWorld * 3.0 - 0.25), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+             float vCourse = (vFaceShade < 0.95 && vFaceShade > 0.7)
+               ? 1.0 - (1.0 - smoothstep(0.0, 0.12, vVoxUv.y)) * 0.09
+               : 1.0;
+             diffuseColor.rgb *= (1.0 + (vG - 0.5) * 0.14 * vNearF) * mix(1.0, vCourse, vNearF);
+           }`
         )
         .replace(
           "#include <emissivemap_fragment>",
