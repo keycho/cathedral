@@ -370,7 +370,16 @@ export class SolanaSource {
         "[market] no SOLANA_RPC_URL: using the public endpoint, which rate-limits. set one before this world has to keep up."
       );
     }
-    this.rpc = new Rpc(this.rpcUrl, opts);
+    // PACE TO THE ENDPOINT, NOT TO THE WORST CASE. the public node answers
+    // maybe five transactions a batch and throttles per ip; a paid one
+    // takes fifty at a time and does not. the difference decides whether a
+    // world's first boot — which replays every trade since the launch —
+    // takes seconds or hours, and a boot that takes hours reads to a host
+    // exactly like a boot that hung.
+    this.rpc = new Rpc(this.rpcUrl, {
+      minGapMs: this.publicRpc ? 250 : 20,
+      ...opts,
+    });
     this.price = new SolPrice(mint);
     this.decimals = opts.decimals ?? 6;
     // transactions are immutable once finalised, so a signature only ever
@@ -380,7 +389,8 @@ export class SolanaSource {
     this.txCacheMax = opts.txCacheMax ?? 4000;
     // public nodes rate-limit inside a batch; a paid rpc handles far more.
     // SOLANA_RPC_BATCH raises it when the endpoint can take it.
-    this.batchSize = opts.batchSize ?? Number(process.env.SOLANA_RPC_BATCH ?? 5);
+    this.batchSize =
+      opts.batchSize ?? Number(process.env.SOLANA_RPC_BATCH ?? (this.publicRpc ? 5 : 50));
     this.sigCache = []; // {signature, blockTime}, newest first
     this.stats = {
       windows: 0,
@@ -521,7 +531,17 @@ export class SolanaSource {
     // fetch everything this window needs and is not already holding, in
     // batches, before decoding any of it
     const missing = sigs.filter((s) => !this.txCache.has(s.signature)).map((s) => s.signature);
+    // A SILENT BOOT LOOKS LIKE A HUNG ONE. a first start replays every
+    // trade since the launch, and the only thing distinguishing that from
+    // a wedged process, from outside, is whether it says so.
+    const loud = missing.length > 200;
+    if (loud) {
+      console.log(`[market] reading ${missing.length} transactions from the chain…`);
+    }
     for (let i = 0; i < missing.length; i += this.batchSize) {
+      if (loud && i && i % (this.batchSize * 20) === 0) {
+        console.log(`[market]   ${i}/${missing.length}`);
+      }
       const slice = missing.slice(i, i + this.batchSize);
       const got = await this.rpc.batch(
         "getTransaction",
