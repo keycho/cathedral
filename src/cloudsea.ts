@@ -31,6 +31,7 @@ import { GRID } from "./config";
 import { SWATCH } from "./palette";
 import type { SkyLight } from "./sky";
 import type { VoxelField } from "./voxels";
+import { coastDistAt } from "./terrain";
 
 // THE SEA SITS WELL BELOW THE LIP. at -14 it lapped the coast and swallowed
 // the entire keel — the work was underwater. at -46 it still ate the
@@ -239,7 +240,7 @@ const UndersideShader = {
     uGrass: { value: new THREE.Color(SWATCH.meadowDeep) },
     uSoil: { value: new THREE.Color(SWATCH.earth) },
     uRoot: { value: new THREE.Color(0x2f2418) },
-    uCream: { value: new THREE.Color(SWATCH.creamWarm).multiplyScalar(1.1) },
+    uCream: { value: new THREE.Color(SWATCH.creamWarm).multiplyScalar(1.04) },
     uSand: { value: new THREE.Color(SWATCH.sand) },
     uRust: { value: new THREE.Color(SWATCH.clay).lerp(new THREE.Color(0xb0542e), 0.55).multiplyScalar(0.9) },
     uStone: { value: new THREE.Color(SWATCH.stoneDark) },
@@ -296,7 +297,7 @@ const UndersideShader = {
       float dLevel = 6.0 - vWorld.y;
       float d = mix(vDepth, dLevel, smoothstep(2.0, 9.0, vDepth));
       // per-column jitter on every boundary: torn ground, not ruled lines
-      d += (fbm(cw * 0.045) - 0.5) * 5.0 * smoothstep(1.0, 5.0, d);
+      d += (fbm(cw * 0.045) - 0.5) * 3.2 * smoothstep(1.0, 5.0, d);
       // and the paint is QUANTISED to whole courses, one colour per
       // block, so the strata read as stacked voxels rather than as a
       // gradient wrapped over the terraces
@@ -356,13 +357,17 @@ const UndersideShader = {
       // painted every floor sea-gold, and the keel read as shredded
       // plates with bright water between — the mass dissolved into the
       // cloud it was supposed to tower over.
-      li *= 1.0 - down * 0.72;
+      // — but only where the floors are BOXED IN by the course outside
+      // them. the broad open belly faces nothing but cloud, and cloud is
+      // a floor of lit vapour: from below the horizon the root was a
+      // black blob until its floors were allowed the bounce back.
+      li *= 1.0 - down * 0.72 * (1.0 - smoothstep(30.0, 42.0, d));
       // AND THE KEEL DARKENS WITH DEPTH into its own shadow: the strata
       // band stays lit and legible, the belly's contour courses fall
       // toward silhouette, and the mountain reads as a dark mass against
       // the bright cloud — which is how the references carry their
       // weight. lit pale stone at the centre read as a floating pavilion.
-      li *= 1.0 - smoothstep(26.0, 46.0, d) * 0.62;
+      li *= 1.0 - smoothstep(26.0, 46.0, d) * 0.5;
       vec3 col = alb * li + emb;
       if (uDebug > 0.5) col = alb;
 
@@ -427,10 +432,13 @@ export class Underside {
       });
     }
 
-    // depth of the under-surface below the local lip, at any plan point
+    // depth of the under-surface below the local lip, at any plan point.
+    // "distance from the edge" is now distance from the TORN COAST, so the
+    // belly's bowl, the band and the teeth all follow the new outline —
+    // bays shallow the keel, peninsulas carry their own strata, and the
+    // detached shard grows its own small keel from the same rule.
     const profile = (px: number, pz: number): number => {
-      const edge = Math.max(0, Math.min(px, GRID - px, pz, GRID - pz));
-      const e = edge / (GRID / 2);
+      const e = Math.min(1, Math.max(0, coastDistAt(px, pz)) / 104);
       // TWO REGIMES, ONE MASS. the strata band falls sheer — narrowing,
       // but slowly — for its whole height; below it the belly takes over
       // and deepens all the way to the centre lines, so the deepest rock
@@ -471,22 +479,25 @@ export class Underside {
     // and its block-quantised radial push (the torn cheek — the band leans
     // proud of the rim, because from an eye slightly above the lip an
     // inward-sloping face is hidden, and the geology must show frontally)
-    type Cell = { y: number; lip: number; ox: number; oz: number };
+    type Cell = { y: number; lip: number; ox: number; oz: number } | null;
     const cells: Cell[][] = [];
     for (let iz = 0; iz < RES; iz++) {
       const row: Cell[] = [];
       for (let ix = 0; ix < RES; ix++) {
         const px = (ix + 0.5) * CS;
         const pz = (iz + 0.5) * CS;
-        const edge = Math.max(0, Math.min(px, GRID - px, pz, GRID - pz));
-        const e = edge / (GRID / 2);
+        const cd = coastDistAt(px, pz);
+        if (cd <= 0) {
+          row.push(null); // the void: no floor, no keel
+          continue;
+        }
+        const e = Math.min(1, cd / 104);
         const bx = Math.max(0, Math.min(GRID - 1, Math.round(px - 0.5)));
         const bz = Math.max(0, Math.min(GRID - 1, Math.round(pz - 0.5)));
-        const onX = Math.min(px, GRID - px) <= Math.min(pz, GRID - pz);
-        const edgeTop = field.topAt(
-          onX ? (px < GRID / 2 ? 0 : GRID - 1) : bx,
-          onX ? bz : (pz < GRID / 2 ? 0 : GRID - 1)
-        );
+        // near the coast a cell's own column top IS the coastal lip; the
+        // blend to the interior reference happens over the same reach as
+        // before, measured from the torn line
+        const edgeTop = Math.max(1, field.topAt(bx, bz));
         const lip = edgeTop + (6 - edgeTop) * Math.min(1, e / 0.12);
         const depth = profile(px, pz);
         // the cheek push is a RIM feature and must die with distance from
@@ -536,6 +547,7 @@ export class Underside {
     for (let iz = 0; iz < RES; iz++) {
       for (let ix = 0; ix < RES; ix++) {
         const cell = cells[iz][ix];
+        if (!cell) continue; // the void owns this cell
         const x0 = ix * CS - half + cell.ox;
         const x1 = (ix + 1) * CS - half + cell.ox;
         const z0 = iz * CS - half + cell.oz;
@@ -561,7 +573,7 @@ export class Underside {
         // how a riser ends up invisible from exactly the side that
         // matters.
         const bridge = (
-          nb: Cell,
+          nb: NonNullable<Cell>,
           ax: number, az: number, bx2: number, bz2: number,
           nax: number, naz: number, nbx2: number, nbz2: number,
           dirx: number, dirz: number
@@ -595,56 +607,66 @@ export class Underside {
           if (dot >= 0) quad(T0, T1, N0, N1);
           else quad(T1, T0, N1, N0);
         };
-        if (ix + 1 < RES) {
-          const nb = cells[iz][ix + 1];
+        // the coast skirt: wherever a land cell meets the void, one face
+        // from the foot of the voxel cliff (y=0) down to this cell's
+        // floor, on the shared edge — the first, tallest course of the
+        // band, sealed under the coast wall the mesher already builds.
+        // wound outward toward the void, checked the same way as bridges.
+        const skirt = (
+          ax: number, az: number, bx2: number, bz2: number,
+          fx0: number, fz0: number, fx1: number, fz1: number,
+          dirx: number, dirz: number
+        ) => {
+          const T0 = [ax, 0, az, cell.lip] as const;
+          const T1 = [bx2, 0, bz2, cell.lip] as const;
+          const N0 = [fx0, cell.y, fz0, dc] as const;
+          const N1 = [fx1, cell.y, fz1, dc] as const;
+          const uy = cell.y;
+          const vx = bx2 - ax;
+          const vz = bz2 - az;
+          const dot = uy * vz * dirx - uy * vx * dirz;
+          if (dot >= 0) quad(T0, T1, N0, N1);
+          else quad(T1, T0, N1, N0);
+        };
+        const nbXp = ix + 1 < RES ? cells[iz][ix + 1] : null;
+        const nbZp = iz + 1 < RES ? cells[iz + 1][ix] : null;
+        const nbXm = ix > 0 ? cells[iz][ix - 1] : null;
+        const nbZm = iz > 0 ? cells[iz - 1][ix] : null;
+        if (nbXp)
           bridge(
-            nb,
+            nbXp,
             x1, z0, x1, z1,
-            (ix + 1) * CS - half + nb.ox, iz * CS - half + nb.oz,
-            (ix + 1) * CS - half + nb.ox, (iz + 1) * CS - half + nb.oz,
+            (ix + 1) * CS - half + nbXp.ox, iz * CS - half + nbXp.oz,
+            (ix + 1) * CS - half + nbXp.ox, (iz + 1) * CS - half + nbXp.oz,
             1, 0
           );
-        }
-        if (iz + 1 < RES) {
-          const nb = cells[iz + 1][ix];
+        else
+          skirt(
+            (ix + 1) * CS - half, iz * CS - half, (ix + 1) * CS - half, (iz + 1) * CS - half,
+            x1, z0, x1, z1, 1, 0
+          );
+        if (nbZp)
           bridge(
-            nb,
+            nbZp,
             x0, z1, x1, z1,
-            ix * CS - half + nb.ox, (iz + 1) * CS - half + nb.oz,
-            (ix + 1) * CS - half + nb.ox, (iz + 1) * CS - half + nb.oz,
+            ix * CS - half + nbZp.ox, (iz + 1) * CS - half + nbZp.oz,
+            (ix + 1) * CS - half + nbZp.ox, (iz + 1) * CS - half + nbZp.oz,
             0, 1
           );
-        }
-        // the outer skirt at the world's border: from the terrain's own
-        // edge top straight to this cell's floor — the first, tallest
-        // course of the band, sealed to the voxel shell above
-        if (ix === 0)
-          quad(
-            [-half, cell.lip, iz * CS - half, 0],
-            [-half, cell.lip, (iz + 1) * CS - half, 0],
-            [x0, cell.y, z0, dc],
-            [x0, cell.y, z1, dc]
+        else
+          skirt(
+            ix * CS - half, (iz + 1) * CS - half, (ix + 1) * CS - half, (iz + 1) * CS - half,
+            x0, z1, x1, z1, 0, 1
           );
-        if (ix === RES - 1)
-          quad(
-            [half, cell.lip, (iz + 1) * CS - half, 0],
-            [half, cell.lip, iz * CS - half, 0],
-            [x1, cell.y, z1, dc],
-            [x1, cell.y, z0, dc]
+        if (!nbXm)
+          skirt(
+            ix * CS - half, iz * CS - half, ix * CS - half, (iz + 1) * CS - half,
+            x0, z0, x0, z1, -1, 0
           );
-        if (iz === 0)
-          quad(
-            [(ix + 1) * CS - half, cell.lip, -half, 0],
-            [ix * CS - half, cell.lip, -half, 0],
-            [x1, cell.y, z0, dc],
-            [x0, cell.y, z0, dc]
-          );
-        if (iz === RES - 1)
-          quad(
-            [ix * CS - half, cell.lip, half, 0],
-            [(ix + 1) * CS - half, cell.lip, half, 0],
-            [x0, cell.y, z1, dc],
-            [x1, cell.y, z1, dc]
+        if (!nbZm)
+          skirt(
+            ix * CS - half, iz * CS - half, (ix + 1) * CS - half, iz * CS - half,
+            x0, z0, x1, z0, 0, -1
           );
       }
     }
@@ -680,11 +702,16 @@ export class Underside {
     const consider = (x: number, z: number, nx: number, nz: number) => {
       spots.push({ x, z, top: field.topAt(x, z), nx, nz });
     };
-    for (let c = 24; c < GRID - 24; c += 4) {
-      consider(c, 0, 0, -1);
-      consider(c, GRID - 1, 0, 1);
-      consider(0, c, -1, 0);
-      consider(GRID - 1, c, 1, 0);
+    // the coast is found, not assumed: any land column with a void
+    // neighbour is a candidate lip for a fall
+    for (let x = 2; x < GRID - 2; x += 3) {
+      for (let z = 2; z < GRID - 2; z += 3) {
+        if (field.topAt(x, z) <= 0) continue;
+        if (field.topAt(x + 1, z) <= 0) consider(x, z, 1, 0);
+        else if (field.topAt(x - 1, z) <= 0) consider(x, z, -1, 0);
+        else if (field.topAt(x, z + 1) <= 0) consider(x, z, 0, 1);
+        else if (field.topAt(x, z - 1) <= 0) consider(x, z, 0, -1);
+      }
     }
     spots.sort((a, b) => b.top - a.top);
     const picked: typeof spots = [];

@@ -121,12 +121,15 @@ const PROPS: ((seed: number) => Prop)[] = [
 export class SmallLife {
   private birds: THREE.InstancedMesh;
   private smoke: THREE.InstancedMesh;
+  private puffs!: THREE.InstancedMesh;
+  private lanternMesh!: THREE.InstancedMesh;
   private birdN = 0;
   private smokeN = 0;
   private t = 0;
   // where each smoke column stands, and each bird's own orbit
   private stacks: { x: number; y: number; z: number }[] = [];
   private flock: { x: number; y: number; z: number; r: number; s: number; p: number }[] = [];
+  private drift: { x: number; y: number; z: number; s: number }[] = [];
   private m = new THREE.Matrix4();
   private q = new THREE.Quaternion();
   private v = new THREE.Vector3();
@@ -151,6 +154,45 @@ export class SmallLife {
     this.smoke.frustumCulled = false;
     this.smoke.renderOrder = 3;
     scene.add(this.smoke);
+
+    // LOW CLOUD BETWEEN THE ISLANDS: a dozen soft quads in the band the
+    // archipelago floats in, drifting on the wind, wrapping in a wide ring
+    // — the air between the levels is part of the composition now
+    const puffMat = new THREE.MeshBasicMaterial({
+      color: SWATCH.mist,
+      transparent: true,
+      opacity: 0.13,
+      depthWrite: false,
+    });
+    this.puffs = new THREE.InstancedMesh(new THREE.PlaneGeometry(16, 7), puffMat, 12);
+    this.puffs.frustumCulled = false;
+    this.puffs.renderOrder = 3;
+    for (let i = 0; i < 12; i++) {
+      const a = hash2(i, 31) * Math.PI * 2;
+      const r = 55 + hash2(i, 37) * 105;
+      this.drift.push({
+        x: Math.cos(a) * r,
+        y: 16 + hash2(i, 41) * 30,
+        z: Math.sin(a) * r,
+        s: 0.7 + hash2(i, 43) * 0.9,
+      });
+    }
+    scene.add(this.puffs);
+
+    // FLOATING LANTERNS AT DUSK: they rise from the hearths as the light
+    // goes, and are gone by night — a festival the world holds for itself
+    // twice a day
+    const lanternMat = new THREE.MeshBasicMaterial({
+      color: 0xffb45e,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.lanternMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.55, 0.75), lanternMat, 16);
+    this.lanternMesh.frustumCulled = false;
+    this.lanternMesh.renderOrder = 4;
+    scene.add(this.lanternMesh);
   }
 
   // THE EDGE OF THE MADE GROUND is where things get left. a column that is
@@ -273,15 +315,24 @@ export class SmallLife {
     }
     report.smoke = this.stacks.length;
 
-    // and a few birds, circling over the settlement rather than scattered
-    for (let i = 0; this.flock.length === 0 && i < 30; i++) {
+    // birds, reseeded on every scatter: once a great work stands, most of
+    // the flock moves to circle IT — a tower with birds wheeling round its
+    // crown is the oldest trick for making a building read as tall — and
+    // the rest keep their settlement rounds
+    this.flock.length = 0;
+    const g = plan.greatWorkAt;
+    const gTop = g ? field.topAt(g.x, g.z) : 0;
+    for (let i = 0; i < 30; i++) {
       const a = hash2(i, 3) * Math.PI * 2;
-      const r = 18 + hash2(i, 7) * 60;
+      const towerBird = g && gTop > 12 && i % 3 !== 0;
+      const cx = towerBird ? g.x : plan.plazaX;
+      const cz = towerBird ? g.z : plan.plazaZ;
+      const r = towerBird ? 4 + hash2(i, 7) * 14 : 18 + hash2(i, 7) * 60;
       this.flock.push({
-        x: plan.plazaX - GRID / 2 + 0.5 + Math.cos(a) * r,
-        y: 16 + hash2(i, 11) * 22,
-        z: plan.plazaZ - GRID / 2 + 0.5 + Math.sin(a) * r,
-        r: 3 + hash2(i, 13) * 7,
+        x: cx - GRID / 2 + 0.5 + Math.cos(a) * r * 0.3,
+        y: towerBird ? gTop * (0.55 + hash2(i, 11) * 0.55) + 6 : 16 + hash2(i, 11) * 22,
+        z: cz - GRID / 2 + 0.5 + Math.sin(a) * r * 0.3,
+        r: towerBird ? r : 3 + hash2(i, 13) * 7,
         s: 0.25 + hash2(i, 17) * 0.5,
         p: hash2(i, 19) * Math.PI * 2,
       });
@@ -289,8 +340,56 @@ export class SmallLife {
     return report;
   }
 
-  update(dt: number, wind: Wind, camera: THREE.Camera) {
+  update(dt: number, wind: Wind, camera: THREE.Camera, phase = 0.5) {
     this.t += dt;
+
+    // low cloud: slow wind-drift in the island band, wrapping in a wide
+    // ring so there is always vapour moving between the levels
+    let pn = 0;
+    for (const c of this.drift) {
+      c.x += wind.dirX * dt * 1.1;
+      c.z += wind.dirZ * dt * 1.1;
+      const rr = Math.hypot(c.x, c.z);
+      if (rr > 175) {
+        c.x *= -0.97;
+        c.z *= -0.97;
+      }
+      this.q.setFromAxisAngle(_up, Math.atan2(camera.position.x - c.x, camera.position.z - c.z));
+      this.m.compose(_p.set(c.x, c.y + Math.sin(this.t * 0.1 + pn) * 1.5, c.z), this.q, this.v.set(c.s, c.s * 0.8, c.s));
+      this.puffs.setMatrixAt(pn++, this.m);
+    }
+    this.puffs.count = pn;
+    this.puffs.instanceMatrix.needsUpdate = true;
+
+    // lanterns: only in the dusk windows, rising from the hearths and
+    // guttering out before the stars are fully up
+    const dusk = Math.max(
+      Math.exp(-Math.pow((phase - 0.26) / 0.05, 2)),
+      Math.exp(-Math.pow((phase - 0.56) / 0.05, 2))
+    );
+    (this.lanternMesh.material as THREE.MeshBasicMaterial).opacity = 0.85 * dusk;
+    let ln = 0;
+    if (dusk > 0.04 && this.stacks.length) {
+      for (let k = 0; k < 16; k++) {
+        const src = this.stacks[k % this.stacks.length];
+        const age = (this.t * 0.045 + k * 0.37) % 1;
+        const rise = age * 30;
+        const fade = Math.min(1, age * 6) * (1 - Math.max(0, (age - 0.8) / 0.2));
+        this.q.setFromAxisAngle(_up, Math.atan2(camera.position.x - src.x, camera.position.z - src.z));
+        this.m.compose(
+          _p.set(
+            src.x + Math.sin(age * 9 + k) * 1.6,
+            src.y - 3 + rise,
+            src.z + Math.cos(age * 7 + k * 2) * 1.6
+          ),
+          this.q,
+          this.v.set(fade, fade, fade)
+        );
+        this.lanternMesh.setMatrixAt(ln++, this.m);
+      }
+    }
+    this.lanternMesh.count = ln;
+    this.lanternMesh.instanceMatrix.needsUpdate = true;
 
     // birds: a slow circle with a flap, always broadside to the camera so a
     // flat quad still reads as a bird
@@ -338,6 +437,8 @@ export class SmallLife {
   setVisible(on: boolean) {
     this.birds.visible = on;
     this.smoke.visible = on;
+    this.puffs.visible = on;
+    this.lanternMesh.visible = on;
   }
 }
 

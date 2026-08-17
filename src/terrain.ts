@@ -104,6 +104,70 @@ export const BASINS = [
   { x: CX + 8, z: CZ - 88, r: 12, wl: 4 },
 ];
 
+// --- the torn coast ---------------------------------------------------------
+// THE PERFECT SQUARE READ AS A PLATE. the world's boundary is now a torn
+// mass: a base radius wobbled at three angular scales for bays and
+// peninsulas, one deliberately SHEARED headland, and a detached fragment
+// floating in the gap beside it. landmarks near the old edge are not
+// abandoned to the void — each pushes its own peninsula out to hold it, so
+// the coast's shape is partly the story of what it had to keep.
+export const HEADLAND_A = 0.85; // bearing of the sheared headland
+export const FRAG = { a: 0.85, rad: 118, r: 15, lift: 8 }; // the shard beside it
+
+const PROTECT = [...SPIRES.map((s) => ({ x: s.x, z: s.z, s: 6 })),
+  ...CRATERS.map((c) => ({ x: c.x, z: c.z, s: c.r + 4 })),
+  ...BASINS.map((b) => ({ x: b.x, z: b.z, s: b.r * 1.3 + 3 })),
+].map((p) => ({
+  a: Math.atan2(p.z - CZ, p.x - CX),
+  need: Math.hypot(p.x - CX, p.z - CZ) + p.s,
+}));
+
+function angdiff(a: number, b: number): number {
+  return Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+}
+
+function coastR(ang: number): number {
+  let R =
+    106 +
+    Math.sin(ang * 2 + 0.9) * 9 +
+    Math.sin(ang * 3 - 1.3) * 7 +
+    Math.sin(ang * 5 + 2.2) * 4.5 +
+    (fractal(Math.cos(ang) * 40 + 500, Math.sin(ang) * 40 + 500) - 0.5) * 24;
+  for (const p of PROTECT) {
+    const da = angdiff(ang, p.a);
+    if (da < 0.5) R = Math.max(R, p.need - (da / 0.5) * (da / 0.5) * 34);
+  }
+  // the sheared headland: a hard cut across one bearing, the coast's wound
+  const dh = angdiff(ang, HEADLAND_A);
+  if (dh < 0.48) R = Math.min(R, 76 + (dh / 0.48) * (dh / 0.48) * 44);
+  return R;
+}
+
+// signed-ish distance to the coast: positive inside the land (roughly in
+// blocks), zero and below in the void. the detached fragment is part of
+// the same mask, so every consumer — mesher, keel, falls, scatters — sees
+// one coherent landmass plus one shard.
+export function coastDistAt(x: number, z: number): number {
+  const dx = x - CX;
+  const dz = z - CZ;
+  const d = Math.hypot(dx, dz);
+  const cd = coastR(Math.atan2(dz, dx)) - d;
+  const fx = CX + Math.cos(FRAG.a) * FRAG.rad;
+  const fz = CZ + Math.sin(FRAG.a) * FRAG.rad;
+  const fd =
+    FRAG.r + (fractal(x * 0.05 + 911, z * 0.05 + 77) - 0.5) * 8 - Math.hypot(x - fx, z - fz);
+  return Math.max(cd, fd);
+}
+
+// is this point on the detached shard rather than the main mass
+function fragDistAt(x: number, z: number): number {
+  const fx = CX + Math.cos(FRAG.a) * FRAG.rad;
+  const fz = CZ + Math.sin(FRAG.a) * FRAG.rad;
+  return (
+    FRAG.r + (fractal(x * 0.05 + 911, z * 0.05 + 77) - 0.5) * 8 - Math.hypot(x - fx, z - fz)
+  );
+}
+
 // how far into the world's edge a column sits: 0 interior -> 1 at the rim.
 // the land tapers there and the haze takes it; no void, just distance.
 // THE FRAME WAS THE WORST OF IT. a chebyshev distance makes this a SQUARE,
@@ -114,14 +178,12 @@ export const BASINS = [
 // metric is bent at two scales: a slow fractal worth about twenty blocks
 // that throws whole headlands out past where the edge "should" be, and the
 // old fine ripple on top for the coastline.
-function rim(x: number, z: number): number {
-  const dx = Math.abs(x - CX);
-  const dz = Math.abs(z - CZ);
-  // half chebyshev, half euclidean: the square corner is what read as made
-  const edge = (Math.max(dx, dz) * 0.5 + Math.hypot(dx, dz) * 0.5) / (GRID / 2);
-  const coast = (fractal(x * 0.02 + 400, z * 0.02 + 420) - 0.5) * 0.3;
-  const ripple = (valueNoise(x * 0.07 + 61, z * 0.07 + 88) - 0.5) * 0.07;
-  return sstep(0.54, 1.04, edge + coast + ripple);
+// the rim now measures distance to the TORN coast, not to the old square:
+// the height taper follows every bay and peninsula, and a fine ripple
+// keeps the taper's own contours from running parallel to the waterline
+function rimFor(x: number, z: number, cd: number): number {
+  const ripple = (valueNoise(x * 0.07 + 61, z * 0.07 + 88) - 0.5) * 4;
+  return 1 - sstep(5, 38, cd + ripple);
 }
 
 // ridge crests: folded noise, sharpened, only counted on high ground
@@ -264,6 +326,11 @@ function wobbledRadius(x: number, z: number, d: number): number {
 }
 
 function computeColumn(x: number, z: number): Sample {
+  // beyond the torn coast there is no column at all — the mesher walls the
+  // last land columns and the keel seals beneath them
+  const cd = coastDistAt(x, z);
+  if (cd <= 0) return { h: 0, top: MEADOW, water: false, ridgeBoost: 0 };
+
   const dTrue = Math.hypot(x - CX, z - CZ);
   const dGen = wobbledRadius(x, z, dTrue);
 
@@ -286,7 +353,7 @@ function computeColumn(x: number, z: number): Sample {
   // only at the end: the rim flattens the land, and a crest that keeps its
   // BARE ROCK after the rim has flattened it leaves a grey pavement ringing
   // the world. the rock and the height have to fade together.
-  const edge = rim(x, z);
+  const edge = rimFor(x, z, cd);
 
   // bare rock crests on the high ground, held off the build ring
   let ridgeBoost = 0;
@@ -392,6 +459,11 @@ function computeColumn(x: number, z: number): Sample {
     h = h * (1 - edge * 0.9) + shore * edge * 0.9;
   }
 
+  // the detached shard rides higher than the mass it tore from, its edges
+  // easing back down so the lift reads as a heave rather than a pedestal
+  const fd = fragDistAt(x, z);
+  if (fd > 0) h += FRAG.lift * sstep(0, 5, fd);
+
   return { h: Math.max(1, Math.round(h)), top, water, ridgeBoost };
 }
 
@@ -431,7 +503,7 @@ export const meadowSampler: FieldSampler = {
   // dim across the rim so the edge sinks into mist instead of void
   groundShade(x: number, z: number): number {
     const patch = (fractal(x * 0.011 + 7, z * 0.011 + 3) - 0.5) * 0.2;
-    const r = rim(x, z);
+    const r = rimFor(x, z, coastDistAt(x, z));
     const dither = hash2(x * 1.3 + 9, z * 1.7 + 4);
     // a per-column grain over the whole map, not just the rim: cliff stone
     // covers acres of terrace and without it a whole hillside of rock is

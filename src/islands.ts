@@ -17,12 +17,15 @@ import { EMBERSEAM, GLASSLIGHT, LANTERN, MASS, MONUMENT, SEED } from "./palette"
 import type { Kinetics } from "./kinetics";
 import type { Strata } from "./strata";
 import type { VoxelField } from "./voxels";
+import { coastDistAt } from "./terrain";
 import { audio } from "./audio";
 
 const MILESTONE_BLOCKS = 1500; // standing mass per self-calved island
 const SKY_LO = 46; // the island band
 const SKY_HI = 66;
-const MAX_ISLANDS = 7; // the sky stays composed, never crowded
+// the market's sky stays composed at seven; the archipelago's boot
+// satellites sit outside the coast in their own ring and get four more
+const MAX_ISLANDS = 11;
 
 export interface Island {
   cx: number;
@@ -115,6 +118,31 @@ export class Islands {
     return [x, y, z];
   }
 
+  // THE ARCHIPELAGO. four satellites seeded at boot in the void ring
+  // beyond the torn coast — varying size, varying altitude, the highest
+  // joining the band the market calves into, so everything in the sky
+  // reads as one composition. positions are marched out from the coast
+  // along set bearings (the shard's own bearing is left clear), and a
+  // seat is only taken if it is genuinely in the void.
+  seedArchipelago() {
+    const seats = [
+      { a: 2.3, out: 24, r: 13, y: 12 }, // low and broad, a slung crossing away
+      { a: 3.5, out: 16, r: 9, y: 44 }, // mid sky
+      { a: 4.6, out: 20, r: 11, y: 56 }, // high, in the market's own band
+      { a: 5.9, out: 26, r: 7, y: 10 }, // a low outlying stone
+    ];
+    for (const s of seats) {
+      // march to the coast along this bearing, then step out past it
+      let R = 60;
+      while (R < 150 && coastDistAt(GRID / 2 + Math.cos(s.a) * R, GRID / 2 + Math.sin(s.a) * R) > 0) R += 2;
+      const cx = Math.round(GRID / 2 + Math.cos(s.a) * (R + s.out));
+      const cz = Math.round(GRID / 2 + Math.sin(s.a) * (R + s.out));
+      if (cx < 12 || cz < 12 || cx > GRID - 13 || cz > GRID - 13) continue;
+      if (coastDistAt(cx, cz) > -(s.r + 3)) continue; // not clear of the land
+      this.build(cx, cz, s.r, s.y, "milestone");
+    }
+  }
+
   private calve(fx: number, fz: number, r: number, kind: Island["kind"]) {
     if (this.list.length >= MAX_ISLANDS) return;
     const cx = Math.round(Math.max(24, Math.min(GRID - 25, fx)));
@@ -124,6 +152,10 @@ export class Islands {
       if (Math.hypot(i.cx - cx, i.cz - cz) < (i.r + r) * 1.6) return;
     }
     const baseY = Math.round(SKY_LO + Math.random() * (SKY_HI - SKY_LO - r));
+    this.build(cx, cz, r, baseY, kind);
+  }
+
+  private build(cx: number, cz: number, r: number, baseY: number, kind: Island["kind"]) {
     const donors = this.donorEpochs(48);
     const R = Math.ceil(r);
     let placed = 0;

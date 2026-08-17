@@ -135,7 +135,9 @@ export class VoxelField {
 
     for (let x = 0; x < GRID; x++) {
       for (let z = 0; z < GRID; z++) {
-        const h = Math.max(1, Math.min(MAXY - 2, sampler.heightAt(x, z)));
+        // height 0 is a real value now: a column beyond the torn coast has
+        // no blocks, and the mesher walls the last land column against it
+        const h = Math.max(0, Math.min(MAXY - 2, sampler.heightAt(x, z)));
         this.top[x * GRID + z] = h;
         for (let y = 0; y < h; y++) {
           const i = this.idx(x, y, z);

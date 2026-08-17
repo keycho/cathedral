@@ -92,6 +92,7 @@ import { paletteHex } from "./stylise";
 import { Water, Waterfall, WetPaving } from "./water";
 import { Wind } from "./wind";
 import { GENESIS_CELL, meadowSampler, placeGenesis } from "./terrain";
+import { buildArchipelagoBridges } from "./bridges";
 import { distributeBlocks, TickEngine } from "./ticks";
 import { VoxelField } from "./voxels";
 
@@ -311,7 +312,8 @@ const islands = new Islands(field, strata, kinetics, (x, y, z) => growth.refresh
 // it goes to mist before it reaches anything, which is the whole reason to
 // stand underneath. capped low on purpose. a sky full of waterfalls is a
 // fountain display, and one is a landmark.
-const MAX_FALLS = 2;
+// two for the market's sky, and room for one the archipelago brings
+const MAX_FALLS = 3;
 islands.onCalved = (isle) => {
   if (water.fallCount >= MAX_FALLS || isle.r < 5 || isle.kind === "ruin") return;
   const ang = Math.PI * 0.75;
@@ -341,6 +343,13 @@ islands.onCalved = (isle) => {
   const fall = new Waterfall(wx, lip, wz, lip - (12 + isle.r), 2.4, 1.15, wind).intoAir();
   water.addFall(fall);
 };
+
+// THE ARCHIPELAGO: satellites seeded in the void ring beyond the torn
+// coast before anything else joins the sky, then every honest crossing —
+// the sheared headland to its shard, the low satellites to the coast —
+// gets its rope bridge
+islands.seedArchipelago();
+buildArchipelagoBridges(scene, field, islands.list);
 
 // the shrine of epochs: the world's own furniture beside the stone
 const shrine = new Shrine(field, strata, GENESIS_CELL);
@@ -1433,7 +1442,7 @@ function frame() {
     const onSite = mason.current;
     workSite.show(onSite.bp, onSite.cursor);
   }
-  life?.update(dt, wind, camera);
+  life?.update(dt, wind, camera, sky.phase01(t));
   if (weather) {
     // the pressure is the trailing net flow turned negative-side-up: a red
     // hour is a storm and a quiet one is clear air
