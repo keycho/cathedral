@@ -47,15 +47,47 @@ function genesisFromEnv(v) {
   return Number.isFinite(p) ? p : null;
 }
 
-const born = genesisFromEnv(process.env.KODO_GENESIS ?? process.env.CATHEDRAL_GENESIS);
-const world = await indexer.ensureWorld(Date.now(), born);
-console.log(`[market] world founded ${new Date(world.genesisAt).toISOString()}`);
-await indexer.backfill(Date.now(), Math.max(60 * 60_000, Date.now() - world.genesisAt));
-await ticker.advance();
+// A SERVICE THAT DIES BEFORE IT LISTENS CANNOT SAY WHY. the boot work used
+// to run at the top of this module: found the world, backfilled, advanced
+// the clock, and only then opened the port. when the store was unreachable —
+// a schema not yet applied, a bad key — the process exited before anything
+// bound, so the only symptom anywhere outside the host's log was a bare 502
+// from the edge, which is indistinguishable from a hundred other faults.
+//
+// the port opens first now and the boot runs behind it. /health answers
+// throughout and says which of the three states it is in, with the error
+// when there is one, so the fault names itself from outside.
+const boot = { phase: "starting", error: "", at: Date.now(), attempts: 0 };
+
+async function bootUp() {
+  boot.attempts++;
+  boot.phase = "booting";
+  boot.error = "";
+  try {
+    const born = genesisFromEnv(process.env.KODO_GENESIS ?? process.env.CATHEDRAL_GENESIS);
+    const world = await indexer.ensureWorld(Date.now(), born);
+    console.log(`[market] world founded ${new Date(world.genesisAt).toISOString()}`);
+    await indexer.backfill(Date.now(), Math.max(60 * 60_000, Date.now() - world.genesisAt));
+    await ticker.advance();
+    boot.phase = "ready";
+    boot.at = Date.now();
+    return true;
+  } catch (e) {
+    boot.phase = "failed";
+    boot.error = e.message;
+    console.error(`[market] boot failed: ${e.message}`);
+    // KEEP TRYING. the usual cause is a dependency that is not ready yet
+    // rather than one that is wrong forever, and a service that retries is
+    // one nobody has to redeploy by hand once the schema lands.
+    setTimeout(() => void bootUp(), 15_000);
+    return false;
+  }
+}
+void bootUp();
 
 let running = false;
 async function beat() {
-  if (running) return;
+  if (running || boot.phase !== "ready") return;
   running = true;
   try {
     const p = await indexer.pass();
@@ -108,7 +140,18 @@ createServer(async (req, res) => {
       return res.end();
     }
     if (url.pathname === "/health") {
-      return json(res, 200, { ok: true, store: store.kind, source: source.name, indexer: indexer.stats, ticker: ticker.stats });
+      return json(res, boot.phase === "ready" ? 200 : 503, {
+        ok: boot.phase === "ready",
+        boot: boot.phase,
+        bootError: boot.error,
+        bootAttempts: boot.attempts,
+        uptimeS: Math.round(process.uptime()),
+        store: store.kind,
+        source: source.name,
+        standIn: source.mint === STANDIN_MINT,
+        indexer: indexer.stats,
+        ticker: ticker.stats,
+      });
     }
     // WHAT THE WORLD IS, in one call: enough for a fresh browser to know
     // which tick it is and where to start replaying from.
