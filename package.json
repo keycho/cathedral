@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "market": "node server/index.js",
     "market:test": "node server/test.js",
+    "monitor": "node scripts/monitor.mjs",
     "market:audit": "node -e \"import('./server/store.js').then(async m=>{const s=await m.openStore();const{audit}=await import('./server/reconcile.js');console.log(JSON.stringify(await audit(s),null,1))})\""
   },
   "dependencies": {

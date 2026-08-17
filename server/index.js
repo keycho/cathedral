@@ -92,6 +92,21 @@ function json(res, code, body) {
 createServer(async (req, res) => {
   const url = new URL(req.url, "http://x");
   try {
+    // THE WORLD IS SERVED FROM A DIFFERENT ORIGIN THAN THE LOG. every
+    // answer already carries allow-origin *, which covers the plain GETs
+    // the client makes; this answers the preflight too, so a future header
+    // on one of those fetches cannot silently break the feed on the real
+    // domain. the log is public and read-only over http — there is nothing
+    // here that a narrower origin list would protect.
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, OPTIONS",
+        "access-control-allow-headers": "content-type",
+        "access-control-max-age": "86400",
+      });
+      return res.end();
+    }
     if (url.pathname === "/health") {
       return json(res, 200, { ok: true, store: store.kind, source: source.name, indexer: indexer.stats, ticker: ticker.stats });
     }

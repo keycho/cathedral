@@ -2,6 +2,9 @@
 
 a voxel world grown by a market, architected by agents.
 
+live at **[www.kodo.world](https://www.kodo.world)** (kodo.world redirects
+there; www is canonical).
+
 three layers. the market is geology: buys accrete stone, sells break it
 into rubble that stays where it falls, burns hollow out permanent
 chambers, and every block records the wallet and tx that made it. agents
@@ -99,6 +102,21 @@ npm run market:test                       # the pipeline, end to end
 npm run market                            # the service on :8787
 KODO_GENESIS=-45m npm run market     # ...with a past to look at
 npm run dev -- --open '/?market=http://127.0.0.1:8787'
+```
+
+past 240 ticks a fresh browser seeds itself from `/snapshot` — the whole
+log folded into per-wallet mass, the clock and the negative run — and
+replays only the tail. `?snapshot=off` forces the full replay.
+
+`npm run monitor` asks every live surface, from outside, whether it is up:
+the canonical domain (and whether the bundle it serves has the market url
+baked into it), the ticker's clock, the log's readability with the anon
+key, and whether the stored digests still recompute. it exits non-zero
+when anything is down, so it runs as a scheduled job unchanged.
+
+```
+npm run monitor
+SITE=https://www.kodo.world TICKER=https://... npm run monitor
 ```
 
 ## license
