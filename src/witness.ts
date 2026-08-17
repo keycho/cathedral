@@ -108,6 +108,8 @@ export class Witness {
       for (const t of ticks) {
         // postgrest serialises numerics as strings; the digest law reads
         // numbers. Number() first, or every digest "fails".
+        // the digest law reads exactly five fields; the rest of the wire
+        // shape is supplied empty to satisfy the type, not the math
         const again = String(
           tickDigest({
             n: t.n,
@@ -115,6 +117,9 @@ export class Witness {
             grossVolumeUsd: Number(t.gross_volume_usd),
             uniqueWallets: t.unique_wallets,
             largestTxUsd: Number(t.largest_tx_usd),
+            close: 0,
+            buys: {},
+            sells: {},
           })
         );
         if (again !== t.digest) r.digestBad.push(t.n);
