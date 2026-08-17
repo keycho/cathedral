@@ -400,6 +400,7 @@ export class SolanaSource {
       byCurve: 0,
       byDelta: 0,
       undecoded: 0,
+      rejected: 0,
       priceUsd: 0,
       publicRpc: this.publicRpc,
       rpcCalls: 0,
@@ -581,10 +582,18 @@ export class SolanaSource {
       }
       if (!byDelta.length) this.stats.undecoded++;
     }
-    events.sort((a, b) => a.at - b.at || (a.tx < b.tx ? -1 : 1));
+    // NORMALISE REJECTS, AND A REJECTION IS A NULL. a dust trade that
+    // rounds to no dollars at all is noise the law refuses on purpose —
+    // it would count toward the unique-wallet number while contributing
+    // nothing to the flow — and pushing that refusal into the list
+    // unfiltered crashes the sort on the first one. the chain produces
+    // them: sub-cent trades happen.
+    const clean = events.filter(Boolean);
+    this.stats.rejected += events.length - clean.length;
+    clean.sort((a, b) => a.at - b.at || (a.tx < b.tx ? -1 : 1));
     this.stats.rpcCalls = this.rpc.calls;
     this.stats.rpcRetries = this.rpc.retries;
-    return events;
+    return clean;
   }
 
   // THE PROOF, and it is not self-referential. every trade is indexed off
