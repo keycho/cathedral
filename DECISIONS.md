@@ -307,3 +307,46 @@ tick's would use — and the crew regrows the architecture from there
 forward, the way a town rebuilds on old foundations. reconstructing every
 past epoch's works stone by stone would mean the service holding a world,
 and the service holds a log.
+
+## the winter, and why there is one
+
+2026-08-18. the first token is dead. this is the entry that says so
+plainly, because a project that quietly reskins and hopes nobody
+remembers is a project that has learned nothing.
+
+what happened, in order. the token launched on pump.fun at 18:18 UTC on
+the 17th and traded — four thousand transactions in the first hour, real
+wallets, real volume. the world did not see any of it. the market service
+was deployed from a source the host was not tracking, so five rounds of
+fixes sat in a branch nothing ever built; the container that WAS running
+had no start script to run, and the repo root looks like a vite app to
+any builder that guesses. the service answered 502 for the whole life of
+the token. the world it was supposed to grow sat empty, and the crew log
+that was supposed to fill stayed blank, and by the time the pipeline was
+proven correct there was nothing left to point it at.
+
+the lesson is not "test more". it is that EVERY LAYER MUST BE ABLE TO SAY
+WHAT IS WRONG WITH IT FROM OUTSIDE. a bare 502 is indistinguishable from
+a hundred faults; an empty deploy log cannot tell "wrong start command"
+from "crashed on import" from "never started". the fixes that came out of
+that week are the ones worth keeping: the port binds before any work so a
+slow boot cannot read as a dead one, /health names its phase and its
+progress, the entry file speaks before it can fail, and the monitor asks
+every surface from outside the way a visitor would. the pipeline itself
+was sound — and the live run proved it by finding three bugs no synthetic
+feed could have produced: a dust trade that crashed a window, a fold that
+summed erosion it never performed, and a clock that ran ahead of its own
+log and wrote two hours of recorded silence over a token that never
+stopped trading.
+
+so the world turns to winter rather than starting again. the island is
+the same island, the strata are the same strata, the crew is the same
+crew with the same names and the same graves. what changed is the season:
+snow settled on everything the sky can see, greens gone under white, the
+cliff bands and the keel left dark because snow has never fallen on a
+vertical face. the cloud sea stays golden — the white island on the amber
+sea is the picture the whole rebrand is for.
+
+**the relaunch is a season, not a reset.** the crew remembers the first
+token. the journals may say the snow came; they may not say the world
+began. it did not begin. it got colder, and the people who keep it stayed.

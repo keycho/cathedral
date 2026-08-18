@@ -67,3 +67,16 @@ function devToolsOn(): boolean {
   return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
 }
 export const DEV_TOOLS = devToolsOn();
+
+// ---- THE SEASON --------------------------------------------------------------
+//
+// WINTER IS THE WORLD'S DEFAULT STATE, not a weather event it passes
+// through. the settled snow is decided once, at mesh time, per block and
+// per face — so it costs nothing per frame and it is the same for every
+// visitor, which a weather roll would not be. the falling flakes are still
+// weather; the white world underneath them is the world.
+//
+// ?summer boots the world as it was, which is how the two get compared
+// without a rebuild.
+export const WINTER =
+  typeof location === "undefined" || !new URLSearchParams(location.search).has("summer");

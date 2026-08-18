@@ -21,7 +21,7 @@
 // being set dressing.
 
 import * as THREE from "three";
-import { GRID } from "./config";
+import { GRID, WINTER } from "./config";
 import { SWATCH } from "./palette";
 import type { Wind } from "./wind";
 
@@ -128,12 +128,32 @@ export class Weather {
       // roll is seeded on the epoch so two visitors on the same world see
       // the same weather.
       const r = ((Math.sin(epoch * 12.9898 + Math.floor(this.t / 210) * 78.233) * 43758.5453) % 1 + 1) % 1;
-      const winter = this.season === "winter";
-      this.state = r < 0.52 ? "clear" : r < (winter ? 0.62 : 0.86) ? "rain" : winter ? "snow" : "rain";
+      const winter = this.season === "winter" || WINTER;
+      // IN A WINTER WORLD, FALLING SNOW IS THE RESTING STATE. the roll used
+      // to decide between clear, rain and snow with snow as the rarity; a
+      // world whose ground is white and whose air is empty most of the time
+      // reads as the morning after rather than as the season. so the odds
+      // invert: snow drifts by default and clear spells are the break in
+      // it. rain never falls on a frozen world.
+      this.state = WINTER
+        ? r < 0.62
+          ? "snow"
+          : "clear"
+        : r < 0.52
+          ? "clear"
+          : r < (winter ? 0.62 : 0.86)
+            ? "rain"
+            : winter
+              ? "snow"
+              : "rain";
       this.held = 0;
     }
-    // the season turns on the epoch, four epochs to a season
-    this.season = (["spring", "summer", "autumn", "winter"] as Season[])[Math.floor(epoch / 4) % 4];
+    // the season turns on the epoch, four epochs to a season — except in a
+    // winter world, which does not turn: the snow is the world's state, not
+    // a quarter of its year.
+    this.season = WINTER
+      ? "winter"
+      : (["spring", "summer", "autumn", "winter"] as Season[])[Math.floor(epoch / 4) % 4];
     if (this.season === "winter" && this.state === "rain") this.state = "snow";
 
     const want = this.state === "clear" || this.state === "fog" ? 0 : 0.25 + sellPressure * 0.75;

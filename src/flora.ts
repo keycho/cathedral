@@ -6,13 +6,18 @@
 // ruins get moss, not gloom: new rubble is queued and greens over quietly.
 
 import * as THREE from "three";
-import { GRID } from "./config";
+import { WINTER, GRID } from "./config";
 import { EARTH, SCARMOSS, SWATCH,
   isMeadow,
 } from "./palette";
 import { BASINS, meadowSampler } from "./terrain";
 import type { Wind } from "./wind";
 import type { VoxelField } from "./voxels";
+
+// the snow a leaf carries. warmer and softer than the settled course on
+// stone: a canopy load catches more sky than a roof does, and a canopy the
+// same flat white as a roof reads as plastic.
+const SNOW_ON_LEAF = new THREE.Color(0xdfe7f0);
 
 const GRASS_N = 8000;
 const FLOWER_N = 2200;
@@ -157,6 +162,22 @@ export class Flora {
       this.color.setHex(hexColor);
       this.color.offsetHSL((rand() - 0.5) * hslJitter, 0, (rand() - 0.5) * 0.08);
       this.color.multiplyScalar(shade(x, z));
+      // WINTER TAKES THE CANOPIES. a white ground under green trees is not
+      // a snowy world, it is a snowy lawn — the canopies are most of the
+      // colour in any frame with a hillside in it, so the season has to
+      // reach them or it has not happened.
+      //
+      // it is a LOAD, not a repaint: the leaf keeps its own hue underneath
+      // and the covering varies leaf to leaf, so a canopy reads as laden
+      // rather than as a white blob. the warm groves keep more of
+      // themselves on purpose — an ember maple holding its colour through
+      // the snow is the one warm note the season leaves standing, and the
+      // brief asks for exactly that.
+      if (WINTER) {
+        const warm = this.color.r > this.color.g * 1.05;
+        const load = (warm ? 0.3 : 0.66) * (0.7 + rand() * 0.6);
+        this.color.lerp(SNOW_ON_LEAF, Math.min(0.86, load));
+      }
       mesh.setColorAt(i, this.color);
       this.at.push({ mesh, i, x, z });
       mesh.count = i + 1;

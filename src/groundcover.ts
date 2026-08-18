@@ -7,7 +7,16 @@
 // frames never see one instance of any of it.
 
 import * as THREE from "three";
-import { GRID } from "./config";
+
+// what the season does to a near-field colour: most of the way to the
+// settled snow, keeping a trace of the original so the layer still reads as
+// growth poking through rather than as scattered polystyrene
+function winterise(hex: number): number {
+  const c = new THREE.Color(hex);
+  return c.lerp(new THREE.Color(0xe4eaf2), 0.72).getHex();
+}
+
+import { GRID, WINTER } from "./config";
 import { SWATCH, isMeadow } from "./palette";
 import type { UrbanPlan } from "./plan";
 import type { VoxelField } from "./voxels";
@@ -54,7 +63,12 @@ export class GroundCover {
   constructor(scene: THREE.Scene) {
     const add = (key: string, geo: THREE.BufferGeometry, color: number, cap: number, opts?: { flat?: boolean }) => {
       const mat = new THREE.MeshStandardMaterial({
-        color,
+        // NEAR-FIELD COVER IS WHAT A WALKER ACTUALLY SEES, so a green tuft
+        // survives the season only in the last twenty blocks — where it is
+        // the only thing anyone is looking at. under snow the layer keeps
+        // its shapes and loses its colour: what pokes through a covering is
+        // stalks and stone, not lawn.
+        color: WINTER ? winterise(color) : color,
         roughness: 1,
         metalness: 0,
         side: THREE.DoubleSide,

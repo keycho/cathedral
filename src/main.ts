@@ -14,6 +14,7 @@ import {
   HAZE,
   MAXY,
   SUN_COLOR,
+  WINTER,
   SUN_INTENSITY,
 } from "./config";
 import { DevPanel } from "./devpanel";
@@ -610,6 +611,20 @@ const keeper = new Keeper(
   { x: GENESIS_CELL.x + 3, z: GENESIS_CELL.z - 2 }
 );
 // the relight, seen: a warm spark at each lamp the keeper tends
+// THE SEASON IS IN-WORLD HISTORY, NOT A RESET. the crew has been here
+// through the whole of it and says so once, at the start: the snow CAME
+// to a world that already existed. nothing in this line implies a
+// beginning, because there was not one — the island, the strata, the
+// graves and the names are all the same as they were.
+if (WINTER) {
+  journal.add(
+    "keeper",
+    0,
+    "snow came to the world in the night. the paths want sweeping and the lanterns want lighting earlier, and the work goes on.",
+    "scripted"
+  );
+}
+
 keeper.onTend = (x, z) => {
   const y = field.topAt(x, z);
   kinetics.dust(x - GRID / 2 + 0.5, y + 1.5, z - GRID / 2 + 0.5, 8, 0.8, 0.5);

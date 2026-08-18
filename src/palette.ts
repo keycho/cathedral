@@ -516,3 +516,68 @@ export function blockColor(id: number): number {
 export function blockById(id: number): Material | undefined {
   return BY_ID.get(id);
 }
+
+// ---- WINTER ------------------------------------------------------------------
+//
+// THE WORLD'S DEFAULT STATE IS SNOW. this is not the weather system's
+// transient snowfall — that still falls, and still drifts — but the settled
+// course that sits on everything with sky above it. weather.ts has carried a
+// `snowCover` getter since the season work and nothing ever read it; the
+// white world was described in that file's own header and never built.
+//
+// snow settles by TYPE and by FACE, and both halves matter to the picture:
+//
+//   by type, because a maple that keeps its ember canopy is the one warm
+//   thing in a white world, and a lit window with a white cap on it is a
+//   lamp in a fridge. glowing things take none. water takes none — it
+//   freezes instead, which is a different treatment.
+//
+//   by face, because that is the whole silhouette. only the TOP of a block
+//   whitens, so a roof reads as white ridges with its dark eaves showing
+//   beneath, and the island's cliff bands and keel — which are side faces,
+//   every one of them — stay dark against the white above. the
+//   cross-section gains its contrast for free, because snow has never
+//   settled on a vertical face anywhere.
+//
+// the number is how much of the block's own colour survives under the cap:
+// 1 is a full white course, 0 is bare.
+const SNOW_TAKE: Record<number, number> = {};
+function snowIs(take: number, ...ids: number[]) {
+  for (const id of ids) SNOW_TAKE[id] = take;
+}
+// the ground goes under entirely: this is what "greens gone under white"
+// means, and half-covered grass reads as slush rather than winter
+snowIs(1.0, ...MEADOWS, ...BARES, EARTH, SCARMOSS);
+// roofs and wall caps: a full course, dark eaves left showing beneath
+snowIs(0.96, TILE, TILECHARCOAL, TILERIDGE, LEAD, VERDIGRIS);
+// masonry and plaster hold a little less — a swept, weathered cap
+snowIs(0.86, STONE, STONEDARK, CLIFF, PLASTER, CONCRETEPALE, CONCRETEMID, CONCRETEDARK, CREAM, CREAMWARM);
+// timber sheds some: warm wood showing through is what keeps a temple from
+// reading as a paper model
+snowIs(0.7, TIMBER, TIMBERDARK, TIMBERMID, TIMBERLIGHT);
+// canopies take a light dusting and keep their colour — the ember and
+// maple groves are the rare warm vegetation the season leaves us
+snowIs(0.55, FOLIAGE);
+snowIs(0.3, FOLIAGESUN, BLOSSOM);
+// THE ROUTES STAY LEGIBLE. paving takes a thin, trodden cap rather than a
+// full one, so a path reads DARKER than the ground it crosses and the way
+// through the world is still a way. the keeper sweeps; that is lore, and
+// this is the same claim rendered.
+snowIs(0.22, GRAVEL, ASPHALT);
+// vermilion is the accent the whole palette is built around: it keeps it
+snowIs(0.35, VERMILION);
+// and nothing that gives light wears a hat
+snowIs(0, LANTERN, GLASSLIGHT, INTERIOR, NEONEMBER, NEONCYAN, NEONAMBER, NEONPINK, NEONRED, NEONGREEN, SPILL, SIGNWHITE, EMBERSEAM, GENESIS, STILLWATER, RISE, FALL, MIST);
+
+// how much snow a block's top face takes, 0..1. unknown types take a
+// moderate cap: a new material added later looks wintry by default rather
+// than looking like it forgot the season.
+export function snowTake(id: number): number {
+  const t = SNOW_TAKE[id];
+  return t === undefined ? 0.8 : t;
+}
+
+// the settled snow's own colour. slightly blue rather than white, because
+// a pure-white surface under a warm sun grades to cream and the identity
+// of this world is the cool/warm split.
+export const SNOW_COLOR = 0xeef2f7;

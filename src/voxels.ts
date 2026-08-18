@@ -8,7 +8,7 @@
 // bare single-colour cubes still read as crisp geology.
 
 import * as THREE from "three";
-import { CHUNK, GRID, MAXY } from "./config";
+import { CHUNK, GRID, MAXY, WINTER } from "./config";
 import {
   blockColor,
   EMBERSEAM,
@@ -30,6 +30,8 @@ import {
   NONE,
   RISE,
   STILLWATER,
+  snowTake,
+  SNOW_COLOR,
 } from "./palette";
 
 const CPS = GRID / CHUNK; // chunks per side
@@ -170,7 +172,7 @@ export class VoxelField {
       shader.vertexShader = shader.vertexShader
         .replace(
           "#include <common>",
-          "#include <common>\n varying float vFaceShade;\n varying vec2 vVoxUv;\n varying vec3 vVoxWorld;"
+          "#include <common>\n varying float vFaceShade;\n varying vec2 vVoxUv;\n varying vec3 vVoxWorld;\n varying float vSnowCap;\n attribute float aSnow;"
         )
         .replace(
           "#include <begin_vertex>",
@@ -179,12 +181,16 @@ export class VoxelField {
            vVoxWorld = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
            vFaceShade = normal.y > 0.5 ? 1.0
              : (normal.y < -0.5 ? 0.68
-             : (abs(normal.z) > 0.5 ? 0.88 : 0.80));`
+             : (abs(normal.z) > 0.5 ? 0.88 : 0.80));
+           // the settled course rides on the TOP face only, which is what
+           // gives a roof its white ridge over dark eaves and leaves every
+           // cliff band in the island's cross-section bare
+           vSnowCap = aSnow * step(0.5, normal.y);`
         );
       shader.fragmentShader = shader.fragmentShader
         .replace(
           "#include <common>",
-          "#include <common>\n varying float vFaceShade;\n varying vec2 vVoxUv;\n varying vec3 vVoxWorld;"
+          "#include <common>\n varying float vFaceShade;\n varying vec2 vVoxUv;\n varying vec3 vVoxWorld;\n varying float vSnowCap;"
         )
         // spirit-light, properly. the instance colour above 1.0 used to be
         // multiplied into the ALBEDO, which meant a lantern was a very
@@ -202,6 +208,16 @@ export class VoxelField {
            vec2 vEdge = abs(vVoxUv - 0.5) * 2.0;
            float vAO = 1.0 - smoothstep(0.86, 1.0, max(vEdge.x, vEdge.y)) * 0.1;
            diffuseColor.rgb *= vFaceShade * vAO;
+           // THE SETTLED COURSE. laid over the block's own colour rather
+           // than replacing it, so a dark tile under snow still reads as a
+           // dark roof wearing white and not as a white roof.
+           if (vSnowCap > 0.001) {
+             // a fine grain in the covering: pure flat white is the thing
+             // that makes voxel snow look like a paint bucket
+             float sG = fract(sin(dot(floor(vVoxWorld * 2.0), vec3(41.3, 289.1, 17.7))) * 24634.6345);
+             vec3 snow = uSnowColor * (0.95 + sG * 0.09);
+             diffuseColor.rgb = mix(diffuseColor.rgb, snow, clamp(vSnowCap, 0.0, 1.0));
+           }
            // NEAR-FIELD FACE DETAIL: within a couple dozen blocks a face
            // gains a sub-block grain and, on its sides, a faint coursing
            // seam — fading to nothing by thirty, so every orbit frame is
@@ -237,9 +253,16 @@ export class VoxelField {
            #endif`
         );
       shader.uniforms.uVoxTime = this.voxTime;
+      // the settled snow's colour, and the blue it turns where the sun does
+      // not reach. THE COOL/WARM SPLIT IS THE IDENTITY: white in the light,
+      // blue in the shade, over a golden sky. a snow that greys in shadow
+      // instead of going blue reads as dirty concrete and loses the whole
+      // picture, so the shaded value is a deliberate colour rather than a
+      // darker version of the lit one.
+      shader.uniforms.uSnowColor = { value: new THREE.Color(SNOW_COLOR) };
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <common>",
-        "#include <common>\n uniform float uVoxTime;"
+        "#include <common>\n uniform float uVoxTime;\n uniform vec3 uSnowColor;"
       );
     };
 
@@ -341,7 +364,17 @@ export class VoxelField {
       }
     }
     const capacity = exposed.length + HEADROOM;
-    const mesh = new THREE.InstancedMesh(geo, mat, capacity);
+    // the geometry is cloned per chunk because aSnow is an INSTANCED
+    // attribute and instanced attributes live on the geometry: sharing one
+    // geometry across sixteen chunks would give them all one chunk's snow
+    const cgeo = geo.clone();
+    cgeo.setAttribute(
+      "aSnow",
+      new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1).setUsage(
+        THREE.DynamicDrawUsage
+      )
+    );
+    const mesh = new THREE.InstancedMesh(cgeo, mat, capacity);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -397,6 +430,18 @@ export class VoxelField {
     const hot = HOT[type];
     if (hot) this.col.multiplyScalar(hot);
     chunk.mesh.setColorAt(slot, this.col);
+    // THE SETTLED SNOW. only a block the sky can see gets a cap, so the
+    // underside of an arch and the inside of a hall stay bare — and a
+    // per-block jitter keeps the covering from reading as a decal.
+    const capped =
+      this.emptyAt(x, y + 1, z) && WINTER
+        ? snowTake(type) * (0.86 + hash2(x * 1.3, z * 2.1) * 0.28)
+        : 0;
+    const sa = chunk.mesh.geometry.getAttribute("aSnow") as THREE.InstancedBufferAttribute | null;
+    if (sa) {
+      sa.setX(slot, Math.min(1, capped));
+      sa.needsUpdate = true;
+    }
     chunk.slotOfVoxel.set(vi, slot);
   }
 
@@ -434,6 +479,14 @@ export class VoxelField {
     mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(newCap * 3), 3);
     mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
     if (old.instanceColor) (mesh.instanceColor.array as Float32Array).set(old.instanceColor.array as Float32Array);
+    // the settled snow, per instance: how white this block's TOP face goes.
+    // it rides alongside the colour because it is decided by the same two
+    // facts the colour is — the block's type, and whether the sky can see it
+    const snowAttr = new THREE.InstancedBufferAttribute(new Float32Array(newCap), 1);
+    snowAttr.setUsage(THREE.DynamicDrawUsage);
+    const oldSnow = old.geometry.getAttribute("aSnow") as THREE.InstancedBufferAttribute | undefined;
+    if (oldSnow) (snowAttr.array as Float32Array).set(oldSnow.array as Float32Array);
+    mesh.geometry.setAttribute("aSnow", snowAttr);
     this.dummy.position.set(0, -9999, 0);
     this.dummy.scale.set(0, 0, 0);
     this.dummy.updateMatrix();
